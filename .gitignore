@@ -1,0 +1,55 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.python-version
+
+# Packaging and build outputs
+build/
+dist/
+*.egg-info/
+.eggs/
+*.whl
+pip-wheel-metadata/
+
+# Test, lint and coverage caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+
+# Tooling and IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# OS / filesystem
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local runtime data and histories
+.korrektor_index/
+*.log
+logs/
+history/
+
+# Local config overrides
+.env
+.env.*
+!.env.example
+*.local.json
+local_settings.json
+
+# Jupyter
+.ipynb_checkpoints/
