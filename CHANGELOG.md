@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Foundation for unified keyboard and popup governance: central modules `app/adapters/gui/keybinding_registry.py` and `app/adapters/gui/popup_policy.py` are now part of the app structure.
+- Guardrail foundation added: AGENTS, Copilot instructions, PR template, and CI/local check script for repository governance.
 - Neues Projekt `Korrektor` fuer Klausurverwaltung gestartet.
 - Erste lauffaehige GUI mit Klausuruebersicht und Detailansicht.
 - Sofortspeicherung fuer Punkteingaben in CSV hinzugefuegt.

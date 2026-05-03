@@ -12,6 +12,8 @@
 2. UseCases orchestrieren fachliche Ablaufe.
 3. Ports definieren Schnittstellen, Infrastructure liefert Implementierungen.
 4. Persistenz erfolgt direkt bei relevanten UI-Ereignissen (Fokuswechsel, Navigation, Escape aus Feld).
+5. KeyBindings werden zentral in `app/adapters/gui/keybinding_registry.py` definiert.
+6. Pop-up-Verhalten wird zentral in `app/adapters/gui/popup_policy.py` definiert.
 
 ## Persistenz
 
