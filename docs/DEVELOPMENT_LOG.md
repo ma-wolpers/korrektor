@@ -5,6 +5,7 @@
 - Zentrale UI-Basis fuer Tastatur- und Popup-Steuerung eingefuehrt: `app/adapters/gui/keybinding_registry.py` und `app/adapters/gui/popup_policy.py`.
 - Governance erweitert: Feature-Arbeit wird als eigener Commit-Block gefuehrt, Push bleibt explizit manuell.
 - Guardrails praezisiert: `CHANGELOG.md` wird nur bei nutzer- oder coentwicklerrelevanten Aenderungen erzwungen; Prozesswarnungen (Commit-/Push-Guidance) erscheinen nur lokal und nicht in CI.
+- Wave-1-Start fuer den Hybrid-Resolver: `app/adapters/gui/keybinding_registry.py` enthaelt jetzt einen zentralen Runtime-Kontextvertrag (`KeybindingRuntimeContext`) und eine einheitliche `evaluate_runtime`-API fuer mode-/offline-/textfokus-/dialogbasierte Aktivierungspruefung.
 
 ## 2026-04-26
 - Initiales Projekt `Korrektor` erstellt.

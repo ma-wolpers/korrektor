@@ -2,6 +2,7 @@
 
 ## Unreleased
 - Governance checks now enforce changelog updates for user- or co-developer-relevant changes, and commit/push process hints are local-only (not emitted in CI logs).
+- Wave-1 groundwork for unified shortcut runtime resolution: central keybinding registry now exposes a shared runtime context model and evaluate API for mode/offline/text-focus/dialog checks.
 - Foundation for unified keyboard and popup governance: central modules `app/adapters/gui/keybinding_registry.py` and `app/adapters/gui/popup_policy.py` are now part of the app structure.
 - Guardrail foundation added: AGENTS, Copilot instructions, PR template, and CI/local check script for repository governance.
 - Neues Projekt `Korrektor` fuer Klausurverwaltung gestartet.

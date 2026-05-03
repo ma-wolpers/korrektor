@@ -29,6 +29,16 @@ class KeyBindingDefinition:
     handler: Callable[[], None] | None = field(default=None, repr=False, compare=False)
 
 
+@dataclass(frozen=True)
+class KeybindingRuntimeContext:
+    """Runtime context contract for mode-aware keybinding resolution."""
+
+    active_mode: str
+    offline: bool = False
+    text_input_focused: bool = False
+    dialog_open: bool = False
+
+
 class KeybindingRegistry:
     """Stores keybindings centrally and exposes mode/diagnostic views."""
 
@@ -90,3 +100,28 @@ class KeybindingRegistry:
             for mode in definition.modes:
                 manifest[mode].append(definition.binding_id)
         return {mode: values for mode, values in sorted(manifest.items())}
+
+    def evaluate_runtime(
+        self,
+        definition: KeyBindingDefinition,
+        context: KeybindingRuntimeContext,
+        *,
+        active_mode_override: str | None = None,
+    ) -> tuple[bool, str]:
+        """Evaluate whether a keybinding can execute in a runtime context."""
+
+        active_mode = active_mode_override or context.active_mode
+
+        if active_mode not in definition.modes and UI_MODE_GLOBAL not in definition.modes:
+            return False, f"mode={active_mode}"
+
+        if context.offline and not definition.allow_when_offline:
+            return False, "offline-disabled"
+
+        if context.text_input_focused and not definition.allow_when_text_input:
+            return False, "text-input-focus"
+
+        if context.dialog_open and UI_MODE_DIALOG not in definition.modes and UI_MODE_GLOBAL not in definition.modes:
+            return False, "dialog-priority"
+
+        return True, "active"
