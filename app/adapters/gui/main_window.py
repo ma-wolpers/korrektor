@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import fitz
 
 from app.adapters.bootstrap.wiring import GuiDependencies
+from bw_libs.app_shell import AppShellConfig, TkinterAppShell
 from bw_libs.ui_contract.keybinding import (
     UI_MODE_DIALOG,
     UI_MODE_EDITOR,
@@ -38,9 +39,12 @@ class MainWindow:
     def __init__(self, root: tk.Tk, deps: GuiDependencies) -> None:
         self.root = root
         self.deps = deps
-        self.root.title("Korrektor")
-        self.root.geometry("1180x740")
-        self.root.minsize(980, 640)
+        shell_config = getattr(
+            deps,
+            "shell_config",
+            AppShellConfig(title="Korrektor", geometry="1180x740", min_width=980, min_height=640),
+        )
+        self.app_shell = TkinterAppShell(self.root, shell_config)
 
         self._rows_by_tree_id: dict[str, ExamOverviewRow] = {}
         self._controller = None

@@ -1,6 +1,7 @@
 # Development Log
 
 ## [Unreleased]
+- G3/G4 gestartet: `build_gui_dependencies()` liefert jetzt eine zentrale Shell-Konfiguration; Startup und Hauptfenster folgen dem `AppDependencies`-Konventionspfad und nutzen `bw_libs/app_shell.py`.
 - G2.1 gestartet: Shared-Modul `bw_libs/app_paths.py` eingefuehrt (AppPaths-Discovery sowie atomische JSON/Text-Write-Helfer).
 - Persistenz-Pilot: `app/infrastructure/repositories/file_utils.py` bridged atomische JSON-Writes auf die zentrale `bw_libs/app_paths.py`-API.
 - Guardrails beruecksichtigen `bw_libs/app_paths.py` als relevanten Shared-Pfad.
