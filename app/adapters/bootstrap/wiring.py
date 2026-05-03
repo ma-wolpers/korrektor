@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.app_info import APP_INFO, AppInfo
 from bw_libs.app_shell import AppShellConfig
 from app.core.domain.progress import ProgressCalculator
 from app.core.usecases.create_exam_usecase import CreateExamUseCase
@@ -26,6 +27,7 @@ class GuiDependencies:
     save_score_usecase: SaveScoreUseCase
     set_reading_complete_usecase: SetReadingCompleteUseCase
     exam_repository: JsonExamRepository
+    app_info: AppInfo
     shell_config: AppShellConfig
 
 
@@ -50,8 +52,9 @@ def build_gui_dependencies(base_dir: Path) -> GuiDependencies:
         save_score_usecase=SaveScoreUseCase(score_repo=score_repo),
         set_reading_complete_usecase=SetReadingCompleteUseCase(exam_repo=exam_repo),
         exam_repository=exam_repo,
+        app_info=APP_INFO,
         shell_config=AppShellConfig(
-            title="Korrektor",
+            title=APP_INFO.window_title,
             geometry="1180x740",
             min_width=980,
             min_height=640,
