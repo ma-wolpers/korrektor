@@ -1,5 +1,25 @@
 # Development Log
 
+## [Unreleased]
+- UI-Contracts fuer Keybindings, Popup-Lifecycle und HSM wurden auf das Shared-Paket `bw_libs/ui_contract/` umgestellt; GUI und Tests importieren die Vertraege jetzt zentral statt aus lokalen Duplikatmodulen.
+- Guardrails/Governance wurden auf `bw_libs/ui_contract`-Pfade umgestellt; `bw_libs/` wird bei Changelog-/Development-Log-Relevanz mitgeprueft.
+- HSM-Contract-Modul `app/adapters/gui/hsm_contract.py` eingefuehrt (Intent-/Payload-Validierung, Transition-Regeln, Escape-Resolver).
+- Zentralen Intent-Katalog fuer Runtime-Shortcuts in `app/adapters/gui/ui_intents.py` eingefuehrt.
+- `app/adapters/gui/main_window.py` validiert Runtime-Shortcut-Intents jetzt gegen den HSM-Contract und blockiert unbekannte Intents frueh.
+- Escape-Verhalten folgt jetzt zentraler Prioritaet: erst aktives Popup schliessen, dann Inline-/Submodus verlassen, danach Rueckkehr zur Uebersicht.
+- Tests `tests/test_hsm_contract.py` fuer Intent-Contract, Transition-Gates und Escape-Prioritaetskette hinzugefuegt.
+- Runtime-Debug-Popup ist jetzt als nicht mode-blockierendes Parallel-Popup (`dialog.non_blocking`) registriert; Dialog-Prioritaet in der Runtime-Aufloesung basiert nur noch auf mode-blockierenden Popups.
+- Wave-1-Hardening: Popup-Lifecycle wurde in `app/adapters/gui/main_window.py` explizit ueber die zentrale `PopupPolicyRegistry` verdrahtet (Shortcut-Debug und Extraseiten-Popup inklusive direkter open/close-Registrierung).
+- Guardrails erweitert: `tools/ci/check_ai_guardrails.py` prueft jetzt die Runtime-Integration (`evaluate_runtime`) und PopupPolicy-Lifecycle-Hooks im Hauptfenster.
+- Tests fuer zentrale Runtime-Module ergaenzt: `tests/test_keybinding_registry_runtime.py` und `tests/test_popup_policy_registry.py`.
+- Guardrail-Basis eingefuehrt: `AGENTS.md`, `.github/copilot-instructions.md`, PR-Template sowie `tools/ci/check_ai_guardrails.py` plus CI-Workflow.
+- Zentrale UI-Basis fuer Tastatur- und Popup-Steuerung eingefuehrt: `app/adapters/gui/keybinding_registry.py` und `app/adapters/gui/popup_policy.py`.
+- Governance erweitert: Feature-Arbeit wird als eigener Commit-Block gefuehrt, Push bleibt explizit manuell.
+- Guardrails praezisiert: `CHANGELOG.md` wird nur bei nutzer- oder coentwicklerrelevanten Aenderungen erzwungen; Prozesswarnungen (Commit-/Push-Guidance) erscheinen nur lokal und nicht in CI.
+- Wave-1-Start fuer den Hybrid-Resolver: `app/adapters/gui/keybinding_registry.py` enthaelt jetzt einen zentralen Runtime-Kontextvertrag (`KeybindingRuntimeContext`) und eine einheitliche `evaluate_runtime`-API fuer mode-/offline-/textfokus-/dialogbasierte Aktivierungspruefung.
+- Wave-1 konkret verdrahtet: globale Shortcuts in `app/adapters/gui/main_window.py` laufen jetzt ueber den zentralen Runtime-Resolver statt direkter Bind-Dispatches.
+- Tabellarische Runtime-Debug-Ansicht fuer Shortcuts im Hauptfenster ergaenzt (`Shortcut Debug`, `Strg+Shift+D`) inkl. Offline-Simulation (`Strg+Shift+O`) und Aktiv/Disabled-Gruenden pro Modus.
+
 ## 2026-04-26
 - Initiales Projekt `Korrektor` erstellt.
 - Grundarchitektur mit Adapter/Core/Infrastructure umgesetzt.

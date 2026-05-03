@@ -1,6 +1,20 @@
 # Changelog
 
 ## Unreleased
+- Central UI contracts for keybindings, popup policy, and HSM semantics now live in shared `bw_libs/ui_contract` modules to avoid duplicate maintenance.
+- Escape now follows a centralized priority chain: close active popup first, then leave inline or sub-mode editing, then return to the overview.
+- Runtime shortcuts now validate intents against a central HSM contract before execution.
+- Shortcut intent semantics are now sourced from a central UI intent catalog.
+- The shortcut runtime debug dialog now behaves as a non-blocking parallel popup and no longer forces dialog-mode shortcut handling while it is open.
+- Popup-sensitive runtime shortcuts now use explicitly tracked popup lifecycle sessions (including debug and extra-page popups), which stabilizes dialog-priority behavior.
+- Guardrail checks now validate runtime integration patterns in the main window (runtime evaluator + popup policy usage) instead of only checking module presence.
+- Added runtime module tests for keybinding evaluation and popup policy stack behavior.
+- Governance checks now enforce changelog updates for user- or co-developer-relevant changes, and commit/push process hints are local-only (not emitted in CI logs).
+- Wave-1 groundwork for unified shortcut runtime resolution: central keybinding registry now exposes a shared runtime context model and evaluate API for mode/offline/text-focus/dialog checks.
+- Global shortcuts are now evaluated through a centralized runtime resolver before execution, so mode/dialog/text-focus/offline context is applied consistently.
+- New shortcut runtime debug view (`Shortcut Debug` button, `Strg+Shift+D`) provides a compact table with active/disabled status and disable reasons per mode, including offline simulation (`Strg+Shift+O`).
+- Foundation for unified keyboard and popup governance: central modules `bw_libs/ui_contract/keybinding.py` and `bw_libs/ui_contract/popup.py` are now part of the app structure.
+- Guardrail foundation added: AGENTS, Copilot instructions, PR template, and CI/local check script for repository governance.
 - Neues Projekt `Korrektor` fuer Klausurverwaltung gestartet.
 - Erste lauffaehige GUI mit Klausuruebersicht und Detailansicht.
 - Sofortspeicherung fuer Punkteingaben in CSV hinzugefuegt.

@@ -1,0 +1,53 @@
+"""Central UI contract primitives shared across apps."""
+
+from .hsm import (
+    ESCAPE_CLOSE_POPUP,
+    ESCAPE_EXIT_INLINE_EDITOR,
+    ESCAPE_POP_PARENT,
+    ESCAPE_ROOT_NOOP,
+    HsmContract,
+    HsmIntentSpec,
+    TransitionRule,
+    build_ui_hsm_contract,
+)
+from .keybinding import (
+    UI_MODE_DIALOG,
+    UI_MODE_EDITOR,
+    UI_MODE_GLOBAL,
+    UI_MODE_OFFLINE,
+    UI_MODE_PREVIEW,
+    KeyBindingDefinition,
+    KeybindingRegistry,
+    KeybindingRuntimeContext,
+)
+from .popup import (
+    POPUP_KIND_MODAL,
+    POPUP_KIND_NON_MODAL,
+    PopupPolicy,
+    PopupPolicyRegistry,
+    PopupSession,
+)
+
+__all__ = [
+    "ESCAPE_CLOSE_POPUP",
+    "ESCAPE_EXIT_INLINE_EDITOR",
+    "ESCAPE_POP_PARENT",
+    "ESCAPE_ROOT_NOOP",
+    "HsmContract",
+    "HsmIntentSpec",
+    "TransitionRule",
+    "build_ui_hsm_contract",
+    "UI_MODE_DIALOG",
+    "UI_MODE_EDITOR",
+    "UI_MODE_GLOBAL",
+    "UI_MODE_OFFLINE",
+    "UI_MODE_PREVIEW",
+    "KeyBindingDefinition",
+    "KeybindingRegistry",
+    "KeybindingRuntimeContext",
+    "POPUP_KIND_MODAL",
+    "POPUP_KIND_NON_MODAL",
+    "PopupPolicy",
+    "PopupPolicyRegistry",
+    "PopupSession",
+]
