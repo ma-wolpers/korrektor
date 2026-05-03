@@ -6,6 +6,8 @@
 - Governance erweitert: Feature-Arbeit wird als eigener Commit-Block gefuehrt, Push bleibt explizit manuell.
 - Guardrails praezisiert: `CHANGELOG.md` wird nur bei nutzer- oder coentwicklerrelevanten Aenderungen erzwungen; Prozesswarnungen (Commit-/Push-Guidance) erscheinen nur lokal und nicht in CI.
 - Wave-1-Start fuer den Hybrid-Resolver: `app/adapters/gui/keybinding_registry.py` enthaelt jetzt einen zentralen Runtime-Kontextvertrag (`KeybindingRuntimeContext`) und eine einheitliche `evaluate_runtime`-API fuer mode-/offline-/textfokus-/dialogbasierte Aktivierungspruefung.
+- Wave-1 konkret verdrahtet: globale Shortcuts in `app/adapters/gui/main_window.py` laufen jetzt ueber den zentralen Runtime-Resolver statt direkter Bind-Dispatches.
+- Tabellarische Runtime-Debug-Ansicht fuer Shortcuts im Hauptfenster ergaenzt (`Shortcut Debug`, `Strg+Shift+D`) inkl. Offline-Simulation (`Strg+Shift+O`) und Aktiv/Disabled-Gruenden pro Modus.
 
 ## 2026-04-26
 - Initiales Projekt `Korrektor` erstellt.
