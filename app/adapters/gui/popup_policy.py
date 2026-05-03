@@ -16,6 +16,7 @@ class PopupPolicy:
     kind: str = POPUP_KIND_MODAL
     close_on_escape: bool = True
     trap_focus: bool = True
+    affects_mode: bool = True
     require_close_confirmation: bool = False
     design_variant: str = "default"
 
@@ -71,6 +72,17 @@ class PopupPolicyRegistry:
     def has_active_popup(self) -> bool:
         """Shortcut for active popup check."""
         return bool(self._stack)
+
+    def has_mode_blocking_popup(self) -> bool:
+        """Return whether at least one active popup should switch runtime mode to dialog."""
+
+        for session in self._stack:
+            policy = self._policies.get(session.policy_id)
+            if policy is None:
+                continue
+            if policy.kind == POPUP_KIND_MODAL and policy.affects_mode:
+                return True
+        return False
 
     def close_all(self) -> None:
         """Close all tracked popups."""

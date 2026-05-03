@@ -18,7 +18,7 @@ from app.adapters.gui.keybinding_registry import (
     KeybindingRegistry,
     KeybindingRuntimeContext,
 )
-from app.adapters.gui.popup_policy import POPUP_KIND_MODAL, PopupPolicy, PopupPolicyRegistry
+from app.adapters.gui.popup_policy import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry
 from app.adapters.gui.view_models import ExamOverviewRow
 from app.core.domain.models import ExamProject, StudentExam
 from app.core.domain.progress import ProgressCalculator
@@ -80,6 +80,14 @@ class MainWindow:
         self._shortcut_runtime_debug_summary_var = tk.StringVar(value="")
         self._popup_registry = PopupPolicyRegistry()
         self._popup_registry.register_policy(PopupPolicy(policy_id="dialog.modal", kind=POPUP_KIND_MODAL))
+        self._popup_registry.register_policy(
+            PopupPolicy(
+                policy_id="dialog.non_blocking",
+                kind=POPUP_KIND_NON_MODAL,
+                trap_focus=False,
+                affects_mode=False,
+            )
+        )
         self._tracked_popup_ids: set[str] = set()
 
         self._build_styles()
@@ -194,13 +202,13 @@ class MainWindow:
             self._popup_registry.close_popup(popup_id)
             self._tracked_popup_ids.discard(popup_id)
 
-    def _register_popup_window(self, window: tk.Toplevel) -> None:
+    def _register_popup_window(self, window: tk.Toplevel, *, policy_id: str = "dialog.modal") -> None:
         """Register popup window immediately in popup policy registry."""
 
         popup_id = str(window)
         if popup_id in self._tracked_popup_ids:
             return
-        self._popup_registry.open_popup(popup_id=popup_id, title=str(window.title() or ""), policy_id="dialog.modal")
+        self._popup_registry.open_popup(popup_id=popup_id, title=str(window.title() or ""), policy_id=policy_id)
         self._tracked_popup_ids.add(popup_id)
 
     @staticmethod
@@ -215,7 +223,7 @@ class MainWindow:
         self._sync_popup_sessions_from_windows()
         focused_widget = getattr(event, "widget", None) or self.root.focus_get()
         text_input_focused = self._is_editable_widget(focused_widget)
-        dialog_open = self._popup_registry.has_active_popup()
+        dialog_open = self._popup_registry.has_mode_blocking_popup()
         offline = bool(self._shortcut_debug_offline_var.get())
 
         if offline:
@@ -287,7 +295,7 @@ class MainWindow:
         window.title("Shortcut Runtime Debug")
         window.geometry("960x500")
         window.minsize(800, 400)
-        self._register_popup_window(window)
+        self._register_popup_window(window, policy_id="dialog.non_blocking")
 
         toolbar = ttk.Frame(window, padding=(10, 8))
         toolbar.pack(fill=tk.X)

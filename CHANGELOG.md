@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- The shortcut runtime debug dialog now behaves as a non-blocking parallel popup and no longer forces dialog-mode shortcut handling while it is open.
 - Popup-sensitive runtime shortcuts now use explicitly tracked popup lifecycle sessions (including debug and extra-page popups), which stabilizes dialog-priority behavior.
 - Guardrail checks now validate runtime integration patterns in the main window (runtime evaluator + popup policy usage) instead of only checking module presence.
 - Added runtime module tests for keybinding evaluation and popup policy stack behavior.

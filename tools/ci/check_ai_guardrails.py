@@ -167,7 +167,7 @@ def _check_runtime_shortcut_integration(errors: list[str]) -> None:
     )
     _require_substring(
         main_window,
-        "self._register_popup_window(window)",
+        "self._register_popup_window(window, policy_id=\"dialog.non_blocking\")",
         "main_window.py",
         errors,
     )

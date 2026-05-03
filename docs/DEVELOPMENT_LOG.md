@@ -1,6 +1,7 @@
 # Development Log
 
 ## [Unreleased]
+- Runtime-Debug-Popup ist jetzt als nicht mode-blockierendes Parallel-Popup (`dialog.non_blocking`) registriert; Dialog-Prioritaet in der Runtime-Aufloesung basiert nur noch auf mode-blockierenden Popups.
 - Wave-1-Hardening: Popup-Lifecycle wurde in `app/adapters/gui/main_window.py` explizit ueber die zentrale `PopupPolicyRegistry` verdrahtet (Shortcut-Debug und Extraseiten-Popup inklusive direkter open/close-Registrierung).
 - Guardrails erweitert: `tools/ci/check_ai_guardrails.py` prueft jetzt die Runtime-Integration (`evaluate_runtime`) und PopupPolicy-Lifecycle-Hooks im Hauptfenster.
 - Tests fuer zentrale Runtime-Module ergaenzt: `tests/test_keybinding_registry_runtime.py` und `tests/test_popup_policy_registry.py`.
