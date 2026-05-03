@@ -194,6 +194,15 @@ class MainWindow:
             self._popup_registry.close_popup(popup_id)
             self._tracked_popup_ids.discard(popup_id)
 
+    def _register_popup_window(self, window: tk.Toplevel) -> None:
+        """Register popup window immediately in popup policy registry."""
+
+        popup_id = str(window)
+        if popup_id in self._tracked_popup_ids:
+            return
+        self._popup_registry.open_popup(popup_id=popup_id, title=str(window.title() or ""), policy_id="dialog.modal")
+        self._tracked_popup_ids.add(popup_id)
+
     @staticmethod
     def _is_editable_widget(widget) -> bool:
         if widget is None:
@@ -278,6 +287,7 @@ class MainWindow:
         window.title("Shortcut Runtime Debug")
         window.geometry("960x500")
         window.minsize(800, 400)
+        self._register_popup_window(window)
 
         toolbar = ttk.Frame(window, padding=(10, 8))
         toolbar.pack(fill=tk.X)
@@ -324,6 +334,9 @@ class MainWindow:
         """Destroy runtime debug dialog and clear widget references."""
 
         if self._shortcut_runtime_debug_window is not None and int(self._shortcut_runtime_debug_window.winfo_exists()):
+            popup_id = str(self._shortcut_runtime_debug_window)
+            self._popup_registry.close_popup(popup_id)
+            self._tracked_popup_ids.discard(popup_id)
             self._shortcut_runtime_debug_window.destroy()
         self._shortcut_runtime_debug_window = None
         self._shortcut_runtime_debug_table = None
@@ -1237,6 +1250,7 @@ class MainWindow:
             popup.title(f"Extraseiten: {student.display_name}")
             popup.geometry("760x860")
             popup.transient(self.root)
+            self._register_popup_window(popup)
 
             header = ttk.Frame(popup, padding=10)
             header.pack(fill=tk.X)
@@ -1319,6 +1333,9 @@ class MainWindow:
 
     def _close_extra_popup(self) -> None:
         if self._extra_popup is not None and self._extra_popup.winfo_exists():
+            popup_id = str(self._extra_popup)
+            self._popup_registry.close_popup(popup_id)
+            self._tracked_popup_ids.discard(popup_id)
             self._extra_popup.destroy()
         self._extra_popup = None
         self._extra_popup_canvas = None

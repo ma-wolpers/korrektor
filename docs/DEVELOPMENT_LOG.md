@@ -1,6 +1,9 @@
 # Development Log
 
 ## [Unreleased]
+- Wave-1-Hardening: Popup-Lifecycle wurde in `app/adapters/gui/main_window.py` explizit ueber die zentrale `PopupPolicyRegistry` verdrahtet (Shortcut-Debug und Extraseiten-Popup inklusive direkter open/close-Registrierung).
+- Guardrails erweitert: `tools/ci/check_ai_guardrails.py` prueft jetzt die Runtime-Integration (`evaluate_runtime`) und PopupPolicy-Lifecycle-Hooks im Hauptfenster.
+- Tests fuer zentrale Runtime-Module ergaenzt: `tests/test_keybinding_registry_runtime.py` und `tests/test_popup_policy_registry.py`.
 - Guardrail-Basis eingefuehrt: `AGENTS.md`, `.github/copilot-instructions.md`, PR-Template sowie `tools/ci/check_ai_guardrails.py` plus CI-Workflow.
 - Zentrale UI-Basis fuer Tastatur- und Popup-Steuerung eingefuehrt: `app/adapters/gui/keybinding_registry.py` und `app/adapters/gui/popup_policy.py`.
 - Governance erweitert: Feature-Arbeit wird als eigener Commit-Block gefuehrt, Push bleibt explizit manuell.

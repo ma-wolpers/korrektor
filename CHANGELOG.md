@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- Popup-sensitive runtime shortcuts now use explicitly tracked popup lifecycle sessions (including debug and extra-page popups), which stabilizes dialog-priority behavior.
+- Guardrail checks now validate runtime integration patterns in the main window (runtime evaluator + popup policy usage) instead of only checking module presence.
+- Added runtime module tests for keybinding evaluation and popup policy stack behavior.
 - Governance checks now enforce changelog updates for user- or co-developer-relevant changes, and commit/push process hints are local-only (not emitted in CI logs).
 - Wave-1 groundwork for unified shortcut runtime resolution: central keybinding registry now exposes a shared runtime context model and evaluate API for mode/offline/text-focus/dialog checks.
 - Global shortcuts are now evaluated through a centralized runtime resolver before execution, so mode/dialog/text-focus/offline context is applied consistently.
