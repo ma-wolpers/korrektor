@@ -14,6 +14,7 @@
 4. Persistenz erfolgt direkt bei relevanten UI-Ereignissen (Fokuswechsel, Navigation, Escape aus Feld).
 5. KeyBindings werden zentral in `app/adapters/gui/keybinding_registry.py` definiert.
 6. Pop-up-Verhalten wird zentral in `app/adapters/gui/popup_policy.py` definiert.
+7. HSM-Vertragslogik fuer Intent-Katalog, Escape-Prioritaet und Transition-Validierung liegt zentral in `app/adapters/gui/hsm_contract.py`.
 
 ## Persistenz
 

@@ -18,7 +18,14 @@ from app.adapters.gui.keybinding_registry import (
     KeybindingRegistry,
     KeybindingRuntimeContext,
 )
+from app.adapters.gui.hsm_contract import (
+    ESCAPE_CLOSE_POPUP,
+    ESCAPE_EXIT_INLINE_EDITOR,
+    ESCAPE_POP_PARENT,
+    build_ui_hsm_contract,
+)
 from app.adapters.gui.popup_policy import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry
+from app.adapters.gui.ui_intents import UiIntent
 from app.adapters.gui.view_models import ExamOverviewRow
 from app.core.domain.models import ExamProject, StudentExam
 from app.core.domain.progress import ProgressCalculator
@@ -89,6 +96,16 @@ class MainWindow:
             )
         )
         self._tracked_popup_ids: set[str] = set()
+        self._hsm_contract = build_ui_hsm_contract(
+            intents=[
+                UiIntent.GLOBAL_CREATE_EXAM,
+                UiIntent.GLOBAL_ESCAPE,
+                UiIntent.DETAIL_NAVIGATE_LEFT,
+                UiIntent.DETAIL_NAVIGATE_RIGHT,
+                UiIntent.DEBUG_RUNTIME_OVERLAY,
+                UiIntent.DEBUG_RUNTIME_OFFLINE,
+            ]
+        )
 
         self._build_styles()
         self._build_layout()
@@ -99,7 +116,7 @@ class MainWindow:
             "<Control-n>",
             lambda _event: self._controller.create_exam(),
             binding_id="global.new_exam",
-            intent="global.create_exam",
+            intent=UiIntent.GLOBAL_CREATE_EXAM,
             modes=(UI_MODE_GLOBAL, UI_MODE_DIALOG),
             allow_when_text_input=True,
         )
@@ -107,7 +124,7 @@ class MainWindow:
             "<Escape>",
             self._on_escape,
             binding_id="global.escape",
-            intent="global.escape",
+            intent=UiIntent.GLOBAL_ESCAPE,
             modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG),
             allow_when_text_input=True,
         )
@@ -115,21 +132,21 @@ class MainWindow:
             "<Left>",
             self._on_left_key,
             binding_id="detail.left",
-            intent="detail.navigate_left",
+            intent=UiIntent.DETAIL_NAVIGATE_LEFT,
             modes=(UI_MODE_PREVIEW,),
         )
         self._bind_runtime_shortcut(
             "<Right>",
             self._on_right_key,
             binding_id="detail.right",
-            intent="detail.navigate_right",
+            intent=UiIntent.DETAIL_NAVIGATE_RIGHT,
             modes=(UI_MODE_PREVIEW,),
         )
         self._bind_runtime_shortcut(
             "<Control-Shift-d>",
             lambda _event: self._open_shortcut_runtime_debug_dialog(),
             binding_id="debug.runtime_overlay",
-            intent="debug.runtime_overlay",
+            intent=UiIntent.DEBUG_RUNTIME_OVERLAY,
             modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG),
             allow_when_text_input=True,
         )
@@ -137,7 +154,7 @@ class MainWindow:
             "<Control-Shift-o>",
             lambda _event: self._toggle_runtime_offline(),
             binding_id="debug.runtime_offline",
-            intent="debug.runtime_offline",
+            intent=UiIntent.DEBUG_RUNTIME_OFFLINE,
             modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG),
             allow_when_text_input=True,
         )
@@ -158,6 +175,10 @@ class MainWindow:
         allow_when_offline: bool = True,
     ) -> KeyBindingDefinition:
         """Register one runtime shortcut definition in the central resolver."""
+
+        intent_ok, _intent_reason = self._hsm_contract.validate_intent(intent)
+        if not intent_ok:
+            raise ValueError(f"Unknown runtime shortcut intent: {intent}")
 
         definition = KeyBindingDefinition(
             binding_id=binding_id,
@@ -750,27 +771,56 @@ class MainWindow:
         self._refresh_active_student_label()
 
     def _on_escape(self, _event: tk.Event[tk.Misc]) -> None:
+        self._sync_popup_sessions_from_windows()
         widget = self.root.focus_get()
-        if isinstance(widget, (tk.Entry, ttk.Entry)):
-            self.root.focus_set()
-            return
+        action = self._hsm_contract.resolve_escape_action(
+            has_popup=self._popup_registry.has_active_popup(),
+            has_inline_editor=isinstance(widget, (tk.Entry, ttk.Entry))
+            or self._correction_mode_active
+            or self._reading_active
+            or self._extra_mode_active,
+            has_parent_state=self._current_exam is not None,
+        )
 
-        if self._correction_mode_active:
-            self._stop_correction_mode()
-            return
+        if action == ESCAPE_CLOSE_POPUP:
+            active_popup = self._popup_registry.active_popup()
+            if active_popup is not None:
+                popup_id = active_popup.popup_id
+                for child in self.root.winfo_children():
+                    if not isinstance(child, tk.Toplevel):
+                        continue
+                    if str(child) != popup_id:
+                        continue
+                    try:
+                        child.destroy()
+                    except Exception:
+                        pass
+                    break
+                self._popup_registry.close_popup(popup_id)
+                self._tracked_popup_ids.discard(popup_id)
+                return
 
-        if self._reading_active or self._extra_mode_active:
-            self._reading_active = False
-            self._extra_mode_active = False
-            self._extra_sequence = []
-            self._close_extra_popup()
-            self._reading_info_var.set("Einlesemodus: bereit")
-            self._status_var.set("Einlesemodus verlassen")
-            self._reading_canvas.delete("all")
-            self._hide_correction_controls()
-            return
+        if action == ESCAPE_EXIT_INLINE_EDITOR:
+            if isinstance(widget, (tk.Entry, ttk.Entry)):
+                self.root.focus_set()
+                return
 
-        if self._current_exam is None:
+            if self._correction_mode_active:
+                self._stop_correction_mode()
+                return
+
+            if self._reading_active or self._extra_mode_active:
+                self._reading_active = False
+                self._extra_mode_active = False
+                self._extra_sequence = []
+                self._close_extra_popup()
+                self._reading_info_var.set("Einlesemodus: bereit")
+                self._status_var.set("Einlesemodus verlassen")
+                self._reading_canvas.delete("all")
+                self._hide_correction_controls()
+                return
+
+        if action != ESCAPE_POP_PARENT or self._current_exam is None:
             self._status_var.set("Bereits in Gesamtübersicht")
             return
 

@@ -1,6 +1,11 @@
 # Development Log
 
 ## [Unreleased]
+- HSM-Contract-Modul `app/adapters/gui/hsm_contract.py` eingefuehrt (Intent-/Payload-Validierung, Transition-Regeln, Escape-Resolver).
+- Zentralen Intent-Katalog fuer Runtime-Shortcuts in `app/adapters/gui/ui_intents.py` eingefuehrt.
+- `app/adapters/gui/main_window.py` validiert Runtime-Shortcut-Intents jetzt gegen den HSM-Contract und blockiert unbekannte Intents frueh.
+- Escape-Verhalten folgt jetzt zentraler Prioritaet: erst aktives Popup schliessen, dann Inline-/Submodus verlassen, danach Rueckkehr zur Uebersicht.
+- Tests `tests/test_hsm_contract.py` fuer Intent-Contract, Transition-Gates und Escape-Prioritaetskette hinzugefuegt.
 - Runtime-Debug-Popup ist jetzt als nicht mode-blockierendes Parallel-Popup (`dialog.non_blocking`) registriert; Dialog-Prioritaet in der Runtime-Aufloesung basiert nur noch auf mode-blockierenden Popups.
 - Wave-1-Hardening: Popup-Lifecycle wurde in `app/adapters/gui/main_window.py` explizit ueber die zentrale `PopupPolicyRegistry` verdrahtet (Shortcut-Debug und Extraseiten-Popup inklusive direkter open/close-Registrierung).
 - Guardrails erweitert: `tools/ci/check_ai_guardrails.py` prueft jetzt die Runtime-Integration (`evaluate_runtime`) und PopupPolicy-Lifecycle-Hooks im Hauptfenster.

@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- Escape now follows a centralized priority chain: close active popup first, then leave inline or sub-mode editing, then return to the overview.
+- Runtime shortcuts now validate intents against a central HSM contract before execution.
+- Shortcut intent semantics are now sourced from a central UI intent catalog.
 - The shortcut runtime debug dialog now behaves as a non-blocking parallel popup and no longer forces dialog-mode shortcut handling while it is open.
 - Popup-sensitive runtime shortcuts now use explicitly tracked popup lifecycle sessions (including debug and extra-page popups), which stabilizes dialog-priority behavior.
 - Guardrail checks now validate runtime integration patterns in the main window (runtime evaluator + popup policy usage) instead of only checking module presence.
