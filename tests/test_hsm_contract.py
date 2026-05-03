@@ -1,4 +1,4 @@
-from app.adapters.gui.hsm_contract import (
+from bw_libs.ui_contract.hsm import (
     ESCAPE_CLOSE_POPUP,
     ESCAPE_EXIT_INLINE_EDITOR,
     ESCAPE_POP_PARENT,

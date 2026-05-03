@@ -1,6 +1,8 @@
 # Development Log
 
 ## [Unreleased]
+- UI-Contracts fuer Keybindings, Popup-Lifecycle und HSM wurden auf das Shared-Paket `bw_libs/ui_contract/` umgestellt; GUI und Tests importieren die Vertraege jetzt zentral statt aus lokalen Duplikatmodulen.
+- Guardrails/Governance wurden auf `bw_libs/ui_contract`-Pfade umgestellt; `bw_libs/` wird bei Changelog-/Development-Log-Relevanz mitgeprueft.
 - HSM-Contract-Modul `app/adapters/gui/hsm_contract.py` eingefuehrt (Intent-/Payload-Validierung, Transition-Regeln, Escape-Resolver).
 - Zentralen Intent-Katalog fuer Runtime-Shortcuts in `app/adapters/gui/ui_intents.py` eingefuehrt.
 - `app/adapters/gui/main_window.py` validiert Runtime-Shortcut-Intents jetzt gegen den HSM-Contract und blockiert unbekannte Intents frueh.

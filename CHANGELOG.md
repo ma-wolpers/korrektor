@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Central UI contracts for keybindings, popup policy, and HSM semantics now live in shared `bw_libs/ui_contract` modules to avoid duplicate maintenance.
 - Escape now follows a centralized priority chain: close active popup first, then leave inline or sub-mode editing, then return to the overview.
 - Runtime shortcuts now validate intents against a central HSM contract before execution.
 - Shortcut intent semantics are now sourced from a central UI intent catalog.
@@ -12,7 +13,7 @@
 - Wave-1 groundwork for unified shortcut runtime resolution: central keybinding registry now exposes a shared runtime context model and evaluate API for mode/offline/text-focus/dialog checks.
 - Global shortcuts are now evaluated through a centralized runtime resolver before execution, so mode/dialog/text-focus/offline context is applied consistently.
 - New shortcut runtime debug view (`Shortcut Debug` button, `Strg+Shift+D`) provides a compact table with active/disabled status and disable reasons per mode, including offline simulation (`Strg+Shift+O`).
-- Foundation for unified keyboard and popup governance: central modules `app/adapters/gui/keybinding_registry.py` and `app/adapters/gui/popup_policy.py` are now part of the app structure.
+- Foundation for unified keyboard and popup governance: central modules `bw_libs/ui_contract/keybinding.py` and `bw_libs/ui_contract/popup.py` are now part of the app structure.
 - Guardrail foundation added: AGENTS, Copilot instructions, PR template, and CI/local check script for repository governance.
 - Neues Projekt `Korrektor` fuer Klausurverwaltung gestartet.
 - Erste lauffaehige GUI mit Klausuruebersicht und Detailansicht.

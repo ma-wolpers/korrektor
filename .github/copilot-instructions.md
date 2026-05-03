@@ -1,4 +1,4 @@
-# Copilot Instructions (korrektor)
+﻿# Copilot Instructions (korrektor)
 
 Arbeite in einfacher, klarer Struktur.
 
@@ -16,8 +16,8 @@ Pflichtregeln:
 - Nutzerrelevante Aenderungen in `CHANGELOG.md` eintragen.
 
 4. Zentrale UI-Module
-- KeyBindings zentral in `app/adapters/gui/keybinding_registry.py` verwalten.
-- Pop-up-Regeln zentral in `app/adapters/gui/popup_policy.py` verwalten.
+- KeyBindings zentral in `bw_libs/ui_contract/keybinding.py` verwalten.
+- Pop-up-Regeln zentral in `bw_libs/ui_contract/popup.py` verwalten.
 - Neue Shortcut-/Popup-Funktionen zuerst zentral registrieren, dann in Views anbinden.
 
 5. Commit-/Push-Workflow

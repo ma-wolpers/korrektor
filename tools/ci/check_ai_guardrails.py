@@ -15,8 +15,9 @@ GUARDRAIL_RELEVANT_PATHS = {
     "docs/ARCHITEKTUR.md",
     "docs/DEVELOPMENT_LOG.md",
     "CHANGELOG.md",
-    "app/adapters/gui/keybinding_registry.py",
-    "app/adapters/gui/popup_policy.py",
+    "bw_libs/ui_contract/keybinding.py",
+    "bw_libs/ui_contract/popup.py",
+    "bw_libs/ui_contract/hsm.py",
     "tools/ci/check_ai_guardrails.py",
 }
 PROCESS_GUIDANCE_RULES = {
@@ -25,14 +26,16 @@ PROCESS_GUIDANCE_RULES = {
 }
 CHANGELOG_RELEVANT_PREFIXES = (
     "app/adapters/gui/",
+    "bw_libs/",
 )
 CHANGELOG_CODEV_RELEVANT_PATHS = {
     "AGENTS.md",
     ".github/copilot-instructions.md",
     ".github/pull_request_template.md",
     "tools/ci/check_ai_guardrails.py",
-    "app/adapters/gui/keybinding_registry.py",
-    "app/adapters/gui/popup_policy.py",
+    "bw_libs/ui_contract/keybinding.py",
+    "bw_libs/ui_contract/popup.py",
+    "bw_libs/ui_contract/hsm.py",
 }
 
 
@@ -104,7 +107,10 @@ def _check_development_log_updated(staged: set[str], errors: list[str]) -> None:
     if "docs/DEVELOPMENT_LOG.md" in normalized:
         return
 
-    requires_log = any(path.startswith("app/") or path == "docs/ARCHITEKTUR.md" for path in normalized)
+    requires_log = any(
+        path.startswith("app/") or path.startswith("bw_libs/") or path == "docs/ARCHITEKTUR.md"
+        for path in normalized
+    )
     if requires_log:
         errors.append(
             "docs/DEVELOPMENT_LOG.md missing update: relevant feature/architecture changes require a same-cycle log entry"
@@ -195,8 +201,9 @@ def main() -> int:
     _read("docs/ARCHITEKTUR.md")
     _read("docs/DEVELOPMENT_LOG.md")
     _read("CHANGELOG.md")
-    _read("app/adapters/gui/keybinding_registry.py")
-    _read("app/adapters/gui/popup_policy.py")
+    _read("bw_libs/ui_contract/keybinding.py")
+    _read("bw_libs/ui_contract/popup.py")
+    _read("bw_libs/ui_contract/hsm.py")
 
     architecture = _read("docs/ARCHITEKTUR.md")
     _require_substring(architecture, "Schichten", "docs/ARCHITEKTUR.md", errors)
