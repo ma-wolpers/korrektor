@@ -18,6 +18,7 @@ GUARDRAIL_RELEVANT_PATHS = {
     "bw_libs/ui_contract/keybinding.py",
     "bw_libs/ui_contract/popup.py",
     "bw_libs/ui_contract/hsm.py",
+    "bw_libs/app_paths.py",
     "tools/ci/check_ai_guardrails.py",
 }
 PROCESS_GUIDANCE_RULES = {
@@ -36,6 +37,7 @@ CHANGELOG_CODEV_RELEVANT_PATHS = {
     "bw_libs/ui_contract/keybinding.py",
     "bw_libs/ui_contract/popup.py",
     "bw_libs/ui_contract/hsm.py",
+    "bw_libs/app_paths.py",
 }
 
 
@@ -204,6 +206,7 @@ def main() -> int:
     _read("bw_libs/ui_contract/keybinding.py")
     _read("bw_libs/ui_contract/popup.py")
     _read("bw_libs/ui_contract/hsm.py")
+    _read("bw_libs/app_paths.py")
 
     architecture = _read("docs/ARCHITEKTUR.md")
     _require_substring(architecture, "Schichten", "docs/ARCHITEKTUR.md", errors)

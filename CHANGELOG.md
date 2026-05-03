@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Shared app path/atomic-write foundation introduced via `bw_libs/app_paths.py`; repository JSON writes now reuse the centralized atomic writer bridge.
 - Central UI contracts for keybindings, popup policy, and HSM semantics now live in shared `bw_libs/ui_contract` modules to avoid duplicate maintenance.
 - Escape now follows a centralized priority chain: close active popup first, then leave inline or sub-mode editing, then return to the overview.
 - Runtime shortcuts now validate intents against a central HSM contract before execution.

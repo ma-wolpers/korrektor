@@ -1,6 +1,9 @@
 # Development Log
 
 ## [Unreleased]
+- G2.1 gestartet: Shared-Modul `bw_libs/app_paths.py` eingefuehrt (AppPaths-Discovery sowie atomische JSON/Text-Write-Helfer).
+- Persistenz-Pilot: `app/infrastructure/repositories/file_utils.py` bridged atomische JSON-Writes auf die zentrale `bw_libs/app_paths.py`-API.
+- Guardrails beruecksichtigen `bw_libs/app_paths.py` als relevanten Shared-Pfad.
 - UI-Contracts fuer Keybindings, Popup-Lifecycle und HSM wurden auf das Shared-Paket `bw_libs/ui_contract/` umgestellt; GUI und Tests importieren die Vertraege jetzt zentral statt aus lokalen Duplikatmodulen.
 - Guardrails/Governance wurden auf `bw_libs/ui_contract`-Pfade umgestellt; `bw_libs/` wird bei Changelog-/Development-Log-Relevanz mitgeprueft.
 - HSM-Contract-Modul `app/adapters/gui/hsm_contract.py` eingefuehrt (Intent-/Payload-Validierung, Transition-Regeln, Escape-Resolver).
