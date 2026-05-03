@@ -4,6 +4,7 @@
 - Guardrail-Basis eingefuehrt: `AGENTS.md`, `.github/copilot-instructions.md`, PR-Template sowie `tools/ci/check_ai_guardrails.py` plus CI-Workflow.
 - Zentrale UI-Basis fuer Tastatur- und Popup-Steuerung eingefuehrt: `app/adapters/gui/keybinding_registry.py` und `app/adapters/gui/popup_policy.py`.
 - Governance erweitert: Feature-Arbeit wird als eigener Commit-Block gefuehrt, Push bleibt explizit manuell.
+- Guardrails praezisiert: `CHANGELOG.md` wird nur bei nutzer- oder coentwicklerrelevanten Aenderungen erzwungen; Prozesswarnungen (Commit-/Push-Guidance) erscheinen nur lokal und nicht in CI.
 
 ## 2026-04-26
 - Initiales Projekt `Korrektor` erstellt.

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -21,6 +22,17 @@ GUARDRAIL_RELEVANT_PATHS = {
 PROCESS_GUIDANCE_RULES = {
     "feature_commit": "Feature-Aenderungen werden in eigenstaendigen Commits",
     "manual_push": "Push erfolgt manuell",
+}
+CHANGELOG_RELEVANT_PREFIXES = (
+    "app/adapters/gui/",
+)
+CHANGELOG_CODEV_RELEVANT_PATHS = {
+    "AGENTS.md",
+    ".github/copilot-instructions.md",
+    ".github/pull_request_template.md",
+    "tools/ci/check_ai_guardrails.py",
+    "app/adapters/gui/keybinding_registry.py",
+    "app/adapters/gui/popup_policy.py",
 }
 
 
@@ -107,9 +119,18 @@ def _check_changelog_updated(staged: set[str], errors: list[str]) -> None:
     if "CHANGELOG.md" in normalized:
         return
 
-    requires_changelog = any(path.startswith("app/adapters/gui/") for path in normalized)
+    requires_changelog = any(
+        path.startswith(prefix) for path in normalized for prefix in CHANGELOG_RELEVANT_PREFIXES
+    ) or any(path in CHANGELOG_CODEV_RELEVANT_PATHS for path in normalized)
     if requires_changelog:
-        errors.append("CHANGELOG.md missing update: user-facing changes require a changelog entry")
+        errors.append(
+            "CHANGELOG.md missing update: user- or co-developer-relevant changes require a changelog entry"
+        )
+
+
+def _is_ci_environment() -> bool:
+    """Return whether the check runs in a CI environment."""
+    return bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
 
 
 def _collect_process_guidance_warnings() -> list[str]:
@@ -160,7 +181,7 @@ def main() -> int:
             print(f" - {item}")
         return 2
 
-    if warnings:
+    if warnings and not _is_ci_environment():
         print("AI guardrail process warnings (non-blocking):")
         for item in warnings:
             print(f" - {item}")

@@ -22,6 +22,7 @@ class KeyBindingDefinition:
     intent: str
     modes: tuple[str, ...] = (UI_MODE_GLOBAL,)
     description: str = ""
+    allow_modifiers: bool = False
     allow_when_text_input: bool = False
     allow_when_offline: bool = True
     metadata: dict[str, str] = field(default_factory=dict)
