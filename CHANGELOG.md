@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- App startup now initializes the root window via shared `bw_gui.runtime.ui` aliases in `app/app.py` instead of importing `tkinter` directly.
 - UI runtime import pilot started: `app/adapters/gui/main_window.py` now consumes shared `bw_gui.runtime` aliases (`ui`/`widgets`) instead of direct `tkinter`/`ttk` imports.
 - Dialog and file chooser interactions now use shared `bw_gui.dialogs` services in the main GUI intent and window flow, reducing direct tkinter dialog coupling.
 - Pilot integration for the shared GUI core started: Korrektor now resolves keybinding, popup, and HSM contracts through the shared `bw-gui` core (via submodule bridge).
