@@ -116,3 +116,24 @@ def build_ui_hsm_contract(*, intents: Iterable[str]) -> HsmContract:
         TransitionRule("offline", "dialog"),
     )
     return HsmContract(intent_specs=specs, transitions=transitions)
+
+
+# Pilot bridge: resolve shared bw-gui contracts while preserving local import paths.
+try:
+    from bw_libs.shared_gui_core import ensure_bw_gui_on_path as _ensure_bw_gui_on_path
+
+    _ensure_bw_gui_on_path()
+
+    from bw_gui.contracts.hsm import (  # type: ignore[assignment]
+        ESCAPE_CLOSE_POPUP,
+        ESCAPE_EXIT_INLINE_EDITOR,
+        ESCAPE_POP_PARENT,
+        ESCAPE_ROOT_NOOP,
+        HsmContract,
+        HsmIntentSpec,
+        TransitionRule,
+        build_ui_hsm_contract,
+    )
+except ModuleNotFoundError:
+    # Keep local fallback contracts usable when shared core is unavailable.
+    pass

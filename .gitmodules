@@ -1,0 +1,3 @@
+[submodule "bw-gui"]
+	path = bw-gui
+	url = ../bw-gui

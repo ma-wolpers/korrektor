@@ -94,3 +94,21 @@ class PopupPolicyRegistry:
             "policies": sorted(self._policies.keys()),
             "active_stack": [session.popup_id for session in self._stack],
         }
+
+
+# Pilot bridge: resolve shared bw-gui contracts while preserving local import paths.
+try:
+    from bw_libs.shared_gui_core import ensure_bw_gui_on_path as _ensure_bw_gui_on_path
+
+    _ensure_bw_gui_on_path()
+
+    from bw_gui.contracts.popup import (  # type: ignore[assignment]
+        POPUP_KIND_MODAL,
+        POPUP_KIND_NON_MODAL,
+        PopupPolicy,
+        PopupPolicyRegistry,
+        PopupSession,
+    )
+except ModuleNotFoundError:
+    # Keep local fallback contracts usable when shared core is unavailable.
+    pass
