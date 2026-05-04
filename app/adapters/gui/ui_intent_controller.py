@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from tkinter import filedialog, messagebox, simpledialog
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from app.adapters.bootstrap.wiring import GuiDependencies
+from app.adapters.gui.dialog_services import filedialog, messagebox, simpledialog
 from app.adapters.gui.view_models import ExamOverviewRow
 from app.core.domain.models import ExamProject, RegionAssignment, RegionBox, TaskDefinition
 

@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox, simpledialog, ttk
+from tkinter import ttk
 from typing import TYPE_CHECKING
 
 import fitz
 
 from app.adapters.bootstrap.wiring import GuiDependencies
+from app.adapters.gui.dialog_services import messagebox, simpledialog
 from app.app_info import APP_INFO
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 from bw_libs.app_shell import AppShellConfig, TkinterAppShell

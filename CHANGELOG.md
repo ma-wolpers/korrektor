@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Dialog and file chooser interactions now use shared `bw_gui.dialogs` services in the main GUI intent and window flow, reducing direct tkinter dialog coupling.
 - Pilot integration for the shared GUI core started: Korrektor now resolves keybinding, popup, and HSM contracts through the shared `bw-gui` core (via submodule bridge).
 - Test discovery is now limited to repository tests (`pytest.ini`) so submodule test suites are excluded from normal Korrektor test runs.
 - The `Neue Klausur` button no longer shows `(Strg+N)` in its label; the shortcut hint is now provided via hover help.
