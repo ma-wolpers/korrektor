@@ -3,6 +3,7 @@
 ## [Unreleased]
 - Pilotmigration zum gemeinsamen GUI-Core gestartet: `bw-gui` als Git-Submodule eingebunden und `bw_libs/ui_contract/*` via Bridge auf `bw_gui.contracts.*` umgestellt, sodass Keybinding-/Popup-/HSM-Vertraege aus der gemeinsamen Quelle geladen werden.
 - Testsuche gehaertet: `pytest.ini` begrenzt die Sammlung auf `tests`, damit Submodule-Tests nicht unbeabsichtigt in Korrektor-Laeufe einfließen.
+- Shortcut-Hinweis aus Button-Labels entfernt: `Neue Klausur` zeigt kein `(Strg+N)` mehr im Label; der Hinweis liegt jetzt im Hover-Overlay (Shared `HoverTooltip`).
 - G5 abgeschlossen: AppIdentity-Manifest `app/app_info.py` eingefuehrt und im GUI-Bootstrap (`AppDependencies`) als zentrale Quelle fuer Startup-/Window-Metadaten verdrahtet.
 - G3/G4 gestartet: `build_gui_dependencies()` liefert jetzt eine zentrale Shell-Konfiguration; Startup und Hauptfenster folgen dem `AppDependencies`-Konventionspfad und nutzen `bw_libs/app_shell.py`.
 - G2.1 gestartet: Shared-Modul `bw_libs/app_paths.py` eingefuehrt (AppPaths-Discovery sowie atomische JSON/Text-Write-Helfer).

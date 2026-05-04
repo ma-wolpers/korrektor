@@ -3,6 +3,7 @@
 ## Unreleased
 - Pilot integration for the shared GUI core started: Korrektor now resolves keybinding, popup, and HSM contracts through the shared `bw-gui` core (via submodule bridge).
 - Test discovery is now limited to repository tests (`pytest.ini`) so submodule test suites are excluded from normal Korrektor test runs.
+- The `Neue Klausur` button no longer shows `(Strg+N)` in its label; the shortcut hint is now provided via hover help.
 - App identity metadata is now centralized in `app/app_info.py` and injected via AppDependencies for GUI startup/window identity setup.
 - GUI bootstrap now exposes a unified AppDependencies convention with shared Tk shell configuration, aligning startup and window lifecycle behavior across apps.
 - Shared app path/atomic-write foundation introduced via `bw_libs/app_paths.py`; repository JSON writes now reuse the centralized atomic writer bridge.

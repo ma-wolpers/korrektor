@@ -9,6 +9,7 @@ import fitz
 
 from app.adapters.bootstrap.wiring import GuiDependencies
 from app.app_info import APP_INFO
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 from bw_libs.app_shell import AppShellConfig, TkinterAppShell
 from bw_libs.ui_contract.keybinding import (
     UI_MODE_DIALOG,
@@ -31,6 +32,12 @@ from app.adapters.gui.ui_intents import UiIntent
 from app.adapters.gui.view_models import ExamOverviewRow
 from app.core.domain.models import ExamProject, StudentExam
 from app.core.domain.progress import ProgressCalculator
+
+ensure_bw_gui_on_path()
+try:
+    from bw_gui.widgets import HoverTooltip as SharedHoverTooltip
+except ModuleNotFoundError:
+    SharedHoverTooltip = None
 
 if TYPE_CHECKING:
     from app.adapters.gui.ui_intent_controller import UiIntentController
@@ -106,6 +113,7 @@ class MainWindow:
             )
         )
         self._tracked_popup_ids: set[str] = set()
+        self._hover_tooltips: list[object] = []
         self._hsm_contract = build_ui_hsm_contract(
             intents=[
                 UiIntent.GLOBAL_CREATE_EXAM,
@@ -119,6 +127,17 @@ class MainWindow:
 
         self._build_styles()
         self._build_layout()
+
+    def _attach_hover_help(self, widget: tk.Widget, *, label: str, shortcut: str | None = None) -> None:
+        """Attach hover help; shortcut details are shown here, not in button labels."""
+
+        if SharedHoverTooltip is None:
+            return
+
+        shortcut_text = (shortcut or "").strip()
+        text = f"{label}\nShortcut: {shortcut_text}" if shortcut_text else label
+        tooltip = SharedHoverTooltip(widget, text)
+        self._hover_tooltips.append(tooltip)
 
     def set_controller(self, controller: "UiIntentController") -> None:
         self._controller = controller
@@ -448,12 +467,14 @@ class MainWindow:
         action_row = ttk.Frame(shell, style="App.TFrame")
         action_row.pack(fill=tk.X, pady=(14, 10))
 
-        ttk.Button(
+        create_exam_button = ttk.Button(
             action_row,
-            text="Neue Klausur (Strg+N)",
+            text="Neue Klausur",
             style="PrimaryAction.TButton",
             command=lambda: self._controller and self._controller.create_exam(),
-        ).pack(side=tk.LEFT)
+        )
+        create_exam_button.pack(side=tk.LEFT)
+        self._attach_hover_help(create_exam_button, label="Neue Klausur erstellen", shortcut="Ctrl+N")
         self._back_button = ttk.Button(
             action_row,
             text="Zur Uebersicht",
