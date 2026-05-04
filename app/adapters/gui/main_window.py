@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import tkinter as tk
 from pathlib import Path
-from tkinter import ttk
 from typing import TYPE_CHECKING
 
 import fitz
@@ -35,6 +33,8 @@ from app.core.domain.models import ExamProject, StudentExam
 from app.core.domain.progress import ProgressCalculator
 
 ensure_bw_gui_on_path()
+from bw_gui.runtime import ui, widgets
+
 try:
     from bw_gui.widgets import HoverTooltip as SharedHoverTooltip
 except ModuleNotFoundError:
@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 
 
 class MainWindow:
-    def __init__(self, root: tk.Tk, deps: GuiDependencies) -> None:
+    def __init__(self, root: ui.Tk, deps: GuiDependencies) -> None:
         self.root = root
         self.deps = deps
         shell_config = getattr(
@@ -62,12 +62,12 @@ class MainWindow:
 
         self._rows_by_tree_id: dict[str, ExamOverviewRow] = {}
         self._controller = None
-        self._correction_controls_frame: ttk.Frame | None = None
+        self._correction_controls_frame: widgets.Frame | None = None
         self._in_detail_mode = False
         self._selected_region_id: str | None = None
         self._region_tree_rows: dict[str, str] = {}
 
-        self._status_var = tk.StringVar(value="Bereit")
+        self._status_var = ui.StringVar(value="Bereit")
         self._detail_exam_file: Path | None = None
         self._current_exam: ExamProject | None = None
         self._student_cursor = 0
@@ -79,30 +79,30 @@ class MainWindow:
         self._reading_active = False
         self._reading_student_cursor = 0
         self._reading_page = 1
-        self._reading_info_var = tk.StringVar(value="Einlesemodus: nicht aktiv")
-        self._assignment_mode_var = tk.StringVar(value="quick")
+        self._reading_info_var = ui.StringVar(value="Einlesemodus: nicht aktiv")
+        self._assignment_mode_var = ui.StringVar(value="quick")
         self._extra_mode_active = False
         self._extra_sequence: list[tuple[int, int]] = []
         self._extra_cursor = 0
         self._doc_cache: dict[str, fitz.Document] = {}
-        self._render_photo: tk.PhotoImage | None = None
+        self._render_photo: ui.PhotoImage | None = None
         self._x_factor = 1.0
         self._y_factor = 1.0
         self._drag_start: tuple[float, float] | None = None
         self._drag_rect_id: int | None = None
-        self._popup_photo: tk.PhotoImage | None = None
-        self._extra_popup: tk.Toplevel | None = None
-        self._extra_popup_canvas: tk.Canvas | None = None
-        self._extra_popup_info_var: tk.StringVar | None = None
+        self._popup_photo: ui.PhotoImage | None = None
+        self._extra_popup: ui.Toplevel | None = None
+        self._extra_popup_canvas: ui.Canvas | None = None
+        self._extra_popup_info_var: ui.StringVar | None = None
         self._extra_popup_student_index: int | None = None
         self._extra_popup_cursor = 0
         self._canvas_image_id: int | None = None
         self._runtime_shortcuts = KeybindingRegistry()
-        self._shortcut_debug_offline_var = tk.BooleanVar(value=False)
-        self._shortcut_runtime_debug_window: tk.Toplevel | None = None
-        self._shortcut_runtime_debug_table: ttk.Treeview | None = None
-        self._shortcut_runtime_debug_context_var = tk.StringVar(value="")
-        self._shortcut_runtime_debug_summary_var = tk.StringVar(value="")
+        self._shortcut_debug_offline_var = ui.BooleanVar(value=False)
+        self._shortcut_runtime_debug_window: ui.Toplevel | None = None
+        self._shortcut_runtime_debug_table: widgets.Treeview | None = None
+        self._shortcut_runtime_debug_context_var = ui.StringVar(value="")
+        self._shortcut_runtime_debug_summary_var = ui.StringVar(value="")
         self._popup_registry = PopupPolicyRegistry()
         self._popup_registry.register_policy(PopupPolicy(policy_id="dialog.modal", kind=POPUP_KIND_MODAL))
         self._popup_registry.register_policy(
@@ -129,7 +129,7 @@ class MainWindow:
         self._build_styles()
         self._build_layout()
 
-    def _attach_hover_help(self, widget: tk.Widget, *, label: str, shortcut: str | None = None) -> None:
+    def _attach_hover_help(self, widget: ui.Widget, *, label: str, shortcut: str | None = None) -> None:
         """Attach hover help; shortcut details are shown here, not in button labels."""
 
         if SharedHoverTooltip is None:
@@ -226,7 +226,7 @@ class MainWindow:
 
         visible_popup_ids: set[str] = set()
         for child in self.root.winfo_children():
-            if not isinstance(child, tk.Toplevel):
+            if not isinstance(child, ui.Toplevel):
                 continue
             try:
                 if not int(child.winfo_exists()):
@@ -253,7 +253,7 @@ class MainWindow:
             self._popup_registry.close_popup(popup_id)
             self._tracked_popup_ids.discard(popup_id)
 
-    def _register_popup_window(self, window: tk.Toplevel, *, policy_id: str = "dialog.modal") -> None:
+    def _register_popup_window(self, window: ui.Toplevel, *, policy_id: str = "dialog.modal") -> None:
         """Register popup window immediately in popup policy registry."""
 
         popup_id = str(window)
@@ -266,9 +266,9 @@ class MainWindow:
     def _is_editable_widget(widget) -> bool:
         if widget is None:
             return False
-        return isinstance(widget, (tk.Entry, ttk.Entry, tk.Text, ttk.Combobox, tk.Spinbox))
+        return isinstance(widget, (ui.Entry, widgets.Entry, ui.Text, widgets.Combobox, ui.Spinbox))
 
-    def _build_runtime_context(self, event: tk.Event[tk.Misc] | None = None) -> KeybindingRuntimeContext:
+    def _build_runtime_context(self, event: ui.Event[ui.Misc] | None = None) -> KeybindingRuntimeContext:
         """Build runtime context for evaluating keybinding execution."""
 
         self._sync_popup_sessions_from_windows()
@@ -342,47 +342,47 @@ class MainWindow:
             self._shortcut_runtime_debug_window.focus_force()
             return
 
-        window = tk.Toplevel(self.root)
+        window = ui.Toplevel(self.root)
         window.title("Shortcut Runtime Debug")
         window.geometry("960x500")
         window.minsize(800, 400)
         self._register_popup_window(window, policy_id="dialog.non_blocking")
 
-        toolbar = ttk.Frame(window, padding=(10, 8))
-        toolbar.pack(fill=tk.X)
-        ttk.Label(toolbar, textvariable=self._shortcut_runtime_debug_context_var, style="Muted.TLabel").pack(
-            side=tk.LEFT,
-            fill=tk.X,
+        toolbar = widgets.Frame(window, padding=(10, 8))
+        toolbar.pack(fill=ui.X)
+        widgets.Label(toolbar, textvariable=self._shortcut_runtime_debug_context_var, style="Muted.TLabel").pack(
+            side=ui.LEFT,
+            fill=ui.X,
             expand=True,
         )
-        ttk.Checkbutton(
+        widgets.Checkbutton(
             toolbar,
             text="Offline simulieren",
             variable=self._shortcut_debug_offline_var,
             command=self._refresh_shortcut_runtime_debug_dialog,
-        ).pack(side=tk.LEFT, padx=(12, 0))
-        ttk.Button(toolbar, text="Aktualisieren", style="SecondaryAction.TButton", command=self._refresh_shortcut_runtime_debug_dialog).pack(side=tk.LEFT, padx=(8, 0))
+        ).pack(side=ui.LEFT, padx=(12, 0))
+        widgets.Button(toolbar, text="Aktualisieren", style="SecondaryAction.TButton", command=self._refresh_shortcut_runtime_debug_dialog).pack(side=ui.LEFT, padx=(8, 0))
 
-        body = ttk.Frame(window, padding=(10, 0, 10, 8))
-        body.pack(fill=tk.BOTH, expand=True)
+        body = widgets.Frame(window, padding=(10, 0, 10, 8))
+        body.pack(fill=ui.BOTH, expand=True)
         columns = ("mode", "key", "binding", "status", "reason")
-        table = ttk.Treeview(body, columns=columns, show="headings")
+        table = widgets.Treeview(body, columns=columns, show="headings")
         table.heading("mode", text="Mode")
         table.heading("key", text="Key")
         table.heading("binding", text="Binding")
         table.heading("status", text="Status")
         table.heading("reason", text="Reason")
-        table.column("mode", width=100, anchor=tk.CENTER, stretch=False)
-        table.column("key", width=130, anchor=tk.CENTER, stretch=False)
-        table.column("binding", width=300, anchor=tk.W, stretch=True)
-        table.column("status", width=90, anchor=tk.CENTER, stretch=False)
-        table.column("reason", width=180, anchor=tk.W, stretch=True)
-        table.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        y_scroll = ttk.Scrollbar(body, orient="vertical", command=table.yview)
-        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        table.column("mode", width=100, anchor=ui.CENTER, stretch=False)
+        table.column("key", width=130, anchor=ui.CENTER, stretch=False)
+        table.column("binding", width=300, anchor=ui.W, stretch=True)
+        table.column("status", width=90, anchor=ui.CENTER, stretch=False)
+        table.column("reason", width=180, anchor=ui.W, stretch=True)
+        table.pack(side=ui.LEFT, fill=ui.BOTH, expand=True)
+        y_scroll = widgets.Scrollbar(body, orient="vertical", command=table.yview)
+        y_scroll.pack(side=ui.RIGHT, fill=ui.Y)
         table.configure(yscrollcommand=y_scroll.set)
 
-        ttk.Label(window, textvariable=self._shortcut_runtime_debug_summary_var, style="Muted.TLabel").pack(anchor=tk.W, padx=10, pady=(0, 8))
+        widgets.Label(window, textvariable=self._shortcut_runtime_debug_summary_var, style="Muted.TLabel").pack(anchor=ui.W, padx=10, pady=(0, 8))
 
         self._shortcut_runtime_debug_window = window
         self._shortcut_runtime_debug_table = table
@@ -433,7 +433,7 @@ class MainWindow:
                     disabled_count += 1
                 table.insert(
                     "",
-                    tk.END,
+                    ui.END,
                     values=(mode, definition.sequence, definition.binding_id, status, "" if can_execute else reason),
                 )
 
@@ -443,7 +443,7 @@ class MainWindow:
         )
 
     def _build_styles(self) -> None:
-        style = ttk.Style(self.root)
+        style = widgets.Style(self.root)
         style.theme_use("clam")
         self.root.configure(bg="#f5f2ea")
 
@@ -456,71 +456,71 @@ class MainWindow:
         style.configure("SecondaryAction.TButton", padding=(12, 8), font=("Segoe UI", 10))
 
     def _build_layout(self) -> None:
-        shell = ttk.Frame(self.root, style="App.TFrame", padding=16)
-        shell.pack(fill=tk.BOTH, expand=True)
+        shell = widgets.Frame(self.root, style="App.TFrame", padding=16)
+        shell.pack(fill=ui.BOTH, expand=True)
 
-        title_row = ttk.Frame(shell, style="App.TFrame")
-        title_row.pack(fill=tk.X)
+        title_row = widgets.Frame(shell, style="App.TFrame")
+        title_row.pack(fill=ui.X)
 
-        ttk.Label(title_row, text="Korrektor", style="Title.TLabel").pack(side=tk.LEFT)
-        ttk.Label(title_row, text="Workflow für Einlesen und Korrektur", style="Muted.TLabel").pack(side=tk.LEFT, padx=(12, 0), pady=(8, 0))
+        widgets.Label(title_row, text="Korrektor", style="Title.TLabel").pack(side=ui.LEFT)
+        widgets.Label(title_row, text="Workflow für Einlesen und Korrektur", style="Muted.TLabel").pack(side=ui.LEFT, padx=(12, 0), pady=(8, 0))
 
-        action_row = ttk.Frame(shell, style="App.TFrame")
-        action_row.pack(fill=tk.X, pady=(14, 10))
+        action_row = widgets.Frame(shell, style="App.TFrame")
+        action_row.pack(fill=ui.X, pady=(14, 10))
 
-        create_exam_button = ttk.Button(
+        create_exam_button = widgets.Button(
             action_row,
             text="Neue Klausur",
             style="PrimaryAction.TButton",
             command=lambda: self._controller and self._controller.create_exam(),
         )
-        create_exam_button.pack(side=tk.LEFT)
+        create_exam_button.pack(side=ui.LEFT)
         self._attach_hover_help(create_exam_button, label="Neue Klausur erstellen", shortcut="Ctrl+N")
-        self._back_button = ttk.Button(
+        self._back_button = widgets.Button(
             action_row,
             text="Zur Uebersicht",
             style="SecondaryAction.TButton",
             command=self._return_to_overview,
         )
-        self._back_button.pack(side=tk.LEFT, padx=(10, 0))
+        self._back_button.pack(side=ui.LEFT, padx=(10, 0))
         self._back_button.state(["disabled"])
-        ttk.Button(
+        widgets.Button(
             action_row,
             text="Ausgewählte Klausur öffnen",
             style="SecondaryAction.TButton",
             command=lambda: self._controller and self._controller.open_selected_exam(),
-        ).pack(side=tk.LEFT, padx=(10, 0))
-        ttk.Button(
+        ).pack(side=ui.LEFT, padx=(10, 0))
+        widgets.Button(
             action_row,
             text="Einlesemodus starten",
             style="SecondaryAction.TButton",
             command=self._start_reading_mode,
-        ).pack(side=tk.LEFT, padx=(10, 0))
-        ttk.Button(
+        ).pack(side=ui.LEFT, padx=(10, 0))
+        widgets.Button(
             action_row,
             text="Extraseiten-Modus",
             style="SecondaryAction.TButton",
             command=self._start_extra_mode,
-        ).pack(side=tk.LEFT, padx=(10, 0))
-        ttk.Button(
+        ).pack(side=ui.LEFT, padx=(10, 0))
+        widgets.Button(
             action_row,
             text="Shortcut Debug",
             style="SecondaryAction.TButton",
             command=self._open_shortcut_runtime_debug_dialog,
-        ).pack(side=tk.LEFT, padx=(10, 0))
+        ).pack(side=ui.LEFT, padx=(10, 0))
 
-        content = ttk.PanedWindow(shell, orient=tk.HORIZONTAL)
-        content.pack(fill=tk.BOTH, expand=True)
+        content = widgets.PanedWindow(shell, orient=ui.HORIZONTAL)
+        content.pack(fill=ui.BOTH, expand=True)
         self._content_pane = content
 
-        left = ttk.Frame(content, style="Surface.TFrame", padding=12)
-        right = ttk.Frame(content, style="Surface.TFrame", padding=12)
+        left = widgets.Frame(content, style="Surface.TFrame", padding=12)
+        right = widgets.Frame(content, style="Surface.TFrame", padding=12)
         content.add(left, weight=2)
         content.add(right, weight=1)
         self._overview_panel = left
         self._detail_panel = right
 
-        self._tree = ttk.Treeview(
+        self._tree = widgets.Treeview(
             left,
             columns=("name", "read", "corr", "regions", "done", "complete", "flags"),
             show="headings",
@@ -538,18 +538,18 @@ class MainWindow:
         widths = {"name": 250, "read": 100, "corr": 100, "regions": 90, "done": 90, "complete": 100, "flags": 110}
         for key in headings:
             self._tree.heading(key, text=headings[key])
-            self._tree.column(key, width=widths[key], anchor=tk.CENTER if key != "name" else tk.W)
-        self._tree.pack(fill=tk.BOTH, expand=True)
+            self._tree.column(key, width=widths[key], anchor=ui.CENTER if key != "name" else ui.W)
+        self._tree.pack(fill=ui.BOTH, expand=True)
         self._tree.bind("<Double-1>", lambda _event: self._controller and self._controller.open_selected_exam())
         self._tree.bind("<Return>", lambda _event: self._controller and self._controller.open_selected_exam())
 
-        ttk.Label(right, text="Klausur-Details", style="Title.TLabel").pack(anchor=tk.W)
-        self._detail_name = tk.StringVar(value="-")
-        self._detail_pages = tk.StringVar(value="Standardseiten: -")
-        self._detail_students = tk.StringVar(value="Schüler:innen: -")
-        self._detail_regions = tk.StringVar(value="Bereiche: -")
-        self._detail_status = tk.StringVar(value="Status: -")
-        self._active_student = tk.StringVar(value="Aktive Person: -")
+        widgets.Label(right, text="Klausur-Details", style="Title.TLabel").pack(anchor=ui.W)
+        self._detail_name = ui.StringVar(value="-")
+        self._detail_pages = ui.StringVar(value="Standardseiten: -")
+        self._detail_students = ui.StringVar(value="Schüler:innen: -")
+        self._detail_regions = ui.StringVar(value="Bereiche: -")
+        self._detail_status = ui.StringVar(value="Status: -")
+        self._active_student = ui.StringVar(value="Aktive Person: -")
 
         for variable in [
             self._detail_name,
@@ -559,55 +559,55 @@ class MainWindow:
             self._detail_status,
             self._active_student,
         ]:
-            ttk.Label(right, textvariable=variable, style="Muted.TLabel").pack(anchor=tk.W, pady=4)
+            widgets.Label(right, textvariable=variable, style="Muted.TLabel").pack(anchor=ui.W, pady=4)
 
-        self._mode_tabs = ttk.Frame(right, style="Surface.TFrame")
-        self._mode_tabs.pack(fill=tk.X, pady=(8, 6))
-        ttk.Button(self._mode_tabs, text="Einlesen", style="SecondaryAction.TButton", command=self._start_reading_mode).pack(side=tk.LEFT)
-        ttk.Button(self._mode_tabs, text="Korrektur", style="SecondaryAction.TButton", command=self._start_correction_mode).pack(side=tk.LEFT, padx=(8, 0))
-        ttk.Button(self._mode_tabs, text="Extraseiten", style="SecondaryAction.TButton", command=self._start_extra_mode).pack(side=tk.LEFT, padx=(8, 0))
+        self._mode_tabs = widgets.Frame(right, style="Surface.TFrame")
+        self._mode_tabs.pack(fill=ui.X, pady=(8, 6))
+        widgets.Button(self._mode_tabs, text="Einlesen", style="SecondaryAction.TButton", command=self._start_reading_mode).pack(side=ui.LEFT)
+        widgets.Button(self._mode_tabs, text="Korrektur", style="SecondaryAction.TButton", command=self._start_correction_mode).pack(side=ui.LEFT, padx=(8, 0))
+        widgets.Button(self._mode_tabs, text="Extraseiten", style="SecondaryAction.TButton", command=self._start_extra_mode).pack(side=ui.LEFT, padx=(8, 0))
 
-        self._correction_controls_frame = ttk.Frame(right, style="Surface.TFrame")
-        self._correction_controls_frame.pack(fill=tk.X, pady=(10, 0))
+        self._correction_controls_frame = widgets.Frame(right, style="Surface.TFrame")
+        self._correction_controls_frame.pack(fill=ui.X, pady=(10, 0))
 
-        ttk.Separator(self._correction_controls_frame).pack(fill=tk.X, pady=(0, 10))
-        ttk.Label(self._correction_controls_frame, text="Schnellkorrektur", style="Muted.TLabel").pack(anchor=tk.W)
+        widgets.Separator(self._correction_controls_frame).pack(fill=ui.X, pady=(0, 10))
+        widgets.Label(self._correction_controls_frame, text="Schnellkorrektur", style="Muted.TLabel").pack(anchor=ui.W)
 
-        correction_header = ttk.Frame(self._correction_controls_frame, style="Surface.TFrame")
-        correction_header.pack(fill=tk.X, pady=(6, 6))
-        ttk.Label(correction_header, text="Bereich", style="Muted.TLabel").pack(side=tk.LEFT)
-        self._correction_area_var = tk.StringVar(value="A")
-        self._correction_area_combo = ttk.Combobox(
+        correction_header = widgets.Frame(self._correction_controls_frame, style="Surface.TFrame")
+        correction_header.pack(fill=ui.X, pady=(6, 6))
+        widgets.Label(correction_header, text="Bereich", style="Muted.TLabel").pack(side=ui.LEFT)
+        self._correction_area_var = ui.StringVar(value="A")
+        self._correction_area_combo = widgets.Combobox(
             correction_header,
             textvariable=self._correction_area_var,
             state="readonly",
             width=8,
             values=("A",),
         )
-        self._correction_area_combo.pack(side=tk.LEFT, padx=(8, 8))
-        ttk.Button(correction_header, text="Korrekturmodus", style="SecondaryAction.TButton", command=self._start_correction_mode).pack(side=tk.LEFT)
-        ttk.Button(correction_header, text="Modus beenden", style="SecondaryAction.TButton", command=self._stop_correction_mode).pack(side=tk.LEFT, padx=(8, 0))
-        ttk.Button(correction_header, text="Extraseiten ansehen", style="SecondaryAction.TButton", command=self._toggle_extra_pages_popup_for_current).pack(side=tk.RIGHT)
+        self._correction_area_combo.pack(side=ui.LEFT, padx=(8, 8))
+        widgets.Button(correction_header, text="Korrekturmodus", style="SecondaryAction.TButton", command=self._start_correction_mode).pack(side=ui.LEFT)
+        widgets.Button(correction_header, text="Modus beenden", style="SecondaryAction.TButton", command=self._stop_correction_mode).pack(side=ui.LEFT, padx=(8, 0))
+        widgets.Button(correction_header, text="Extraseiten ansehen", style="SecondaryAction.TButton", command=self._toggle_extra_pages_popup_for_current).pack(side=ui.RIGHT)
 
-        form = ttk.Frame(self._correction_controls_frame, style="Surface.TFrame")
-        form.pack(fill=tk.X, pady=(8, 0))
+        form = widgets.Frame(self._correction_controls_frame, style="Surface.TFrame")
+        form.pack(fill=ui.X, pady=(8, 0))
         form.columnconfigure(1, weight=1)
 
-        ttk.Label(form, text="Aufgabe", style="Muted.TLabel").grid(row=0, column=0, sticky=tk.W, padx=(0, 6), pady=4)
-        ttk.Label(form, text="Max", style="Muted.TLabel").grid(row=1, column=0, sticky=tk.W, padx=(0, 6), pady=4)
-        ttk.Label(form, text="Erreicht", style="Muted.TLabel").grid(row=2, column=0, sticky=tk.W, padx=(0, 6), pady=4)
+        widgets.Label(form, text="Aufgabe", style="Muted.TLabel").grid(row=0, column=0, sticky=ui.W, padx=(0, 6), pady=4)
+        widgets.Label(form, text="Max", style="Muted.TLabel").grid(row=1, column=0, sticky=ui.W, padx=(0, 6), pady=4)
+        widgets.Label(form, text="Erreicht", style="Muted.TLabel").grid(row=2, column=0, sticky=ui.W, padx=(0, 6), pady=4)
 
-        self._task_code_var = tk.StringVar(value="A1")
-        self._max_points_var = tk.StringVar(value="0")
-        self._points_var = tk.StringVar(value="")
+        self._task_code_var = ui.StringVar(value="A1")
+        self._max_points_var = ui.StringVar(value="0")
+        self._points_var = ui.StringVar(value="")
 
-        self._task_code_entry = ttk.Entry(form, textvariable=self._task_code_var)
-        self._max_points_entry = ttk.Entry(form, textvariable=self._max_points_var)
-        self._points_entry = ttk.Entry(form, textvariable=self._points_var)
+        self._task_code_entry = widgets.Entry(form, textvariable=self._task_code_var)
+        self._max_points_entry = widgets.Entry(form, textvariable=self._max_points_var)
+        self._points_entry = widgets.Entry(form, textvariable=self._points_var)
 
-        self._task_code_entry.grid(row=0, column=1, sticky=tk.EW, pady=4)
-        self._max_points_entry.grid(row=1, column=1, sticky=tk.EW, pady=4)
-        self._points_entry.grid(row=2, column=1, sticky=tk.EW, pady=4)
+        self._task_code_entry.grid(row=0, column=1, sticky=ui.EW, pady=4)
+        self._max_points_entry.grid(row=1, column=1, sticky=ui.EW, pady=4)
+        self._points_entry.grid(row=2, column=1, sticky=ui.EW, pady=4)
 
         self._task_code_entry.bind("<Escape>", self._on_points_escape)
         self._max_points_entry.bind("<Escape>", self._on_points_escape)
@@ -615,46 +615,46 @@ class MainWindow:
         self._points_entry.bind("<Return>", self._on_points_commit)
         self._points_entry.bind("<Escape>", self._on_points_escape)
 
-        nav = ttk.Frame(self._correction_controls_frame, style="Surface.TFrame")
-        nav.pack(fill=tk.X, pady=(10, 0))
-        ttk.Button(nav, text="◀ Person", style="SecondaryAction.TButton", command=lambda: self._move_student(-1)).pack(side=tk.LEFT)
-        ttk.Button(nav, text="Person ▶", style="SecondaryAction.TButton", command=lambda: self._move_student(1)).pack(side=tk.LEFT, padx=(8, 0))
+        nav = widgets.Frame(self._correction_controls_frame, style="Surface.TFrame")
+        nav.pack(fill=ui.X, pady=(10, 0))
+        widgets.Button(nav, text="◀ Person", style="SecondaryAction.TButton", command=lambda: self._move_student(-1)).pack(side=ui.LEFT)
+        widgets.Button(nav, text="Person ▶", style="SecondaryAction.TButton", command=lambda: self._move_student(1)).pack(side=ui.LEFT, padx=(8, 0))
 
-        self._reading_workspace_frame = ttk.Frame(right, style="Surface.TFrame")
-        self._reading_workspace_frame.pack(fill=tk.BOTH, expand=True)
+        self._reading_workspace_frame = widgets.Frame(right, style="Surface.TFrame")
+        self._reading_workspace_frame.pack(fill=ui.BOTH, expand=True)
 
-        ttk.Separator(self._reading_workspace_frame).pack(fill=tk.X, pady=(12, 10))
-        ttk.Label(self._reading_workspace_frame, textvariable=self._reading_info_var, style="Muted.TLabel").pack(anchor=tk.W, pady=(0, 8))
+        widgets.Separator(self._reading_workspace_frame).pack(fill=ui.X, pady=(12, 10))
+        widgets.Label(self._reading_workspace_frame, textvariable=self._reading_info_var, style="Muted.TLabel").pack(anchor=ui.W, pady=(0, 8))
 
-        self._reading_toolbar = ttk.Frame(self._reading_workspace_frame, style="Surface.TFrame")
-        self._reading_toolbar.pack(fill=tk.X)
-        ttk.Button(self._reading_toolbar, text="◀ Seite", style="SecondaryAction.TButton", command=lambda: self._change_reading_page(-1)).pack(side=tk.LEFT)
-        ttk.Button(self._reading_toolbar, text="Seite ▶", style="SecondaryAction.TButton", command=lambda: self._change_reading_page(1)).pack(side=tk.LEFT, padx=(8, 0))
-        ttk.Button(self._reading_toolbar, text="◀ Schüler:in", style="SecondaryAction.TButton", command=lambda: self._change_reading_student(-1)).pack(side=tk.LEFT, padx=(14, 0))
-        ttk.Button(self._reading_toolbar, text="Schüler:in ▶", style="SecondaryAction.TButton", command=lambda: self._change_reading_student(1)).pack(side=tk.LEFT, padx=(8, 0))
-        ttk.Button(self._reading_toolbar, text="Einlesen abschließen", style="PrimaryAction.TButton", command=self._finish_reading_mode).pack(side=tk.RIGHT)
+        self._reading_toolbar = widgets.Frame(self._reading_workspace_frame, style="Surface.TFrame")
+        self._reading_toolbar.pack(fill=ui.X)
+        widgets.Button(self._reading_toolbar, text="◀ Seite", style="SecondaryAction.TButton", command=lambda: self._change_reading_page(-1)).pack(side=ui.LEFT)
+        widgets.Button(self._reading_toolbar, text="Seite ▶", style="SecondaryAction.TButton", command=lambda: self._change_reading_page(1)).pack(side=ui.LEFT, padx=(8, 0))
+        widgets.Button(self._reading_toolbar, text="◀ Schüler:in", style="SecondaryAction.TButton", command=lambda: self._change_reading_student(-1)).pack(side=ui.LEFT, padx=(14, 0))
+        widgets.Button(self._reading_toolbar, text="Schüler:in ▶", style="SecondaryAction.TButton", command=lambda: self._change_reading_student(1)).pack(side=ui.LEFT, padx=(8, 0))
+        widgets.Button(self._reading_toolbar, text="Einlesen abschließen", style="PrimaryAction.TButton", command=self._finish_reading_mode).pack(side=ui.RIGHT)
 
-        self._extra_toolbar = ttk.Frame(self._reading_workspace_frame, style="Surface.TFrame")
-        self._extra_toolbar.pack(fill=tk.X, pady=(6, 0))
-        ttk.Button(self._extra_toolbar, text="◀ Extraseite", style="SecondaryAction.TButton", command=lambda: self._change_extra_page(-1)).pack(side=tk.LEFT)
-        ttk.Button(self._extra_toolbar, text="Extraseite ▶", style="SecondaryAction.TButton", command=lambda: self._change_extra_page(1)).pack(side=tk.LEFT, padx=(8, 0))
-        ttk.Button(self._extra_toolbar, text="Bereich zuordnen", style="PrimaryAction.TButton", command=self._assign_current_extra_page).pack(side=tk.RIGHT)
+        self._extra_toolbar = widgets.Frame(self._reading_workspace_frame, style="Surface.TFrame")
+        self._extra_toolbar.pack(fill=ui.X, pady=(6, 0))
+        widgets.Button(self._extra_toolbar, text="◀ Extraseite", style="SecondaryAction.TButton", command=lambda: self._change_extra_page(-1)).pack(side=ui.LEFT)
+        widgets.Button(self._extra_toolbar, text="Extraseite ▶", style="SecondaryAction.TButton", command=lambda: self._change_extra_page(1)).pack(side=ui.LEFT, padx=(8, 0))
+        widgets.Button(self._extra_toolbar, text="Bereich zuordnen", style="PrimaryAction.TButton", command=self._assign_current_extra_page).pack(side=ui.RIGHT)
 
-        self._mode_row = ttk.Frame(self._reading_workspace_frame, style="Surface.TFrame")
-        self._mode_row.pack(fill=tk.X, pady=(8, 0))
-        ttk.Label(self._mode_row, text="Zuordnung:", style="Muted.TLabel").pack(side=tk.LEFT)
-        ttk.Radiobutton(self._mode_row, text="Schnell (Code:Punkte)", value="quick", variable=self._assignment_mode_var).pack(side=tk.LEFT, padx=(8, 0))
-        ttk.Radiobutton(self._mode_row, text="Formular", value="form", variable=self._assignment_mode_var).pack(side=tk.LEFT, padx=(8, 0))
+        self._mode_row = widgets.Frame(self._reading_workspace_frame, style="Surface.TFrame")
+        self._mode_row.pack(fill=ui.X, pady=(8, 0))
+        widgets.Label(self._mode_row, text="Zuordnung:", style="Muted.TLabel").pack(side=ui.LEFT)
+        widgets.Radiobutton(self._mode_row, text="Schnell (Code:Punkte)", value="quick", variable=self._assignment_mode_var).pack(side=ui.LEFT, padx=(8, 0))
+        widgets.Radiobutton(self._mode_row, text="Formular", value="form", variable=self._assignment_mode_var).pack(side=ui.LEFT, padx=(8, 0))
         self._assignment_mode_var.trace_add("write", lambda *_args: self._refresh_task_input_mode())
 
-        canvas_container = ttk.Frame(self._reading_workspace_frame, style="Surface.TFrame", height=360)
-        canvas_container.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+        canvas_container = widgets.Frame(self._reading_workspace_frame, style="Surface.TFrame", height=360)
+        canvas_container.pack(fill=ui.BOTH, expand=True, pady=(10, 0))
         canvas_container.pack_propagate(False)
 
-        canvas_scroll_x = ttk.Scrollbar(canvas_container, orient=tk.HORIZONTAL)
-        canvas_scroll_y = ttk.Scrollbar(canvas_container, orient=tk.VERTICAL)
+        canvas_scroll_x = widgets.Scrollbar(canvas_container, orient=ui.HORIZONTAL)
+        canvas_scroll_y = widgets.Scrollbar(canvas_container, orient=ui.VERTICAL)
 
-        self._reading_canvas = tk.Canvas(
+        self._reading_canvas = ui.Canvas(
             canvas_container,
             width=520,
             height=360,
@@ -667,17 +667,17 @@ class MainWindow:
         canvas_scroll_x.config(command=self._reading_canvas.xview)
         canvas_scroll_y.config(command=self._reading_canvas.yview)
 
-        canvas_scroll_x.pack(side=tk.BOTTOM, fill=tk.X)
-        canvas_scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
-        self._reading_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        canvas_scroll_x.pack(side=ui.BOTTOM, fill=ui.X)
+        canvas_scroll_y.pack(side=ui.RIGHT, fill=ui.Y)
+        self._reading_canvas.pack(side=ui.LEFT, fill=ui.BOTH, expand=True)
         self._reading_canvas.bind("<ButtonPress-1>", self._on_canvas_press)
         self._reading_canvas.bind("<B1-Motion>", self._on_canvas_drag)
         self._reading_canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
 
-        self._regions_editor = ttk.Frame(self._reading_workspace_frame, style="Surface.TFrame")
-        self._regions_editor.pack(fill=tk.BOTH, pady=(10, 0))
+        self._regions_editor = widgets.Frame(self._reading_workspace_frame, style="Surface.TFrame")
+        self._regions_editor.pack(fill=ui.BOTH, pady=(10, 0))
 
-        self._regions_tree = ttk.Treeview(
+        self._regions_tree = widgets.Treeview(
             self._regions_editor,
             columns=("area", "student", "page"),
             show="headings",
@@ -686,36 +686,36 @@ class MainWindow:
         self._regions_tree.heading("area", text="Bereich")
         self._regions_tree.heading("student", text="PDF")
         self._regions_tree.heading("page", text="Seite")
-        self._regions_tree.column("area", width=80, anchor=tk.CENTER)
-        self._regions_tree.column("student", width=180, anchor=tk.W)
-        self._regions_tree.column("page", width=80, anchor=tk.CENTER)
-        self._regions_tree.pack(fill=tk.X)
+        self._regions_tree.column("area", width=80, anchor=ui.CENTER)
+        self._regions_tree.column("student", width=180, anchor=ui.W)
+        self._regions_tree.column("page", width=80, anchor=ui.CENTER)
+        self._regions_tree.pack(fill=ui.X)
         self._regions_tree.bind("<<TreeviewSelect>>", self._on_region_selected)
         self.root.bind_all("<Delete>", self._on_delete_region_key)
 
-        editor_head = ttk.Frame(self._regions_editor, style="Surface.TFrame")
-        editor_head.pack(fill=tk.X, pady=(8, 4))
-        ttk.Label(editor_head, text="Aktiver Bereich:", style="Muted.TLabel").pack(side=tk.LEFT)
-        self._active_region_var = tk.StringVar(value="-")
-        ttk.Label(editor_head, textvariable=self._active_region_var, style="Status.TLabel").pack(side=tk.LEFT, padx=(8, 0))
+        editor_head = widgets.Frame(self._regions_editor, style="Surface.TFrame")
+        editor_head.pack(fill=ui.X, pady=(8, 4))
+        widgets.Label(editor_head, text="Aktiver Bereich:", style="Muted.TLabel").pack(side=ui.LEFT)
+        self._active_region_var = ui.StringVar(value="-")
+        widgets.Label(editor_head, textvariable=self._active_region_var, style="Status.TLabel").pack(side=ui.LEFT, padx=(8, 0))
 
-        self._quick_tasks_var = tk.StringVar(value="")
-        self._quick_tasks_entry = ttk.Entry(self._regions_editor, textvariable=self._quick_tasks_var)
-        self._quick_tasks_entry.pack(fill=tk.X)
+        self._quick_tasks_var = ui.StringVar(value="")
+        self._quick_tasks_entry = widgets.Entry(self._regions_editor, textvariable=self._quick_tasks_var)
+        self._quick_tasks_entry.pack(fill=ui.X)
         self._quick_tasks_entry.bind("<FocusOut>", lambda _e: self._save_selected_region())
 
-        self._form_tasks_text = tk.Text(self._regions_editor, height=4, wrap="word")
+        self._form_tasks_text = ui.Text(self._regions_editor, height=4, wrap="word")
         self._form_tasks_text.bind("<FocusOut>", lambda _e: self._save_selected_region())
 
-        region_actions = ttk.Frame(self._regions_editor, style="Surface.TFrame")
-        region_actions.pack(fill=tk.X, pady=(6, 0))
-        ttk.Button(region_actions, text="Speichern", style="SecondaryAction.TButton", command=self._save_selected_region).pack(side=tk.LEFT)
-        ttk.Button(region_actions, text="Loeschen", style="SecondaryAction.TButton", command=self._delete_selected_region).pack(side=tk.LEFT, padx=(8, 0))
+        region_actions = widgets.Frame(self._regions_editor, style="Surface.TFrame")
+        region_actions.pack(fill=ui.X, pady=(6, 0))
+        widgets.Button(region_actions, text="Speichern", style="SecondaryAction.TButton", command=self._save_selected_region).pack(side=ui.LEFT)
+        widgets.Button(region_actions, text="Loeschen", style="SecondaryAction.TButton", command=self._delete_selected_region).pack(side=ui.LEFT, padx=(8, 0))
 
         self._refresh_task_input_mode()
 
-        ttk.Separator(shell).pack(fill=tk.X, pady=(10, 8))
-        ttk.Label(shell, textvariable=self._status_var, style="Status.TLabel").pack(anchor=tk.W)
+        widgets.Separator(shell).pack(fill=ui.X, pady=(10, 8))
+        widgets.Label(shell, textvariable=self._status_var, style="Status.TLabel").pack(anchor=ui.W)
 
         self._hide_correction_controls()
         self._set_detail_submode("reading")
@@ -728,7 +728,7 @@ class MainWindow:
         for row in rows:
             tree_id = self._tree.insert(
                 "",
-                tk.END,
+                ui.END,
                 values=(
                     row.exam_name,
                     f"{row.reading_percent:.0f}",
@@ -802,12 +802,12 @@ class MainWindow:
         self._detail_status.set("Status: " + (", ".join(flags) if flags else "Keine offenen Warnungen"))
         self._refresh_active_student_label()
 
-    def _on_escape(self, _event: tk.Event[tk.Misc]) -> None:
+    def _on_escape(self, _event: ui.Event[ui.Misc]) -> None:
         self._sync_popup_sessions_from_windows()
         widget = self.root.focus_get()
         action = self._hsm_contract.resolve_escape_action(
             has_popup=self._popup_registry.has_active_popup(),
-            has_inline_editor=isinstance(widget, (tk.Entry, ttk.Entry))
+            has_inline_editor=isinstance(widget, (ui.Entry, widgets.Entry))
             or self._correction_mode_active
             or self._reading_active
             or self._extra_mode_active,
@@ -819,7 +819,7 @@ class MainWindow:
             if active_popup is not None:
                 popup_id = active_popup.popup_id
                 for child in self.root.winfo_children():
-                    if not isinstance(child, tk.Toplevel):
+                    if not isinstance(child, ui.Toplevel):
                         continue
                     if str(child) != popup_id:
                         continue
@@ -833,7 +833,7 @@ class MainWindow:
                 return
 
         if action == ESCAPE_EXIT_INLINE_EDITOR:
-            if isinstance(widget, (tk.Entry, ttk.Entry)):
+            if isinstance(widget, (ui.Entry, widgets.Entry)):
                 self.root.focus_set()
                 return
 
@@ -894,14 +894,14 @@ class MainWindow:
             f"Aktive Person: {student.display_name} ({self._student_cursor + 1}/{len(self._current_exam.students)})"
         )
 
-    def _on_points_focus_out(self, _event: tk.Event[tk.Misc]) -> None:
+    def _on_points_focus_out(self, _event: ui.Event[ui.Misc]) -> None:
         self._commit_points_if_possible()
 
-    def _on_points_commit(self, _event: tk.Event[tk.Misc]) -> None:
+    def _on_points_commit(self, _event: ui.Event[ui.Misc]) -> None:
         self._commit_points_if_possible()
         self.root.focus_set()
 
-    def _on_points_escape(self, _event: tk.Event[tk.Misc]) -> None:
+    def _on_points_escape(self, _event: ui.Event[ui.Misc]) -> None:
         self._commit_points_if_possible()
         self.root.focus_set()
 
@@ -920,7 +920,7 @@ class MainWindow:
         self._refresh_active_student_label()
         self._focus_first_input_field()
 
-    def _on_left_key(self, _event: tk.Event[tk.Misc]) -> None:
+    def _on_left_key(self, _event: ui.Event[ui.Misc]) -> None:
         if self._detail_submode == "extra" and self._extra_mode_active:
             self._change_extra_page(-1)
             return
@@ -929,7 +929,7 @@ class MainWindow:
             return
         self._move_student(-1)
 
-    def _on_right_key(self, _event: tk.Event[tk.Misc]) -> None:
+    def _on_right_key(self, _event: ui.Event[ui.Misc]) -> None:
         if self._detail_submode == "extra" and self._extra_mode_active:
             self._change_extra_page(1)
             return
@@ -1047,7 +1047,7 @@ class MainWindow:
             )
             self._reading_canvas.tag_bind(rect_id, "<Button-1>", self._on_canvas_region_click)
 
-    def _on_canvas_region_click(self, event: tk.Event[tk.Misc]) -> None:
+    def _on_canvas_region_click(self, event: ui.Event[ui.Misc]) -> None:
         current = self._reading_canvas.find_withtag("current")
         if not current:
             return
@@ -1059,7 +1059,7 @@ class MainWindow:
         self._select_region_by_id(region_id)
         self._render_current_reading_page()
 
-    def _on_canvas_press(self, event: tk.Event[tk.Misc]) -> None:
+    def _on_canvas_press(self, event: ui.Event[ui.Misc]) -> None:
         if not self._reading_active or self._extra_mode_active:
             return
         self._drag_start = (float(event.x), float(event.y))
@@ -1074,13 +1074,13 @@ class MainWindow:
             width=2,
         )
 
-    def _on_canvas_drag(self, event: tk.Event[tk.Misc]) -> None:
+    def _on_canvas_drag(self, event: ui.Event[ui.Misc]) -> None:
         if self._drag_start is None or self._drag_rect_id is None:
             return
         x0, y0 = self._drag_start
         self._reading_canvas.coords(self._drag_rect_id, x0, y0, event.x, event.y)
 
-    def _on_canvas_release(self, event: tk.Event[tk.Misc]) -> None:
+    def _on_canvas_release(self, event: ui.Event[ui.Misc]) -> None:
         if not self._reading_active or self._extra_mode_active or self._drag_start is None:
             return
         if self._drag_rect_id is None:
@@ -1240,10 +1240,10 @@ class MainWindow:
             self._x_factor = page_rect.width / max(pix.width, 1)
             self._y_factor = page_rect.height / max(pix.height, 1)
 
-            self._render_photo = tk.PhotoImage(data=pix.tobytes("ppm"), format="ppm")
+            self._render_photo = ui.PhotoImage(data=pix.tobytes("ppm"), format="ppm")
             self._reading_canvas.configure(width=pix.width, height=pix.height)
             self._reading_canvas.delete("all")
-            self._canvas_image_id = self._reading_canvas.create_image(0, 0, anchor=tk.NW, image=self._render_photo)
+            self._canvas_image_id = self._reading_canvas.create_image(0, 0, anchor=ui.NW, image=self._render_photo)
             self._reading_canvas.configure(scrollregion=(0, 0, pix.width, pix.height))
         except Exception as exc:
             self._reading_canvas.delete("all")
@@ -1336,25 +1336,25 @@ class MainWindow:
             return
 
         if self._extra_popup is None or not self._extra_popup.winfo_exists():
-            popup = tk.Toplevel(self.root)
+            popup = ui.Toplevel(self.root)
             popup.title(f"Extraseiten: {student.display_name}")
             popup.geometry("760x860")
             popup.transient(self.root)
             self._register_popup_window(popup)
 
-            header = ttk.Frame(popup, padding=10)
-            header.pack(fill=tk.X)
-            self._extra_popup_info_var = tk.StringVar(value="")
-            ttk.Label(header, textvariable=self._extra_popup_info_var, style="Muted.TLabel").pack(side=tk.LEFT)
+            header = widgets.Frame(popup, padding=10)
+            header.pack(fill=ui.X)
+            self._extra_popup_info_var = ui.StringVar(value="")
+            widgets.Label(header, textvariable=self._extra_popup_info_var, style="Muted.TLabel").pack(side=ui.LEFT)
 
-            self._extra_popup_canvas = tk.Canvas(popup, bg="#f2ede3", highlightthickness=1, highlightbackground="#b8aa96")
-            self._extra_popup_canvas.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+            self._extra_popup_canvas = ui.Canvas(popup, bg="#f2ede3", highlightthickness=1, highlightbackground="#b8aa96")
+            self._extra_popup_canvas.pack(fill=ui.BOTH, expand=True, padx=10, pady=(0, 10))
 
-            nav = ttk.Frame(popup, padding=(10, 0, 10, 10))
-            nav.pack(fill=tk.X)
-            ttk.Button(nav, text="◀", style="SecondaryAction.TButton", command=lambda: self._change_extra_popup_page(-1)).pack(side=tk.LEFT)
-            ttk.Button(nav, text="▶", style="SecondaryAction.TButton", command=lambda: self._change_extra_popup_page(1)).pack(side=tk.LEFT, padx=(8, 0))
-            ttk.Button(nav, text="Schließen", style="SecondaryAction.TButton", command=self._close_extra_popup).pack(side=tk.RIGHT)
+            nav = widgets.Frame(popup, padding=(10, 0, 10, 10))
+            nav.pack(fill=ui.X)
+            widgets.Button(nav, text="◀", style="SecondaryAction.TButton", command=lambda: self._change_extra_popup_page(-1)).pack(side=ui.LEFT)
+            widgets.Button(nav, text="▶", style="SecondaryAction.TButton", command=lambda: self._change_extra_popup_page(1)).pack(side=ui.LEFT, padx=(8, 0))
+            widgets.Button(nav, text="Schließen", style="SecondaryAction.TButton", command=self._close_extra_popup).pack(side=ui.RIGHT)
 
             popup.protocol("WM_DELETE_WINDOW", self._close_extra_popup)
             self._extra_popup = popup
@@ -1406,10 +1406,10 @@ class MainWindow:
         scale = 700.0 / max(page_rect.width, 1.0)
         pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
         try:
-            self._popup_photo = tk.PhotoImage(data=pix.tobytes("ppm"), format="ppm")
+            self._popup_photo = ui.PhotoImage(data=pix.tobytes("ppm"), format="ppm")
             self._extra_popup_canvas.configure(width=pix.width, height=pix.height)
             self._extra_popup_canvas.delete("all")
-            self._extra_popup_canvas.create_image(0, 0, anchor=tk.NW, image=self._popup_photo)
+            self._extra_popup_canvas.create_image(0, 0, anchor=ui.NW, image=self._popup_photo)
         except Exception as exc:
             self._extra_popup_canvas.delete("all")
             self._extra_popup_info_var.set(f"Fehler beim Popup-Rendering: {exc}")
@@ -1435,7 +1435,7 @@ class MainWindow:
 
     def _focus_first_input_field(self) -> None:
         self._task_code_entry.focus_set()
-        self._task_code_entry.selection_range(0, tk.END)
+        self._task_code_entry.selection_range(0, ui.END)
 
     def start_reading_mode_for_current_exam(self) -> None:
         self._start_reading_mode()
@@ -1463,7 +1463,7 @@ class MainWindow:
         self._reading_canvas.delete("all")
         self._active_region_var.set("-")
         self._quick_tasks_var.set("")
-        self._form_tasks_text.delete("1.0", tk.END)
+        self._form_tasks_text.delete("1.0", ui.END)
         self._refresh_region_tree()
         panes = [str(widget) for widget in self._content_pane.panes()]
         if str(self._detail_panel) in panes:
@@ -1478,7 +1478,7 @@ class MainWindow:
     def _show_correction_controls(self) -> None:
         if self._correction_controls_frame is None:
             return
-        self._correction_controls_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+        self._correction_controls_frame.pack(fill=ui.BOTH, expand=True, pady=(10, 0))
 
     def _hide_correction_controls(self) -> None:
         if self._correction_controls_frame is None:
@@ -1495,33 +1495,33 @@ class MainWindow:
 
         # Reading and extra share the same workspace but with different tool rows.
         self._hide_correction_controls()
-        self._reading_workspace_frame.pack(fill=tk.BOTH, expand=True)
+        self._reading_workspace_frame.pack(fill=ui.BOTH, expand=True)
 
         if mode == "extra":
             self._reading_toolbar.pack_forget()
             self._mode_row.pack_forget()
             self._regions_editor.pack_forget()
-            self._extra_toolbar.pack(fill=tk.X, pady=(6, 0))
+            self._extra_toolbar.pack(fill=ui.X, pady=(6, 0))
             return
 
         # default reading mode
         self._extra_toolbar.pack_forget()
-        self._reading_toolbar.pack(fill=tk.X)
-        self._mode_row.pack(fill=tk.X, pady=(8, 0))
-        self._regions_editor.pack(fill=tk.BOTH, pady=(10, 0))
+        self._reading_toolbar.pack(fill=ui.X)
+        self._mode_row.pack(fill=ui.X, pady=(8, 0))
+        self._regions_editor.pack(fill=ui.BOTH, pady=(10, 0))
 
     def _refresh_task_input_mode(self) -> None:
         mode = self._assignment_mode_var.get()
         if mode == "form":
             self._quick_tasks_entry.pack_forget()
-            self._form_tasks_text.pack(fill=tk.X, pady=(4, 0))
+            self._form_tasks_text.pack(fill=ui.X, pady=(4, 0))
         else:
             self._form_tasks_text.pack_forget()
-            self._quick_tasks_entry.pack(fill=tk.X)
+            self._quick_tasks_entry.pack(fill=ui.X)
 
     def _read_task_specs_from_editor(self) -> list[tuple[str, float]] | None:
         if self._assignment_mode_var.get() == "form":
-            raw = self._form_tasks_text.get("1.0", tk.END).strip()
+            raw = self._form_tasks_text.get("1.0", ui.END).strip()
             if not raw:
                 return []
             items = [line.strip() for line in raw.splitlines() if line.strip()]
@@ -1571,7 +1571,7 @@ class MainWindow:
             area = region.assigned_area_codes[0] if region.assigned_area_codes else "-"
             row_id = self._regions_tree.insert(
                 "",
-                tk.END,
+                ui.END,
                 values=(area, region.student_pdf, region.page_number),
             )
             self._region_tree_rows[row_id] = region.region_id
@@ -1607,7 +1607,7 @@ class MainWindow:
         quick_text = ";".join(f"{task.code}:{task.max_points:g}" for task in region.tasks)
         form_text = "\n".join(f"{task.code}:{task.max_points:g}" for task in region.tasks)
         self._quick_tasks_var.set(quick_text)
-        self._form_tasks_text.delete("1.0", tk.END)
+        self._form_tasks_text.delete("1.0", ui.END)
         self._form_tasks_text.insert("1.0", form_text)
 
     def _save_selected_region(self) -> None:
@@ -1651,11 +1651,13 @@ class MainWindow:
         self._selected_region_id = None
         self._active_region_var.set("-")
         self._quick_tasks_var.set("")
-        self._form_tasks_text.delete("1.0", tk.END)
+        self._form_tasks_text.delete("1.0", ui.END)
         self._refresh_region_tree()
         self._apply_detail_labels(self._current_exam)
         self._render_current_reading_page()
 
-    def _on_delete_region_key(self, _event: tk.Event[tk.Misc]) -> None:
+    def _on_delete_region_key(self, _event: ui.Event[ui.Misc]) -> None:
         self._delete_selected_region()
+
+
 
