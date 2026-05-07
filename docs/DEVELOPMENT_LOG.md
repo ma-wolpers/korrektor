@@ -3,6 +3,7 @@
 ## [Unreleased]
 - Tk-Runtime-Pilotmigration erweitert: `app/app.py` initialisiert das Root-Window jetzt ueber `bw_gui.runtime.ui` statt direktem `tkinter`-Import.
 - Tk/ttk-Runtime-Pilotmigration gestartet: `app/adapters/gui/main_window.py` nutzt jetzt zentrale Runtime-Aliases aus `bw_gui.runtime` (`ui`/`widgets`) statt direkter `tkinter`-/`ttk`-Imports.
+- Tk-Runtime-Pilotmigration erweitert: `bw_libs/app_shell.py` nutzt jetzt `bw_gui.runtime.ui` statt direktem `tkinter`-Import.
 - Shared-Dialogmigration gestartet: zentrale Bridge `app/adapters/gui/dialog_services.py` auf `bw_gui.dialogs` eingefuehrt; `ui_intent_controller.py` und `main_window.py` nutzen jetzt Shared `messagebox`/`simpledialog`/`filedialog`-Services statt direkter `tkinter`-Dialogimports.
 - Pilotmigration zum gemeinsamen GUI-Core gestartet: `bw-gui` als Git-Submodule eingebunden und `bw_libs/ui_contract/*` via Bridge auf `bw_gui.contracts.*` umgestellt, sodass Keybinding-/Popup-/HSM-Vertraege aus der gemeinsamen Quelle geladen werden.
 - Testsuche gehaertet: `pytest.ini` begrenzt die Sammlung auf `tests`, damit Submodule-Tests nicht unbeabsichtigt in Korrektor-Laeufe einfließen.

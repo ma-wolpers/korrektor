@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Callable
-import tkinter as tk
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui
 
 
 @dataclass(frozen=True)
@@ -20,7 +23,7 @@ class TkinterAppShell:
 
     def __init__(
         self,
-        root: tk.Tk,
+        root: ui.Tk,
         config: AppShellConfig,
         *,
         on_close: Callable[[], bool | None] | None = None,
