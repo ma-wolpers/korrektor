@@ -36,6 +36,15 @@ ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
 
 try:
+    from bw_gui.menu import CustomMenuBar as SharedCustomMenuBar
+    from bw_gui.menu import MenuDefinition as SharedMenuDefinition
+    from bw_gui.menu import MenuItem as SharedMenuItem
+except ModuleNotFoundError:
+    SharedCustomMenuBar = None
+    SharedMenuDefinition = None
+    SharedMenuItem = None
+
+try:
     from bw_gui.shortcuts import compose_hover_text as compose_shared_hover_text
     from bw_gui.widgets import HoverTooltip as SharedHoverTooltip
 except ModuleNotFoundError:
@@ -132,6 +141,7 @@ class MainWindow:
         )
         self._tracked_popup_ids: set[str] = set()
         self._shared_tooltip_theme_key = "sand_terracotta"
+        self._shared_menu_bar = None
         self._hover_tooltips: list[object] = []
         self._hsm_contract = build_ui_hsm_contract(
             intents=[
@@ -146,6 +156,7 @@ class MainWindow:
 
         self._build_styles()
         self._build_layout()
+        self._build_menu_bar()
 
     def _attach_hover_help(self, widget: ui.Widget, *, label: str, shortcut: str | None = None) -> None:
         """Attach hover help; shortcut details are shown here, not in button labels."""
@@ -160,6 +171,86 @@ class MainWindow:
             text = f"{label}\nShortcut: {shortcut_text}" if shortcut_text else label
         tooltip = SharedHoverTooltip(widget, text, theme_key=self._shared_tooltip_theme_key)
         self._hover_tooltips.append(tooltip)
+
+    def _build_menu_bar(self) -> None:
+        """Build shared top-level menu for core file/mode/debug actions."""
+
+        if SharedCustomMenuBar is None or SharedMenuDefinition is None or SharedMenuItem is None:
+            self.root.config(menu="")
+            return
+
+        if self._shared_menu_bar is not None:
+            self._shared_menu_bar.destroy()
+
+        definitions = (
+            SharedMenuDefinition(
+                key="file",
+                label="Datei",
+                alt="d",
+                items_provider=self._menu_items_file,
+            ),
+            SharedMenuDefinition(
+                key="mode",
+                label="Modus",
+                alt="m",
+                items_provider=self._menu_items_mode,
+            ),
+            SharedMenuDefinition(
+                key="debug",
+                label="Debug",
+                alt="b",
+                items_provider=self._menu_items_debug,
+            ),
+        )
+
+        self._shared_menu_bar = SharedCustomMenuBar(
+            self.root,
+            definitions,
+            theme_key=self._shared_tooltip_theme_key,
+        )
+        self._shared_menu_bar.build()
+        self.root.config(menu="")
+
+    def _menu_create_exam(self) -> None:
+        if self._controller is not None:
+            self._controller.create_exam()
+
+    def _menu_open_selected_exam(self) -> None:
+        if self._controller is not None:
+            self._controller.open_selected_exam()
+
+    def _menu_items_file(self):
+        return (
+            SharedMenuItem(type="command", label="Neue Klausur (Strg+N)", command=self._menu_create_exam),
+            SharedMenuItem(type="command", label="Ausgewaehlte Klausur oeffnen", command=self._menu_open_selected_exam),
+            SharedMenuItem(type="separator"),
+            SharedMenuItem(type="command", label="Einstellungen", command=self._open_settings_dialog),
+            SharedMenuItem(type="separator"),
+            SharedMenuItem(type="command", label="Beenden", command=self.root.destroy),
+        )
+
+    def _menu_items_mode(self):
+        return (
+            SharedMenuItem(type="command", label="Einlesemodus starten", command=self._start_reading_mode),
+            SharedMenuItem(type="command", label="Korrekturmodus starten", command=self._start_correction_mode),
+            SharedMenuItem(type="command", label="Extraseiten-Modus starten", command=self._start_extra_mode),
+            SharedMenuItem(type="separator"),
+            SharedMenuItem(type="command", label="Zur Uebersicht", command=self._return_to_overview),
+        )
+
+    def _menu_items_debug(self):
+        return (
+            SharedMenuItem(
+                type="command",
+                label="Shortcut-Runtime-Debug anzeigen (Strg+Shift+D)",
+                command=self._open_shortcut_runtime_debug_dialog,
+            ),
+            SharedMenuItem(
+                type="command",
+                label="Offline simulieren umschalten (Strg+Shift+O)",
+                command=self._toggle_runtime_offline,
+            ),
+        )
 
     def set_controller(self, controller: "UiIntentController") -> None:
         self._controller = controller
@@ -525,6 +616,9 @@ class MainWindow:
         if callable(normalize_shared_theme_key):
             theme_value = normalize_shared_theme_key(theme_value)
         self._shared_tooltip_theme_key = theme_value
+
+        if self._shared_menu_bar is not None:
+            self._shared_menu_bar.refresh_theme(self._shared_tooltip_theme_key)
 
         for tooltip in self._hover_tooltips:
             try:
