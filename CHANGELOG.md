@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- In der Korrekturansicht toggelt `Leertaste` jetzt verlaesslich `Fertig korrigiert` (auch wenn der Fokus noch im Punktefeld liegt).
+- Die Detailzeile wurde vereinfacht auf `Fertig korrigiert X/Y`; die Anzeige `Aktive Person` erscheint dort nicht mehr, sondern nur in den Arbeitsansichten.
+- Im Extraseitenmodus zeigt die Bereichstabelle jetzt `Bereich | Aufgaben | Seite` (statt PDF), startet pro aktueller Extraseite ohne Altzeilen und hat eine kompakte Bereich/Aufgaben-Uebersicht ueber der Tabelle.
+- Die globale Kopfzeile wurde entfernt; stattdessen haben alle Ansichten konsistente, eigene Ueberschriften.
 - Im Korrekturmodus funktionieren Tastaturwege jetzt wie im Arbeitsfluss: links/rechts wechselt Person, hoch/runter wechselt Aufgabe, Strg+hoch/runter wechselt Bereich.
 - Neues Feld `Fertig korrigiert` pro Person+Bereich: es wird erst aktiv, wenn alle Aufgaben Punkte haben, und sperrt bei Aktivierung die Punkteingabe in diesem Bereich.
 - Die Detailzeile `Bereiche` zeigt jetzt zusaetzlich, wie viele Bereiche bei allen Personen als fertig markiert sind.

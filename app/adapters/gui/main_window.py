@@ -112,9 +112,12 @@ class MainWindow:
         self._reading_active = False
         self._reading_student_cursor = 0
         self._reading_page = 1
+        self._reading_mode_title_var = ui.StringVar(value="Einlesen")
         self._reading_info_var = ui.StringVar(value="Einlesemodus: nicht aktiv")
         self._assignment_mode_var = ui.StringVar(value="quick")
         self._superpage_var = ui.BooleanVar(value=False)
+        self._extra_overview_var = ui.StringVar(value="")
+        self._extra_overview_frame: widgets.Frame | None = None
         self._extra_mode_active = False
         self._extra_sequence: list[tuple[int, int]] = []
         self._extra_cursor = 0
@@ -174,6 +177,7 @@ class MainWindow:
                 UiIntent.DETAIL_NAVIGATE_DOWN,
                 UiIntent.DETAIL_NAVIGATE_CTRL_UP,
                 UiIntent.DETAIL_NAVIGATE_CTRL_DOWN,
+                UiIntent.CORRECTION_TOGGLE_FINISHED,
                 UiIntent.DEBUG_RUNTIME_OVERLAY,
                 UiIntent.DEBUG_RUNTIME_OFFLINE,
             ]
@@ -369,6 +373,14 @@ class MainWindow:
             self._on_ctrl_down_key,
             binding_id="detail.ctrl_down",
             intent=UiIntent.DETAIL_NAVIGATE_CTRL_DOWN,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<space>",
+            self._on_space_key,
+            binding_id="correction.toggle_finished",
+            intent=UiIntent.CORRECTION_TOGGLE_FINISHED,
             modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
             allow_when_text_input=True,
         )
@@ -835,22 +847,18 @@ class MainWindow:
         shell = widgets.Frame(self.root, style="App.TFrame", padding=16)
         shell.pack(fill=ui.BOTH, expand=True)
 
-        title_row = widgets.Frame(shell, style="App.TFrame")
-        title_row.pack(fill=ui.X)
-
-        widgets.Label(title_row, text="Korrektor", style="Title.TLabel").pack(side=ui.LEFT)
-        widgets.Label(title_row, text="Workflow fuer Einlesen und Korrektur", style="Muted.TLabel").pack(side=ui.LEFT, padx=(12, 0), pady=(8, 0))
-
         self._view_stack = widgets.Frame(shell, style="App.TFrame")
-        self._view_stack.pack(fill=ui.BOTH, expand=True, pady=(14, 10))
+        self._view_stack.pack(fill=ui.BOTH, expand=True, pady=(0, 10))
 
         self._overview_view = widgets.Frame(self._view_stack, style="Surface.TFrame", padding=12)
         self._detail_view = widgets.Frame(self._view_stack, style="Surface.TFrame", padding=12)
         self._reading_view = widgets.Frame(self._view_stack, style="Surface.TFrame", padding=12)
         self._correction_view = widgets.Frame(self._view_stack, style="Surface.TFrame", padding=12)
 
+        widgets.Label(self._overview_view, text="Uebersicht", style="Title.TLabel").pack(anchor=ui.W)
+
         overview_actions = widgets.Frame(self._overview_view, style="Surface.TFrame")
-        overview_actions.pack(fill=ui.X, pady=(0, 10))
+        overview_actions.pack(fill=ui.X, pady=(8, 10))
 
         create_exam_button = widgets.Button(
             overview_actions,
@@ -946,7 +954,7 @@ class MainWindow:
         self._detail_name = ui.StringVar(value="-")
         self._detail_pages = ui.StringVar(value="Standardseiten: -")
         self._detail_students = ui.StringVar(value="Schüler:innen: -")
-        self._detail_regions = ui.StringVar(value="Bereiche: -")
+        self._detail_regions = ui.StringVar(value="Fertig korrigiert -")
         self._detail_status = ui.StringVar(value="Status: -")
         self._active_student = ui.StringVar(value="Aktive Person: -")
 
@@ -1051,7 +1059,8 @@ class MainWindow:
         next_student_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(next_student_button, label="Naechste Person", shortcut="Rechts")
 
-        widgets.Label(self._reading_view, textvariable=self._reading_info_var, style="Muted.TLabel").pack(anchor=ui.W, pady=(0, 8))
+        widgets.Label(self._reading_view, textvariable=self._reading_mode_title_var, style="Title.TLabel").pack(anchor=ui.W)
+        widgets.Label(self._reading_view, textvariable=self._reading_info_var, style="Muted.TLabel").pack(anchor=ui.W, pady=(4, 8))
 
         reading_nav = widgets.Frame(self._reading_view, style="Surface.TFrame")
         reading_nav.pack(fill=ui.X, pady=(0, 8))
@@ -1201,20 +1210,30 @@ class MainWindow:
         self._regions_editor = widgets.Frame(editor_panel, style="Surface.TFrame")
         self._regions_editor.pack(fill=ui.BOTH, pady=(10, 0))
 
+        self._extra_overview_frame = widgets.Frame(self._regions_editor, style="Surface.TFrame")
+        widgets.Label(self._extra_overview_frame, text="Vorhandene Bereiche/Aufgaben", style="Muted.TLabel").pack(anchor=ui.W)
+        widgets.Label(
+            self._extra_overview_frame,
+            textvariable=self._extra_overview_var,
+            style="Muted.TLabel",
+            justify=ui.LEFT,
+        ).pack(anchor=ui.W, fill=ui.X, pady=(2, 0))
+        self._extra_overview_frame.pack_forget()
+
         regions_tree_shell = widgets.Frame(self._regions_editor, style="Surface.TFrame")
         regions_tree_shell.pack(fill=ui.BOTH, expand=True)
 
         self._regions_tree = widgets.Treeview(
             regions_tree_shell,
-            columns=("area", "student", "page"),
+            columns=("area", "tasks", "page"),
             show="headings",
             height=5,
         )
         self._regions_tree.heading("area", text="Bereich")
-        self._regions_tree.heading("student", text="PDF")
+        self._regions_tree.heading("tasks", text="Aufgaben")
         self._regions_tree.heading("page", text="Seite")
         self._regions_tree.column("area", width=80, anchor=ui.CENTER)
-        self._regions_tree.column("student", width=180, anchor=ui.W)
+        self._regions_tree.column("tasks", width=220, anchor=ui.W)
         self._regions_tree.column("page", width=80, anchor=ui.CENTER)
 
         regions_tree_scroll = widgets.Scrollbar(regions_tree_shell, orient=ui.VERTICAL)
@@ -1531,11 +1550,7 @@ class MainWindow:
         self._detail_name.set(f"Name: {exam.exam_name}")
         self._detail_pages.set(f"Standardseiten: {exam.standard_page_count}")
         self._detail_students.set(f"Schüler:innen: {len(exam.students)}")
-        self._detail_regions.set(
-            "Bereiche: "
-            f"{progress.corrected_region_count}/{progress.region_count} korrigiert"
-            f" | Fertig (alle Personen): {progress.fully_finished_area_count}/{progress.total_area_count}"
-        )
+        self._detail_regions.set(f"Fertig korrigiert {progress.fully_finished_area_count}/{progress.total_area_count}")
         flags = []
         if progress.has_unassigned_extra_pages:
             flags.append("Extraseiten offen")
@@ -1595,7 +1610,7 @@ class MainWindow:
         self._detail_name.set("-")
         self._detail_pages.set("Standardseiten: -")
         self._detail_students.set("Schüler:innen: -")
-        self._detail_regions.set("Bereiche: -")
+        self._detail_regions.set("Fertig korrigiert -")
         self._detail_status.set("Status: -")
         self._active_student.set("Aktive Person: -")
         self._reading_active = False
@@ -1614,9 +1629,14 @@ class MainWindow:
         self._status_var.set(text)
 
     def _refresh_active_student_label(self) -> None:
+        if self._active_view not in {"reading", "correction"}:
+            self._active_student.set("Aktive Person: -")
+            return
+
         if not self._current_exam or not self._current_exam.students:
             self._active_student.set("Aktive Person: -")
             return
+
         if self._correction_mode_active and self._correction_student_indices:
             idx = self._correction_student_indices[self._correction_cursor]
             student = self._current_exam.students[idx]
@@ -1625,9 +1645,21 @@ class MainWindow:
             )
             return
 
-        student = self._current_exam.students[self._student_cursor]
+        if not self._reading_active and not self._extra_mode_active:
+            self._active_student.set("Aktive Person: -")
+            return
+
+        if self._extra_mode_active and self._extra_sequence:
+            student_index, _page_number = self._extra_sequence[self._extra_cursor]
+            student = self._current_exam.students[student_index]
+            self._active_student.set(
+                f"Aktive Person: {student.display_name} ({self._extra_cursor + 1}/{len(self._extra_sequence)})"
+            )
+            return
+
+        student = self._current_exam.students[self._reading_student_cursor]
         self._active_student.set(
-            f"Aktive Person: {student.display_name} ({self._student_cursor + 1}/{len(self._current_exam.students)})"
+            f"Aktive Person: {student.display_name} ({self._reading_student_cursor + 1}/{len(self._current_exam.students)})"
         )
 
     def _on_points_focus_out(self, _event: ui.Event[ui.Misc]) -> None:
@@ -1716,6 +1748,17 @@ class MainWindow:
         if self._active_view == "correction" and self._correction_mode_active:
             self._cycle_correction_area(1)
 
+    def _on_space_key(self, _event: ui.Event[ui.Misc]):
+        if self._active_view != "correction" or not self._correction_mode_active:
+            return None
+        if self._correction_finished_check is None:
+            return "break"
+        if str(self._correction_finished_check.cget("state")) == "disabled":
+            return "break"
+        self._correction_finished_var.set(not bool(self._correction_finished_var.get()))
+        self._on_correction_finished_toggled()
+        return "break"
+
     def _commit_points_if_possible(self) -> None:
         if self._correction_mode_active:
             self._save_current_correction_score()
@@ -1740,8 +1783,11 @@ class MainWindow:
         self._reading_active = True
         self._reading_student_cursor = 0
         self._reading_page = 1
+        self._selected_region_id = None
+        self._selected_region_kind = None
         self._set_detail_submode("reading")
         self._show_view("reading")
+        self._refresh_region_tree()
         self._render_current_reading_page()
         self._status_var.set("Einlesemodus aktiv")
 
@@ -1768,8 +1814,11 @@ class MainWindow:
         self._stop_correction_mode(silent=True)
         self._extra_sequence = sequence
         self._extra_cursor = 0
+        self._selected_region_id = None
+        self._selected_region_kind = None
         self._set_detail_submode("extra")
         self._show_view("reading")
+        self._refresh_region_tree()
         self._render_current_extra_page()
         self._status_var.set("Extraseiten-Modus aktiv")
 
@@ -2909,12 +2958,14 @@ class MainWindow:
             frame.pack_forget()
         target.pack(fill=ui.BOTH, expand=True)
         self._active_view = view_name
+        self._refresh_active_student_label()
 
     def _leave_reading_view(self) -> None:
         self._reading_active = False
         self._extra_mode_active = False
         self._superpage_var.set(False)
         self._extra_sequence = []
+        self._reading_mode_title_var.set("Einlesen")
         self._clear_pending_redraw()
         self._close_extra_popup()
         self._reading_info_var.set("Einlesemodus: bereit")
@@ -2935,9 +2986,10 @@ class MainWindow:
         self._detail_name.set("-")
         self._detail_pages.set("Standardseiten: -")
         self._detail_students.set("Schüler:innen: -")
-        self._detail_regions.set("Bereiche: -")
+        self._detail_regions.set("Fertig korrigiert -")
         self._detail_status.set("Status: -")
         self._active_student.set("Aktive Person: -")
+        self._reading_mode_title_var.set("Einlesen")
         self._reading_info_var.set("Einlesemodus: nicht aktiv")
         if hasattr(self, "_correction_info_var"):
             self._correction_info_var.set("Korrektur: nicht aktiv")
@@ -2978,20 +3030,27 @@ class MainWindow:
         self._hide_correction_controls()
 
         if mode == "extra":
+            self._reading_mode_title_var.set("Extraseiten")
             self._reading_toolbar.pack_forget()
             self._mode_row.pack_forget()
             self._regions_editor.pack(fill=ui.BOTH, pady=(10, 0))
+            if self._extra_overview_frame is not None:
+                self._extra_overview_frame.pack_forget()
+                self._extra_overview_frame.pack(fill=ui.X, pady=(0, 6), before=self._regions_tree.master)
             self._task_input_container.pack_forget()
             self._extra_area_container.pack(fill=ui.X, pady=(4, 0))
             self._extra_toolbar.pack(fill=ui.X, pady=(6, 0))
             return
 
+        self._reading_mode_title_var.set("Einlesen")
         self._extra_toolbar.pack_forget()
         self._reading_toolbar.pack(fill=ui.X)
         self._superpage_toggle.pack_forget()
         self._superpage_toggle.pack(side=ui.RIGHT)
         self._mode_row.pack(fill=ui.X, pady=(8, 0))
         self._regions_editor.pack(fill=ui.BOTH, pady=(10, 0))
+        if self._extra_overview_frame is not None:
+            self._extra_overview_frame.pack_forget()
         self._extra_area_container.pack_forget()
         self._task_input_container.pack(fill=ui.X)
 
@@ -3051,13 +3110,69 @@ class MainWindow:
             value -= 1
         return result
 
+    @staticmethod
+    def _format_area_label(area_codes: list[str]) -> str:
+        labels = [code.strip().upper() for code in area_codes if code.strip()]
+        return ", ".join(labels) if labels else "-"
+
+    @staticmethod
+    def _format_task_specs_text(task_specs: list[tuple[str, float]]) -> str:
+        if not task_specs:
+            return "-"
+        return ", ".join(f"{code}({max_points:g})" for code, max_points in task_specs)
+
+    def _build_standard_area_task_map(self) -> dict[str, list[tuple[str, float]]]:
+        mapping: dict[str, list[tuple[str, float]]] = {}
+        if self._current_exam is None:
+            return mapping
+
+        for region in self._current_exam.regions:
+            task_specs = [(task.code, task.max_points) for task in region.tasks]
+            for code in region.assigned_area_codes:
+                normalized = code.strip().upper()
+                if not normalized or normalized in mapping:
+                    continue
+                mapping[normalized] = task_specs
+        return mapping
+
+    def _format_tasks_for_areas(self, area_codes: list[str]) -> str:
+        normalized_area_codes = [code.strip().upper() for code in area_codes if code.strip()]
+        if not normalized_area_codes:
+            return "-"
+
+        area_tasks = self._build_standard_area_task_map()
+        parts: list[str] = []
+        for area_code in normalized_area_codes:
+            task_text = self._format_task_specs_text(area_tasks.get(area_code, []))
+            parts.append(f"{area_code}: {task_text}")
+        return " | ".join(parts)
+
+    def _refresh_extra_overview(self) -> None:
+        if not self._extra_mode_active:
+            self._extra_overview_var.set("")
+            return
+
+        area_tasks = self._build_standard_area_task_map()
+        if not area_tasks:
+            self._extra_overview_var.set("Noch keine Standardbereiche vorhanden.")
+            return
+
+        lines = [
+            f"{area_code}: {self._format_task_specs_text(task_specs)}"
+            for area_code, task_specs in sorted(area_tasks.items())
+        ]
+        self._extra_overview_var.set("\n".join(lines))
+
     def _refresh_region_tree(self) -> None:
         self._region_tree_rows.clear()
         for item in self._regions_tree.get_children():
             self._regions_tree.delete(item)
 
         if self._current_exam is None:
+            self._extra_overview_var.set("")
             return
+
+        self._refresh_extra_overview()
 
         if self._extra_mode_active and self._extra_sequence:
             student_index, page_number = self._extra_sequence[self._extra_cursor]
@@ -3065,20 +3180,21 @@ class MainWindow:
             for assignment in self._current_exam.extra_page_assignments:
                 if assignment.student_pdf != student_pdf or assignment.page_number != page_number:
                     continue
-                area = assignment.assigned_area_codes[0] if assignment.assigned_area_codes else "-"
+                area = self._format_area_label(assignment.assigned_area_codes)
                 row_id = self._regions_tree.insert(
                     "",
                     ui.END,
-                    values=(area, assignment.student_pdf, assignment.page_number),
+                    values=(area, self._format_tasks_for_areas(assignment.assigned_area_codes), assignment.page_number),
                 )
                 self._region_tree_rows[row_id] = ("extra", assignment.assignment_id)
         else:
             for region in self._current_exam.regions:
-                area = region.assigned_area_codes[0] if region.assigned_area_codes else "-"
+                area = self._format_area_label(region.assigned_area_codes)
+                tasks_text = self._format_task_specs_text([(task.code, task.max_points) for task in region.tasks])
                 row_id = self._regions_tree.insert(
                     "",
                     ui.END,
-                    values=(area, "Template", region.page_number),
+                    values=(area, tasks_text, region.page_number),
                 )
                 self._region_tree_rows[row_id] = ("region", region.region_id)
 
@@ -3090,11 +3206,16 @@ class MainWindow:
                     continue
             elif draft.student_pdf:
                 continue
-            area = draft.area_codes[0] if draft.area_codes else "-"
+            area = self._format_area_label(draft.area_codes)
+            tasks_text = (
+                self._format_tasks_for_areas(draft.area_codes)
+                if self._extra_mode_active
+                else self._format_task_specs_text(draft.task_specs)
+            )
             row_id = self._regions_tree.insert(
                 "",
                 ui.END,
-                values=(f"{area}*", draft.student_pdf or "Template", draft.page_number),
+                values=(f"{area}*", tasks_text, draft.page_number),
             )
             self._region_tree_rows[row_id] = ("draft", draft.draft_id)
 

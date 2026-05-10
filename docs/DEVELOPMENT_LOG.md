@@ -1,6 +1,11 @@
 # Development Log
 
 ## [Unreleased]
+- Korrekturmodus-Shortcut ergaenzt: `Leertaste` toggelt jetzt robust `Fertig korrigiert` (auch bei Fokus im Punktefeld) und nutzt dafuer einen eigenen zentralen Runtime-Intent.
+- Detail-Hub semantisch bereinigt: die Bereichszeile zeigt jetzt eindeutig `Fertig korrigiert X/Y`; `Aktive Person` wird in der Detailansicht nicht mehr angezeigt, sondern nur in Arbeitsansichten (Einlesen/Korrektur).
+- Extraseiten-Editor ueberarbeitet: die Tabelle zeigt jetzt `Bereich | Aufgaben | Seite` statt PDF-Spalte und startet seitenlokal leer, wenn fuer die aktuelle Extraseite noch keine Zuordnung existiert.
+- Extraseiten-Workflow ergaenzt: oberhalb der Extraseiten-Tabelle wird eine kompakte Uebersicht aller vorhandenen Standardbereiche mit Aufgaben eingeblendet.
+- View-Hierarchie vereinheitlicht: globale Kopfzeile entfernt, stattdessen klare Ueberschriften je View (`Uebersicht`, `Klausur-Details`, `Einlesen`/`Extraseiten`, `Korrektur`).
 - Korrektur-Navigation per Tastatur erweitert: links/rechts wechselt Person, hoch/runter wechselt Aufgabe, Strg+hoch/runter wechselt Bereich.
 - Korrektur-Workflow um person+bereichsbezogenen Fertigstatus erweitert: `Fertig korrigiert` wird erst bei vollstaendig bewerteten Aufgaben aktiv und sperrt danach die Punkteingabe fuer diese Kombination.
 - Detailanzeige `Bereiche` erweitert: zusaetzlich zur Korrekturquote wird jetzt angezeigt, wie viele Bereiche bei allen Personen als fertig markiert sind.
