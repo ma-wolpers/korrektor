@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Non-theme shared UI fallback branches were removed from the main window integration: shared menu, hover tooltip formatting, and shared tabbed settings are now mandatory runtime paths.
 - Theme fallback/special paths in the main window style pipeline were removed; Korrektor now requires the shared `bw_gui.theming` path consistently for window, ttk, and canvas token updates.
 - Reading and extra-page preview canvases now derive their surface and border colors from the shared theme tokens, so these workspaces update visually with theme changes.
 - Main widget styling now applies the shared `bw_gui.theming` baseline tokens, and changing the tooltip/theme setting re-applies window and ttk styles immediately for closer cross-app visual parity.

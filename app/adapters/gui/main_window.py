@@ -34,33 +34,15 @@ from app.core.domain.progress import ProgressCalculator
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
-
-try:
-    from bw_gui.menu import CustomMenuBar as SharedCustomMenuBar
-    from bw_gui.menu import MenuDefinition as SharedMenuDefinition
-    from bw_gui.menu import MenuItem as SharedMenuItem
-except ModuleNotFoundError:
-    SharedCustomMenuBar = None
-    SharedMenuDefinition = None
-    SharedMenuItem = None
-
-try:
-    from bw_gui.shortcuts import compose_hover_text
-    from bw_gui.widgets import HoverTooltip as SharedHoverTooltip
-except ModuleNotFoundError:
-    compose_hover_text = None
-    SharedHoverTooltip = None
-
-try:
-    from bw_gui.dialogs import SettingsDialogSpec as SharedSettingsDialogSpec
-    from bw_gui.dialogs import SettingsFieldSpec as SharedSettingsFieldSpec
-    from bw_gui.dialogs import SettingsSectionSpec as SharedSettingsSectionSpec
-    from bw_gui.dialogs import open_tabbed_settings_dialog
-except ModuleNotFoundError:
-    SharedSettingsDialogSpec = None
-    SharedSettingsFieldSpec = None
-    SharedSettingsSectionSpec = None
-    open_tabbed_settings_dialog = None
+from bw_gui.dialogs import SettingsDialogSpec as SharedSettingsDialogSpec
+from bw_gui.dialogs import SettingsFieldSpec as SharedSettingsFieldSpec
+from bw_gui.dialogs import SettingsSectionSpec as SharedSettingsSectionSpec
+from bw_gui.dialogs import open_tabbed_settings_dialog
+from bw_gui.menu import CustomMenuBar as SharedCustomMenuBar
+from bw_gui.menu import MenuDefinition as SharedMenuDefinition
+from bw_gui.menu import MenuItem as SharedMenuItem
+from bw_gui.shortcuts import compose_hover_text
+from bw_gui.widgets import HoverTooltip as SharedHoverTooltip
 
 from bw_gui.theming import THEME_ORDER
 from bw_gui.theming import apply_window_theme
@@ -163,23 +145,13 @@ class MainWindow:
     def _attach_hover_help(self, widget: ui.Widget, *, label: str, shortcut: str | None = None) -> None:
         """Attach hover help; shortcut details are shown here, not in button labels."""
 
-        if SharedHoverTooltip is None:
-            return
-
         shortcut_text = (shortcut or "").strip()
-        if compose_hover_text is not None:
-            text = compose_hover_text(label, shortcut_text)
-        else:
-            text = f"{label}\nShortcut: {shortcut_text}" if shortcut_text else label
+        text = compose_hover_text(label, shortcut_text)
         tooltip = SharedHoverTooltip(widget, text, theme_key=self._tooltip_theme_key)
         self._hover_tooltips.append(tooltip)
 
     def _build_menu_bar(self) -> None:
         """Build shared top-level menu for core file/mode/debug actions."""
-
-        if SharedCustomMenuBar is None or SharedMenuDefinition is None or SharedMenuItem is None:
-            self.root.config(menu="")
-            return
 
         if self._menu_bar is not None:
             self._menu_bar.destroy()
@@ -569,9 +541,6 @@ class MainWindow:
     def _build_settings_dialog_spec(self):
         """Build shared settings schema for Korrektor runtime options."""
 
-        if SharedSettingsDialogSpec is None or SharedSettingsSectionSpec is None or SharedSettingsFieldSpec is None:
-            return None
-
         return SharedSettingsDialogSpec(
             sections=(
                 SharedSettingsSectionSpec(
@@ -651,17 +620,7 @@ class MainWindow:
     def _open_settings_dialog(self) -> None:
         """Open shared tabbed settings dialog for runtime UI options."""
 
-        if open_tabbed_settings_dialog is None:
-            messagebox.showinfo(
-                "Einstellungen",
-                "Shared-Settings-Dialog ist in dieser Umgebung nicht verfuegbar.",
-                parent=self.root,
-            )
-            return
-
         spec = self._build_settings_dialog_spec()
-        if spec is None:
-            return
 
         open_tabbed_settings_dialog(
             self.root,
