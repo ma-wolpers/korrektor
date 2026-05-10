@@ -53,9 +53,7 @@ FUTURE_GUI_ENTRY_FILE_NAMES = {
     "blatt_ui.py",
     "screen_builder.py",
 }
-FUTURE_GUI_ENTRY_BASELINES = {
-    "app/adapters/gui/main_window.py",
-}
+FUTURE_GUI_ENTRY_BASELINES: set[str] = set()
 FUTURE_GUI_REQUIRED_SHARED_SNIPPETS = (
     "ensure_bw_gui_on_path()",
     "from bw_gui.runtime import",

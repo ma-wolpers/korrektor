@@ -1,6 +1,7 @@
 # Development Log
 
 ## [Unreleased]
+- Step-3-Exemption-Abbau fortgesetzt: Future-Entrypoint-Baseline fuer `app/adapters/gui/main_window.py` entfernt; der Exemption-Backlog ist fuer Korrektor jetzt leer (nur `none`-Marker).
 - Step-3-Exemption-Governance aktiviert: `docs/GUI_MIGRATION_BACKLOG.md` ist jetzt verbindliche Referenz fuer aktive GUI-Baselines/Exemptions inkl. `remove_by`-Datum; Guardrails validieren die Backlog-Referenzen explizit.
 - Klausur-JSON-Ablagepfad als persistente App-Einstellung erweitert: neuer Settings-Flow speichert `exam_index_dir` in `%APPDATA%/<app_name>/settings.json` und schaltet das aktive JSON-Repository zur Laufzeit auf den konfigurierten Ordner um.
 - Klausurverwaltung erweitert: eigener Delete-UseCase/Repository-Flow fuer das Loeschen ausgewaehlter Klausur-JSON-Dateien aus dem aktiven Indexordner.

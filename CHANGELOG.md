@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- AI guardrails no longer keep a future-entrypoint baseline exemption for `app/adapters/gui/main_window.py`; Korrektor now runs this entrypoint under the strict shared-GUI contract checks.
 - AI guardrails now require an explicit GUI migration backlog (`docs/GUI_MIGRATION_BACKLOG.md`) for active GUI baselines/exemptions, including time-bound `remove_by` tracking.
 - Klausur-JSONs koennen jetzt ueber die Einstellungen in einen frei waehlbaren zentralen Ablageordner geschrieben werden (`exam_index_dir` wird persistent gespeichert).
 - Die SplitView wurde entfernt: Beim Start erscheint nur die Uebersicht, und der Ablauf wechselt klar zwischen Uebersicht, Klausurdetail und Einlesen.
