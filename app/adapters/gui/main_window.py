@@ -607,24 +607,33 @@ class MainWindow:
         )
         self._back_button.pack(side=ui.LEFT, padx=(10, 0))
         self._back_button.state(["disabled"])
-        widgets.Button(
+        open_exam_button = widgets.Button(
             action_row,
             text="Ausgewählte Klausur öffnen",
             style="SecondaryAction.TButton",
             command=lambda: self._controller and self._controller.open_selected_exam(),
-        ).pack(side=ui.LEFT, padx=(10, 0))
-        widgets.Button(
+        )
+        open_exam_button.pack(side=ui.LEFT, padx=(10, 0))
+        self._attach_hover_help(open_exam_button, label="Ausgewaehlte Klausur oeffnen", shortcut="Enter")
+
+        start_reading_button = widgets.Button(
             action_row,
             text="Einlesemodus starten",
             style="SecondaryAction.TButton",
             command=self._start_reading_mode,
-        ).pack(side=ui.LEFT, padx=(10, 0))
-        widgets.Button(
+        )
+        start_reading_button.pack(side=ui.LEFT, padx=(10, 0))
+        self._attach_hover_help(start_reading_button, label="Einlesemodus starten", shortcut=None)
+
+        start_extra_button = widgets.Button(
             action_row,
             text="Extraseiten-Modus",
             style="SecondaryAction.TButton",
             command=self._start_extra_mode,
-        ).pack(side=ui.LEFT, padx=(10, 0))
+        )
+        start_extra_button.pack(side=ui.LEFT, padx=(10, 0))
+        self._attach_hover_help(start_extra_button, label="Extraseiten-Modus starten", shortcut=None)
+
         settings_button = widgets.Button(
             action_row,
             text="Einstellungen",
@@ -633,12 +642,14 @@ class MainWindow:
         )
         settings_button.pack(side=ui.LEFT, padx=(10, 0))
         self._attach_hover_help(settings_button, label="UI- und Debug-Einstellungen", shortcut=None)
-        widgets.Button(
+        shortcut_debug_button = widgets.Button(
             action_row,
             text="Shortcut Debug",
             style="SecondaryAction.TButton",
             command=self._open_shortcut_runtime_debug_dialog,
-        ).pack(side=ui.LEFT, padx=(10, 0))
+        )
+        shortcut_debug_button.pack(side=ui.LEFT, padx=(10, 0))
+        self._attach_hover_help(shortcut_debug_button, label="Shortcut-Runtime-Debug anzeigen", shortcut="Ctrl+Shift+D")
 
         content = widgets.PanedWindow(shell, orient=ui.HORIZONTAL)
         content.pack(fill=ui.BOTH, expand=True)
@@ -694,9 +705,32 @@ class MainWindow:
 
         self._mode_tabs = widgets.Frame(right, style="Surface.TFrame")
         self._mode_tabs.pack(fill=ui.X, pady=(8, 6))
-        widgets.Button(self._mode_tabs, text="Einlesen", style="SecondaryAction.TButton", command=self._start_reading_mode).pack(side=ui.LEFT)
-        widgets.Button(self._mode_tabs, text="Korrektur", style="SecondaryAction.TButton", command=self._start_correction_mode).pack(side=ui.LEFT, padx=(8, 0))
-        widgets.Button(self._mode_tabs, text="Extraseiten", style="SecondaryAction.TButton", command=self._start_extra_mode).pack(side=ui.LEFT, padx=(8, 0))
+        mode_reading_button = widgets.Button(
+            self._mode_tabs,
+            text="Einlesen",
+            style="SecondaryAction.TButton",
+            command=self._start_reading_mode,
+        )
+        mode_reading_button.pack(side=ui.LEFT)
+        self._attach_hover_help(mode_reading_button, label="In den Einlesemodus wechseln", shortcut=None)
+
+        mode_correction_button = widgets.Button(
+            self._mode_tabs,
+            text="Korrektur",
+            style="SecondaryAction.TButton",
+            command=self._start_correction_mode,
+        )
+        mode_correction_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(mode_correction_button, label="In den Korrekturmodus wechseln", shortcut=None)
+
+        mode_extra_button = widgets.Button(
+            self._mode_tabs,
+            text="Extraseiten",
+            style="SecondaryAction.TButton",
+            command=self._start_extra_mode,
+        )
+        mode_extra_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(mode_extra_button, label="In den Extraseitenmodus wechseln", shortcut=None)
 
         self._correction_controls_frame = widgets.Frame(right, style="Surface.TFrame")
         self._correction_controls_frame.pack(fill=ui.X, pady=(10, 0))
