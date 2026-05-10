@@ -59,8 +59,8 @@ try:
     from bw_gui.theming import apply_window_theme
     from bw_gui.theming import configure_ttk_theme
     from bw_gui.theming import get_theme
-    from bw_gui.theming import THEME_ORDER as SHARED_THEME_ORDER
-    from bw_gui.theming import normalize_theme_key as normalize_shared_theme_key
+    from bw_gui.theming import THEME_ORDER
+    from bw_gui.theming import normalize_theme_key
 except ModuleNotFoundError:
     SharedSettingsDialogSpec = None
     SharedSettingsFieldSpec = None
@@ -69,8 +69,8 @@ except ModuleNotFoundError:
     apply_window_theme = None
     configure_ttk_theme = None
     get_theme = None
-    SHARED_THEME_ORDER = ()
-    normalize_shared_theme_key = None
+    THEME_ORDER = ()
+    normalize_theme_key = None
 
 if TYPE_CHECKING:
     from app.adapters.gui.ui_intent_controller import UiIntentController
@@ -586,7 +586,7 @@ class MainWindow:
                             key="tooltip_theme_key",
                             label="Tooltip-Theme",
                             field_type="enum",
-                            enum_values=tuple(SHARED_THEME_ORDER),
+                            enum_values=tuple(THEME_ORDER),
                             default=self._shared_tooltip_theme_key,
                         ),
                         SharedSettingsFieldSpec(
@@ -629,8 +629,8 @@ class MainWindow:
             return
 
         theme_value = str(payload.get("tooltip_theme_key", self._shared_tooltip_theme_key) or self._shared_tooltip_theme_key)
-        if callable(normalize_shared_theme_key):
-            theme_value = normalize_shared_theme_key(theme_value)
+        if callable(normalize_theme_key):
+            theme_value = normalize_theme_key(theme_value)
         self._shared_tooltip_theme_key = theme_value
 
         if self._shared_menu_bar is not None:
