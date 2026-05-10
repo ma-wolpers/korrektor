@@ -103,6 +103,11 @@ CORRECTION_MARKER_COLORS: dict[str, str] = {
 CORRECTION_DEFAULT_COLOR_NAME = "Rot"
 CORRECTION_DEFAULT_FONT_SIZE_PT = 14.0
 CORRECTION_ALT_MODIFIER_MASKS: tuple[int, ...] = (0x0008, 0x20000)
+CORRECTION_EXPORT_TEXT_WIDTH_PADDING_EM = 0.4
+CORRECTION_EXPORT_TEXT_HEIGHT_EM = 1.4
+CORRECTION_EXPORT_TEXT_Y_SHIFT_EM = 0.4
+CORRECTION_EXPORT_SYMBOL_HEIGHT_EM = 1.3
+CORRECTION_EXPORT_SYMBOL_Y_SHIFT_EM = 0.1
 
 
 class MainWindow:
@@ -3525,20 +3530,24 @@ class MainWindow:
 
     @staticmethod
     def _estimate_annotation_rect(annotation: PdfAnnotation, fontsize: int) -> fitz.Rect:
+        fontsize_f = max(8.0, float(fontsize))
+        lines = annotation.content.splitlines() or [annotation.content or " "]
+        longest_line = max(lines, key=len)
+        text_width = fitz.get_text_length(longest_line, fontname="helv", fontsize=fontsize_f)
+
+        width = max(24.0, text_width + (fontsize_f * CORRECTION_EXPORT_TEXT_WIDTH_PADDING_EM))
         if annotation.annotation_type == "symbol":
-            width = max(24.0, fontsize * 2.2)
-            height = max(18.0, fontsize * 2.2)
+            height = max(12.0, fontsize_f * CORRECTION_EXPORT_SYMBOL_HEIGHT_EM)
+            center_y = annotation.y + (fontsize_f * CORRECTION_EXPORT_SYMBOL_Y_SHIFT_EM)
         else:
-            lines = annotation.content.splitlines() or [annotation.content]
-            max_chars = max((len(line) for line in lines), default=1)
             line_count = max(1, len(lines))
-            width = max(48.0, fontsize * max(2.0, max_chars * 0.72))
-            height = max(20.0, fontsize * (1.8 + 0.9 * (line_count - 1)))
+            height = max(12.0, fontsize_f * CORRECTION_EXPORT_TEXT_HEIGHT_EM * line_count)
+            center_y = annotation.y + (fontsize_f * CORRECTION_EXPORT_TEXT_Y_SHIFT_EM)
         return fitz.Rect(
             annotation.x - (width / 2.0),
-            annotation.y - (height / 2.0),
+            center_y - (height / 2.0),
             annotation.x + (width / 2.0),
-            annotation.y + (height / 2.0),
+            center_y + (height / 2.0),
         )
 
     def _delete_selected_correction_annotation(self) -> bool:

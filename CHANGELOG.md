@@ -7,6 +7,7 @@
 - Einstellungen erweitert: Standardfarbe und Standard-PDF-Groesse fuer neue Markierungen sind jetzt im Settings-Dialog konfigurierbar und werden persistent gespeichert.
 - Beim `PDF ueberschreiben` werden Markierungen ausserhalb des aktiven Vorschau-Bereichs jetzt ignoriert und als Warnhinweis aufgelistet.
 - Exportierte Kommentar-/Symbol-Positionen wurden stabilisiert: PDF-FreeText wird jetzt mit expliziter Zentrierung geschrieben, um Links/Rechts-Versatz gegenueber der Vorschau zu reduzieren.
+- Die FreeText-Rechteckberechnung fuer `PDF ueberschreiben` wurde weiter kalibriert (text-/symbolspezifisch mit Fontmetrik), damit Vorschau- und PDF-Positionen deutlich naeher beieinander liegen.
 - PDF-Annotationen speichern optional den Bereichscode (`area_code`), damit Overlay und Export sauber auf den zugehoerigen Korrekturbereich begrenzt bleiben.
 - Rotations-Buttons in der Korrekturansicht drehen jetzt in die erwartete Richtung (links/rechts) und arbeiten in stabilen 90-Grad-Schritten.
 - Die Korrekturvorschau blendet eingebrannte PDF-Anmerkungen jetzt aus, damit nach `PDF ueberschreiben` keine doppelte Markeranzeige mehr entsteht.
