@@ -714,6 +714,33 @@ class MainWindow:
         # Keep popup surfaces aligned with shared theme tokens where widgets use direct colors.
         self.root.option_add("*Canvas.Background", bg_surface)
         self.root.option_add("*Canvas.HighlightBackground", panel_strong)
+        self._apply_canvas_theme_tokens()
+
+    def _canvas_theme_tokens(self) -> tuple[str, str]:
+        """Return surface/highlight colors for direct canvas styling."""
+
+        if callable(get_shared_theme):
+            theme = get_shared_theme(self._shared_tooltip_theme_key)
+            return theme["bg_surface"], theme["border"]
+        return "#f2ede3", "#b8aa96"
+
+    def _apply_canvas_theme_tokens(self) -> None:
+        """Apply canvas colors to existing reading/extra popup surfaces."""
+
+        canvas_bg, canvas_border = self._canvas_theme_tokens()
+
+        reading_canvas = getattr(self, "_reading_canvas", None)
+        if reading_canvas is not None:
+            try:
+                reading_canvas.configure(bg=canvas_bg, highlightbackground=canvas_border)
+            except Exception:
+                pass
+
+        if self._extra_popup_canvas is not None:
+            try:
+                self._extra_popup_canvas.configure(bg=canvas_bg, highlightbackground=canvas_border)
+            except Exception:
+                pass
 
     def _build_layout(self) -> None:
         shell = widgets.Frame(self.root, style="App.TFrame", padding=16)
@@ -1056,13 +1083,14 @@ class MainWindow:
         canvas_scroll_x = widgets.Scrollbar(canvas_container, orient=ui.HORIZONTAL)
         canvas_scroll_y = widgets.Scrollbar(canvas_container, orient=ui.VERTICAL)
 
+        canvas_bg, canvas_border = self._canvas_theme_tokens()
         self._reading_canvas = ui.Canvas(
             canvas_container,
             width=520,
             height=360,
-            bg="#f2ede3",
+            bg=canvas_bg,
             highlightthickness=1,
-            highlightbackground="#b8aa96",
+            highlightbackground=canvas_border,
             xscrollcommand=canvas_scroll_x.set,
             yscrollcommand=canvas_scroll_y.set,
         )
@@ -1764,7 +1792,13 @@ class MainWindow:
             self._extra_popup_info_var = ui.StringVar(value="")
             widgets.Label(header, textvariable=self._extra_popup_info_var, style="Muted.TLabel").pack(side=ui.LEFT)
 
-            self._extra_popup_canvas = ui.Canvas(popup, bg="#f2ede3", highlightthickness=1, highlightbackground="#b8aa96")
+            canvas_bg, canvas_border = self._canvas_theme_tokens()
+            self._extra_popup_canvas = ui.Canvas(
+                popup,
+                bg=canvas_bg,
+                highlightthickness=1,
+                highlightbackground=canvas_border,
+            )
             self._extra_popup_canvas.pack(fill=ui.BOTH, expand=True, padx=10, pady=(0, 10))
 
             nav = widgets.Frame(popup, padding=(10, 0, 10, 10))
