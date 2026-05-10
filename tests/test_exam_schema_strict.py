@@ -72,6 +72,8 @@ def _base_raw_exam() -> dict[str, object]:
                 "area_code": "A",
                 "font_size": 26.0,
                 "rotation_deg": 15.0,
+                "sync_group_id": "sg-demo",
+                "position_detached": True,
             }
         ],
         "is_reading_complete": False,
@@ -89,6 +91,8 @@ def test_from_dict_accepts_forward_only_schema() -> None:
     assert exam.pdf_annotations[0].area_code == "A"
     assert exam.pdf_annotations[0].font_size == 26.0
     assert exam.pdf_annotations[0].rotation_deg == 15.0
+    assert exam.pdf_annotations[0].sync_group_id == "sg-demo"
+    assert exam.pdf_annotations[0].position_detached is True
 
 
 def test_from_dict_defaults_task_comments_when_missing() -> None:
@@ -127,6 +131,17 @@ def test_from_dict_defaults_annotation_area_code_when_missing() -> None:
     exam = ExamProject.from_dict(raw)
 
     assert exam.pdf_annotations[0].area_code == ""
+
+
+def test_from_dict_defaults_annotation_sync_fields_when_missing() -> None:
+    raw = _base_raw_exam()
+    raw["pdf_annotations"][0].pop("sync_group_id")
+    raw["pdf_annotations"][0].pop("position_detached")
+
+    exam = ExamProject.from_dict(raw)
+
+    assert exam.pdf_annotations[0].sync_group_id == ""
+    assert exam.pdf_annotations[0].position_detached is False
 
 
 def test_from_dict_rejects_missing_extra_assignment_field() -> None:

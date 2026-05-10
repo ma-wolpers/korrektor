@@ -12,6 +12,8 @@ from app.infrastructure.repositories.file_utils import atomic_write_json
 @dataclass(slots=True, frozen=True)
 class AppRuntimeSettings:
     exam_index_dir: Path
+    default_annotation_color: str = "#d62828"
+    default_annotation_pdf_font_size: float = 14.0
 
 
 class JsonAppSettingsRepository:
@@ -57,16 +59,47 @@ class JsonAppSettingsRepository:
         except ValueError:
             exam_index_dir = self._default_exam_index_dir
             exam_index_dir.mkdir(parents=True, exist_ok=True)
-        return AppRuntimeSettings(exam_index_dir=exam_index_dir)
+        raw_color = str(raw.get("default_annotation_color", "#d62828")).strip()
+        default_color = raw_color if raw_color.startswith("#") and len(raw_color) == 7 else "#d62828"
+
+        raw_size = raw.get("default_annotation_pdf_font_size", 14.0)
+        try:
+            default_size = float(raw_size)
+        except (TypeError, ValueError):
+            default_size = 14.0
+        default_size = max(8.0, min(96.0, default_size))
+
+        return AppRuntimeSettings(
+            exam_index_dir=exam_index_dir,
+            default_annotation_color=default_color,
+            default_annotation_pdf_font_size=default_size,
+        )
 
     def save(self, settings: AppRuntimeSettings) -> AppRuntimeSettings:
         normalized = settings.exam_index_dir.resolve()
         normalized.mkdir(parents=True, exist_ok=True)
+        color = settings.default_annotation_color.strip()
+        if not (color.startswith("#") and len(color) == 7):
+            color = "#d62828"
+        size = max(8.0, min(96.0, float(settings.default_annotation_pdf_font_size)))
         payload = {
             "exam_index_dir": str(normalized),
+            "default_annotation_color": color,
+            "default_annotation_pdf_font_size": size,
         }
         atomic_write_json(self._settings_file, payload)
-        return AppRuntimeSettings(exam_index_dir=normalized)
+        return AppRuntimeSettings(
+            exam_index_dir=normalized,
+            default_annotation_color=color,
+            default_annotation_pdf_font_size=size,
+        )
 
     def save_exam_index_dir(self, exam_index_dir: Path) -> AppRuntimeSettings:
-        return self.save(AppRuntimeSettings(exam_index_dir=exam_index_dir))
+        current = self.load()
+        return self.save(
+            AppRuntimeSettings(
+                exam_index_dir=exam_index_dir,
+                default_annotation_color=current.default_annotation_color,
+                default_annotation_pdf_font_size=current.default_annotation_pdf_font_size,
+            )
+        )

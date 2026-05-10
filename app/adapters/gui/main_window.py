@@ -34,6 +34,7 @@ from app.adapters.gui.ui_intents import UiIntent
 from app.adapters.gui.view_models import ExamOverviewRow
 from app.core.domain.models import ExamProject, PdfAnnotation, StudentExam, TaskDefinition
 from app.core.domain.progress import ProgressCalculator
+from app.infrastructure.repositories.json_app_settings_repository import AppRuntimeSettings
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
@@ -98,6 +99,10 @@ CORRECTION_MARKER_COLORS: dict[str, str] = {
     "Violett": "#7b2cbf",
     "Schwarz": "#111111",
 }
+
+CORRECTION_DEFAULT_COLOR_NAME = "Rot"
+CORRECTION_DEFAULT_FONT_SIZE_PT = 14.0
+CORRECTION_ALT_MODIFIER_MASKS: tuple[int, ...] = (0x0008, 0x20000)
 
 
 class MainWindow:
@@ -171,14 +176,21 @@ class MainWindow:
         self._correction_comment_var = ui.StringVar(value="")
         self._correction_comment_entry: widgets.Entry | None = None
         self._correction_marker_tool_key = "check"
-        self._correction_marker_color_name_var = ui.StringVar(value="Rot")
+        settings = self.deps.runtime_settings
+        default_color_hex = self._normalize_marker_color_hex(settings.default_annotation_color)
+        self._default_annotation_color_hex = default_color_hex
+        self._default_annotation_font_size = self._normalize_marker_font_size(settings.default_annotation_pdf_font_size)
+        self._correction_marker_color_name_var = ui.StringVar(value=self._marker_color_name_for_hex(default_color_hex))
         self._correction_marker_info_var = ui.StringVar(value="Markierung: Richtig")
+        self._correction_sync_info_var = ui.StringVar(value="Sync: keine Auswahl")
         self._correction_selected_annotation_id: str | None = None
         self._correction_drag_annotation_id: str | None = None
         self._correction_drag_offset_pdf: tuple[float, float] | None = None
+        self._correction_drag_alt_override = False
         self._correction_annotation_items: dict[str, int] = {}
         self._correction_clip_box: tuple[float, float, float, float] | None = None
         self._correction_scale = 1.0
+        self._annotation_clipboard: dict[str, object] | None = None
         self._correction_finished_var = ui.BooleanVar(value=False)
         self._correction_finished_hint_var = ui.StringVar(value="Fertigstatus nicht aktiv")
         self._correction_finished_check: widgets.Checkbutton | None = None
@@ -221,6 +233,9 @@ class MainWindow:
                 UiIntent.CORRECTION_ZOOM_IN,
                 UiIntent.CORRECTION_ZOOM_OUT,
                 UiIntent.CORRECTION_ZOOM_RESET,
+                UiIntent.CORRECTION_COPY_ANNOTATION,
+                UiIntent.CORRECTION_CUT_ANNOTATION,
+                UiIntent.CORRECTION_PASTE_ANNOTATION,
                 UiIntent.DEBUG_RUNTIME_OVERLAY,
                 UiIntent.DEBUG_RUNTIME_OFFLINE,
             ]
@@ -498,6 +513,27 @@ class MainWindow:
             intent=UiIntent.CORRECTION_ZOOM_RESET,
             modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
             allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Control-c>",
+            self._on_ctrl_c_key,
+            binding_id="correction.copy_annotation",
+            intent=UiIntent.CORRECTION_COPY_ANNOTATION,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+        )
+        self._bind_runtime_shortcut(
+            "<Control-x>",
+            self._on_ctrl_x_key,
+            binding_id="correction.cut_annotation",
+            intent=UiIntent.CORRECTION_CUT_ANNOTATION,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+        )
+        self._bind_runtime_shortcut(
+            "<Control-v>",
+            self._on_ctrl_v_key,
+            binding_id="correction.paste_annotation",
+            intent=UiIntent.CORRECTION_PASTE_ANNOTATION,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
         )
         self._bind_runtime_shortcut(
             "<Control-Shift-d>",
@@ -825,6 +861,20 @@ class MainWindow:
                             default=self._exam_index_dir_value,
                             hint="Ein einzelner Ordner fuer alle Klausur-JSON-Dateien.",
                         ),
+                        SharedSettingsFieldSpec(
+                            key="default_annotation_color",
+                            label="Standardfarbe Markierungen",
+                            field_type="enum",
+                            enum_values=tuple(CORRECTION_MARKER_COLORS.keys()),
+                            default=self._marker_color_name_for_hex(self._default_annotation_color_hex),
+                        ),
+                        SharedSettingsFieldSpec(
+                            key="default_annotation_pdf_font_size",
+                            label="Standardgroesse Markierungen (pt im PDF)",
+                            field_type="string",
+                            default=f"{self._default_annotation_font_size:.0f}",
+                            hint="Gueltiger Bereich: 8 bis 96 pt.",
+                        ),
                     ),
                 ),
                 SharedSettingsSectionSpec(
@@ -849,6 +899,8 @@ class MainWindow:
             "tooltip_theme_key": self._tooltip_theme_key,
             "assignment_mode": self._assignment_mode_var.get(),
             "exam_index_dir": self._exam_index_dir_value,
+            "default_annotation_color": self._marker_color_name_for_hex(self._default_annotation_color_hex),
+            "default_annotation_pdf_font_size": f"{self._default_annotation_font_size:.0f}",
             "runtime_offline": bool(self._shortcut_debug_offline_var.get()),
         }
 
@@ -883,6 +935,38 @@ class MainWindow:
             normalized = self._controller.update_exam_index_dir(requested_exam_index_dir)
             if normalized is not None:
                 self._exam_index_dir_value = str(normalized)
+
+        selected_color_name = str(
+            payload.get("default_annotation_color", self._marker_color_name_for_hex(self._default_annotation_color_hex))
+            or CORRECTION_DEFAULT_COLOR_NAME
+        ).strip()
+        if selected_color_name not in CORRECTION_MARKER_COLORS:
+            selected_color_name = CORRECTION_DEFAULT_COLOR_NAME
+        self._default_annotation_color_hex = CORRECTION_MARKER_COLORS[selected_color_name]
+        self._correction_marker_color_name_var.set(selected_color_name)
+
+        requested_size = payload.get("default_annotation_pdf_font_size", self._default_annotation_font_size)
+        self._default_annotation_font_size = self._normalize_marker_font_size(requested_size)
+
+        try:
+            current_index_dir = Path(self._exam_index_dir_value).resolve()
+            persisted_settings = self.deps.settings_repository.save(
+                AppRuntimeSettings(
+                    exam_index_dir=current_index_dir,
+                    default_annotation_color=self._default_annotation_color_hex,
+                    default_annotation_pdf_font_size=self._default_annotation_font_size,
+                )
+            )
+            self._default_annotation_color_hex = self._normalize_marker_color_hex(
+                persisted_settings.default_annotation_color
+            )
+            self._default_annotation_font_size = self._normalize_marker_font_size(
+                persisted_settings.default_annotation_pdf_font_size
+            )
+            self._exam_index_dir_value = str(persisted_settings.exam_index_dir)
+        except Exception as exc:
+            messagebox.showerror("Fehler", f"Einstellungen konnten nicht gespeichert werden: {exc}")
+            return
 
         self._shortcut_debug_offline_var.set(bool(payload.get("runtime_offline", self._shortcut_debug_offline_var.get())))
         self._refresh_shortcut_runtime_debug_dialog()
@@ -1676,11 +1760,30 @@ class MainWindow:
         rotate_right_button.pack(side=ui.LEFT, padx=(0, 4))
         self._attach_hover_help(rotate_right_button, label="Ausgewaehlte Markierung nach rechts drehen")
 
+        sync_button = widgets.Button(
+            transform_row,
+            text="Durchdruecken",
+            style="SecondaryAction.TButton",
+            command=self._toggle_selected_annotation_sync,
+        )
+        sync_button.pack(side=ui.LEFT, padx=(12, 0))
+        self._attach_hover_help(sync_button, label="Auswahl auf alle Personen spiegeln oder wieder lokal machen")
+
         widgets.Label(
             marker_controls,
             textvariable=self._correction_marker_info_var,
             style="Muted.TLabel",
         ).pack(anchor=ui.W, pady=(4, 0))
+        widgets.Label(
+            marker_controls,
+            textvariable=self._correction_sync_info_var,
+            style="Muted.TLabel",
+        ).pack(anchor=ui.W, pady=(2, 0))
+        widgets.Label(
+            marker_controls,
+            text="Zwischenablage: Strg+C kopieren, Strg+X ausschneiden, Strg+V einfuegen",
+            style="Muted.TLabel",
+        ).pack(anchor=ui.W, pady=(2, 0))
 
         correction_buttons = widgets.Frame(correction_form_panel, style="Surface.TFrame")
         correction_buttons.pack(fill=ui.X, pady=(10, 0))
@@ -2046,6 +2149,24 @@ class MainWindow:
         if self._active_view != "correction" or not self._correction_mode_active:
             return None
         self._reset_correction_zoom()
+        return "break"
+
+    def _on_ctrl_c_key(self, _event: ui.Event[ui.Misc]):
+        if self._active_view != "correction" or not self._correction_mode_active:
+            return None
+        self._copy_selected_correction_annotation()
+        return "break"
+
+    def _on_ctrl_x_key(self, _event: ui.Event[ui.Misc]):
+        if self._active_view != "correction" or not self._correction_mode_active:
+            return None
+        self._cut_selected_correction_annotation()
+        return "break"
+
+    def _on_ctrl_v_key(self, _event: ui.Event[ui.Misc]):
+        if self._active_view != "correction" or not self._correction_mode_active:
+            return None
+        self._paste_correction_annotation()
         return "break"
 
     def _refresh_correction_zoom_label(self) -> None:
@@ -3062,11 +3183,52 @@ class MainWindow:
     def _on_correction_marker_color_changed(self, _event: ui.Event[ui.Misc]) -> None:
         color_name = self._correction_marker_color_name_var.get()
         if color_name not in CORRECTION_MARKER_COLORS:
-            self._correction_marker_color_name_var.set("Rot")
+            color_name = CORRECTION_DEFAULT_COLOR_NAME
+            self._correction_marker_color_name_var.set(color_name)
+
+        annotation = self._selected_correction_annotation()
+        if annotation is None:
+            return
+
+        color_hex = CORRECTION_MARKER_COLORS.get(color_name, CORRECTION_MARKER_COLORS[CORRECTION_DEFAULT_COLOR_NAME])
+        for item in self._sync_group_members(annotation, include_detached=True):
+            item.color_hex = color_hex
+        self._render_correction_annotations()
+        self._status_var.set("Markierungsfarbe aktualisiert")
+
+    @staticmethod
+    def _normalize_marker_color_hex(raw_color: object) -> str:
+        value = str(raw_color or "").strip().lower()
+        if len(value) == 7 and value.startswith("#"):
+            return value
+        return CORRECTION_MARKER_COLORS[CORRECTION_DEFAULT_COLOR_NAME]
+
+    @staticmethod
+    def _normalize_marker_font_size(raw_size: object) -> float:
+        try:
+            size = float(raw_size)
+        except (TypeError, ValueError):
+            size = CORRECTION_DEFAULT_FONT_SIZE_PT
+        return max(8.0, min(96.0, size))
+
+    @staticmethod
+    def _marker_color_name_for_hex(color_hex: str) -> str:
+        normalized = MainWindow._normalize_marker_color_hex(color_hex)
+        for name, hex_value in CORRECTION_MARKER_COLORS.items():
+            if hex_value.lower() == normalized:
+                return name
+        return CORRECTION_DEFAULT_COLOR_NAME
+
+    @staticmethod
+    def _event_has_alt_modifier(event: ui.Event[ui.Misc]) -> bool:
+        state = int(getattr(event, "state", 0) or 0)
+        return any(bool(state & mask) for mask in CORRECTION_ALT_MODIFIER_MASKS)
 
     def _current_marker_color_hex(self) -> str:
         selected = self._correction_marker_color_name_var.get()
-        return CORRECTION_MARKER_COLORS.get(selected, CORRECTION_MARKER_COLORS["Rot"])
+        if selected in CORRECTION_MARKER_COLORS:
+            return CORRECTION_MARKER_COLORS[selected]
+        return self._default_annotation_color_hex
 
     @staticmethod
     def _hex_to_rgb_fraction(color_hex: str) -> tuple[float, float, float]:
@@ -3086,7 +3248,7 @@ class MainWindow:
             return []
         student = self._current_correction_student()
         area_code = self._correction_area_var.get().strip().upper()
-        template = self._correction_templates.get(area_code)
+        template = self._current_correction_template()
         if student is None or template is None:
             return []
         return [
@@ -3095,6 +3257,222 @@ class MainWindow:
             if item.student_pdf == student.pdf_filename and item.page_number == template.page_number
             and (not item.area_code or item.area_code == area_code)
         ]
+
+    def _current_correction_template(self) -> CorrectionTemplate | None:
+        area_code = self._correction_area_var.get().strip().upper()
+        return self._correction_templates.get(area_code)
+
+    def _selected_correction_annotation(self) -> PdfAnnotation | None:
+        if self._correction_selected_annotation_id is None:
+            return None
+        annotation = self._annotation_by_id(self._correction_selected_annotation_id)
+        if annotation is None:
+            return None
+
+        visible_ids = {item.annotation_id for item in self._current_correction_annotations()}
+        if annotation.annotation_id not in visible_ids:
+            return None
+        return annotation
+
+    def _sync_group_members(self, annotation: PdfAnnotation, *, include_detached: bool) -> list[PdfAnnotation]:
+        if self._current_exam is None or not annotation.sync_group_id:
+            return [annotation]
+
+        members = [item for item in self._current_exam.pdf_annotations if item.sync_group_id == annotation.sync_group_id]
+        if include_detached:
+            return members
+        return [item for item in members if not item.position_detached]
+
+    def _delete_annotation_or_group(self, annotation: PdfAnnotation) -> int:
+        if self._current_exam is None:
+            return 0
+
+        before = len(self._current_exam.pdf_annotations)
+        if annotation.sync_group_id:
+            self._current_exam.pdf_annotations = [
+                item for item in self._current_exam.pdf_annotations if item.sync_group_id != annotation.sync_group_id
+            ]
+        else:
+            self._current_exam.pdf_annotations = [
+                item for item in self._current_exam.pdf_annotations if item.annotation_id != annotation.annotation_id
+            ]
+        removed = before - len(self._current_exam.pdf_annotations)
+        if removed > 0:
+            self._correction_selected_annotation_id = None
+        return removed
+
+    def _refresh_correction_sync_info(self) -> None:
+        annotation = self._selected_correction_annotation()
+        if annotation is None:
+            self._correction_sync_info_var.set("Sync: keine Auswahl")
+            return
+
+        if not annotation.sync_group_id:
+            self._correction_sync_info_var.set("Sync: lokal")
+            return
+
+        members = self._sync_group_members(annotation, include_detached=True)
+        detached_suffix = " | Position lokal geloest (Alt-Drag)" if annotation.position_detached else ""
+        self._correction_sync_info_var.set(f"Sync: aktiv ({len(members)} Kopien){detached_suffix}")
+
+    def _toggle_selected_annotation_sync(self) -> None:
+        annotation = self._selected_correction_annotation()
+        if annotation is None:
+            messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswaehlen.")
+            return
+
+        if annotation.sync_group_id:
+            removed = self._disable_selected_annotation_sync(annotation)
+            if removed <= 0:
+                return
+            self._render_correction_annotations()
+            self._status_var.set("Durchdruecken deaktiviert: Kopien bei anderen Personen entfernt")
+            return
+
+        created = self._enable_selected_annotation_sync(annotation)
+        if created <= 0:
+            return
+        self._render_correction_annotations()
+        self._status_var.set(f"Durchgedrueckt: {created} Kopien erzeugt")
+
+    def _enable_selected_annotation_sync(self, annotation: PdfAnnotation) -> int:
+        if self._current_exam is None:
+            return 0
+
+        template = self._current_correction_template()
+        if template is None:
+            return 0
+
+        sync_group_id = f"sg-{uuid4().hex[:12]}"
+        annotation.sync_group_id = sync_group_id
+        annotation.position_detached = False
+
+        created = 0
+        for student_index in self._correction_student_indices:
+            student = self._current_exam.students[student_index]
+            if student.pdf_filename == annotation.student_pdf:
+                continue
+            clone = PdfAnnotation(
+                annotation_id=f"ann-{uuid4().hex[:12]}",
+                student_pdf=student.pdf_filename,
+                page_number=template.page_number,
+                annotation_type=annotation.annotation_type,
+                content=annotation.content,
+                color_hex=annotation.color_hex,
+                x=annotation.x,
+                y=annotation.y,
+                task_code=annotation.task_code,
+                area_code=annotation.area_code,
+                font_size=annotation.font_size,
+                rotation_deg=annotation.rotation_deg,
+                sync_group_id=sync_group_id,
+                position_detached=False,
+            )
+            self._current_exam.pdf_annotations.append(clone)
+            created += 1
+        return created
+
+    def _disable_selected_annotation_sync(self, annotation: PdfAnnotation) -> int:
+        if self._current_exam is None or not annotation.sync_group_id:
+            return 0
+
+        before = len(self._current_exam.pdf_annotations)
+        sync_group_id = annotation.sync_group_id
+        self._current_exam.pdf_annotations = [
+            item
+            for item in self._current_exam.pdf_annotations
+            if item.sync_group_id != sync_group_id or item.annotation_id == annotation.annotation_id
+        ]
+        annotation.sync_group_id = ""
+        annotation.position_detached = False
+        return before - len(self._current_exam.pdf_annotations)
+
+    def _copy_selected_correction_annotation(self) -> bool:
+        annotation = self._selected_correction_annotation()
+        if annotation is None:
+            messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswaehlen.")
+            return False
+
+        clip_box = self._resolve_annotation_clip_box(annotation, self._correction_templates)
+        if clip_box is None:
+            messagebox.showinfo("Hinweis", "Die Markierung liegt ausserhalb eines gueltigen Bereichs.")
+            return False
+
+        width = max(1e-6, clip_box[2] - clip_box[0])
+        height = max(1e-6, clip_box[3] - clip_box[1])
+        rel_x = (annotation.x - clip_box[0]) / width
+        rel_y = (annotation.y - clip_box[1]) / height
+
+        self._annotation_clipboard = {
+            "annotation_type": annotation.annotation_type,
+            "content": annotation.content,
+            "color_hex": self._normalize_marker_color_hex(annotation.color_hex),
+            "font_size": self._normalize_marker_font_size(annotation.font_size),
+            "rotation_deg": self._normalize_rotation_deg(annotation.rotation_deg),
+            "task_code": annotation.task_code,
+            "rel_x": rel_x,
+            "rel_y": rel_y,
+        }
+        self._status_var.set("Markierung kopiert")
+        return True
+
+    def _cut_selected_correction_annotation(self) -> bool:
+        if not self._copy_selected_correction_annotation():
+            return False
+        annotation = self._selected_correction_annotation()
+        if annotation is None:
+            return False
+
+        removed = self._delete_annotation_or_group(annotation)
+        if removed <= 0:
+            return False
+        self._render_correction_annotations()
+        if annotation.sync_group_id:
+            self._status_var.set(f"Sync-Gruppe ausgeschnitten ({removed} Markierungen)")
+        else:
+            self._status_var.set("Markierung ausgeschnitten")
+        return True
+
+    def _paste_correction_annotation(self) -> bool:
+        if self._current_exam is None:
+            return False
+        if not self._annotation_clipboard:
+            messagebox.showinfo("Hinweis", "Zwischenablage ist leer.")
+            return False
+
+        student = self._current_correction_student()
+        template = self._current_correction_template()
+        area_code = self._correction_area_var.get().strip().upper()
+        if student is None or template is None:
+            return False
+
+        rel_x = float(self._annotation_clipboard.get("rel_x", 0.5))
+        rel_y = float(self._annotation_clipboard.get("rel_y", 0.5))
+        x0, y0, x1, y1 = template.box
+        target_x = x0 + rel_x * (x1 - x0)
+        target_y = y0 + rel_y * (y1 - y0)
+
+        annotation = PdfAnnotation(
+            annotation_id=f"ann-{uuid4().hex[:12]}",
+            student_pdf=student.pdf_filename,
+            page_number=template.page_number,
+            annotation_type=str(self._annotation_clipboard.get("annotation_type", "symbol")),
+            content=str(self._annotation_clipboard.get("content", "")).strip(),
+            color_hex=self._normalize_marker_color_hex(self._annotation_clipboard.get("color_hex")),
+            x=target_x,
+            y=target_y,
+            task_code=str(self._annotation_clipboard.get("task_code", "")).strip().upper(),
+            area_code=area_code,
+            font_size=self._normalize_marker_font_size(self._annotation_clipboard.get("font_size", 14.0)),
+            rotation_deg=self._normalize_rotation_deg(float(self._annotation_clipboard.get("rotation_deg", 0.0))),
+            sync_group_id="",
+            position_detached=False,
+        )
+        self._upsert_annotation(annotation)
+        self._correction_selected_annotation_id = annotation.annotation_id
+        self._render_correction_annotations()
+        self._status_var.set("Markierung eingefuegt")
+        return True
 
     def _annotation_by_id(self, annotation_id: str) -> PdfAnnotation | None:
         if self._current_exam is None:
@@ -3164,45 +3542,41 @@ class MainWindow:
         )
 
     def _delete_selected_correction_annotation(self) -> bool:
-        if self._current_exam is None or self._correction_selected_annotation_id is None:
+        annotation = self._selected_correction_annotation()
+        if annotation is None:
             return False
-        target_id = self._correction_selected_annotation_id
-        before_count = len(self._current_exam.pdf_annotations)
-        self._current_exam.pdf_annotations = [
-            item for item in self._current_exam.pdf_annotations if item.annotation_id != target_id
-        ]
-        if len(self._current_exam.pdf_annotations) == before_count:
+        removed = self._delete_annotation_or_group(annotation)
+        if removed <= 0:
             return False
-        self._correction_selected_annotation_id = None
         self._render_correction_annotations()
-        self._status_var.set("Markierung geloescht")
+        if annotation.sync_group_id:
+            self._status_var.set(f"Sync-Gruppe geloescht ({removed} Markierungen)")
+        else:
+            self._status_var.set("Markierung geloescht")
         return True
 
     def _resize_selected_correction_annotation(self, delta: float) -> None:
-        annotation_id = self._correction_selected_annotation_id
-        if annotation_id is None:
+        annotation = self._selected_correction_annotation()
+        if annotation is None:
             messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswaehlen.")
             return
-        annotation = self._annotation_by_id(annotation_id)
-        if annotation is None:
-            return
         next_size = max(8.0, min(96.0, float(annotation.font_size) + delta))
-        annotation.font_size = next_size
+        for item in self._sync_group_members(annotation, include_detached=True):
+            item.font_size = next_size
         self._render_correction_annotations()
         self._status_var.set(f"Markierungsgroesse: {next_size:.0f}pt")
 
     def _rotate_selected_correction_annotation(self, delta_deg: float) -> None:
-        annotation_id = self._correction_selected_annotation_id
-        if annotation_id is None:
+        annotation = self._selected_correction_annotation()
+        if annotation is None:
             messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswaehlen.")
             return
-        annotation = self._annotation_by_id(annotation_id)
-        if annotation is None:
-            return
         current = self._normalize_rotation_deg(annotation.rotation_deg)
-        annotation.rotation_deg = self._normalize_rotation_deg(current + delta_deg)
+        next_rotation = self._normalize_rotation_deg(current + delta_deg)
+        for item in self._sync_group_members(annotation, include_detached=True):
+            item.rotation_deg = next_rotation
         self._render_correction_annotations()
-        self._status_var.set(f"Markierungswinkel: {annotation.rotation_deg:.0f}°")
+        self._status_var.set(f"Markierungswinkel: {next_rotation:.0f}°")
 
     @staticmethod
     def _normalize_rotation_deg(raw_deg: float) -> float:
@@ -3216,7 +3590,11 @@ class MainWindow:
         self._correction_canvas.delete("correction_annotation")
         self._correction_annotation_items.clear()
         annotations = self._current_correction_annotations()
+        visible_ids = {item.annotation_id for item in annotations}
+        if self._correction_selected_annotation_id not in visible_ids:
+            self._correction_selected_annotation_id = None
         if not annotations:
+            self._refresh_correction_sync_info()
             return
 
         for annotation in annotations:
@@ -3249,6 +3627,7 @@ class MainWindow:
                         tags=("correction_annotation",),
                     )
                     self._correction_canvas.tag_raise(item_id)
+                self._refresh_correction_sync_info()
 
     def _insert_current_comment_into_preview_center(self) -> None:
         if not self._correction_mode_active:
@@ -3291,7 +3670,7 @@ class MainWindow:
             return False
 
         task_code, _max_points = self._selected_correction_task()
-        default_font_size = 24.0 if annotation_type == "symbol" else 14.0
+        default_font_size = self._default_annotation_font_size
         annotation = PdfAnnotation(
             annotation_id=f"ann-{uuid4().hex[:12]}",
             student_pdf=student.pdf_filename,
@@ -3305,6 +3684,8 @@ class MainWindow:
             area_code=area_code,
             font_size=default_font_size,
             rotation_deg=0.0,
+            sync_group_id="",
+            position_detached=False,
         )
         self._upsert_annotation(annotation)
         self._correction_selected_annotation_id = annotation.annotation_id
@@ -3314,6 +3695,7 @@ class MainWindow:
     def _on_correction_canvas_press(self, event: ui.Event[ui.Misc]):
         if not self._correction_mode_active:
             return None
+        self._correction_drag_alt_override = False
         self._correction_canvas.focus_set()
         canvas_x = float(self._correction_canvas.canvasx(event.x))
         canvas_y = float(self._correction_canvas.canvasy(event.y))
@@ -3332,6 +3714,7 @@ class MainWindow:
                 if annotation is not None and pdf_pos is not None:
                     self._correction_drag_annotation_id = annotation_id
                     self._correction_drag_offset_pdf = (annotation.x - pdf_pos[0], annotation.y - pdf_pos[1])
+                    self._correction_drag_alt_override = self._event_has_alt_modifier(event)
                 self._render_correction_annotations()
                 return "break"
 
@@ -3362,8 +3745,22 @@ class MainWindow:
         pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y)
         if pdf_pos is None:
             return "break"
-        annotation.x = pdf_pos[0] + self._correction_drag_offset_pdf[0]
-        annotation.y = pdf_pos[1] + self._correction_drag_offset_pdf[1]
+        target_x = pdf_pos[0] + self._correction_drag_offset_pdf[0]
+        target_y = pdf_pos[1] + self._correction_drag_offset_pdf[1]
+        dx = target_x - annotation.x
+        dy = target_y - annotation.y
+        if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+            return "break"
+
+        if annotation.sync_group_id and not self._correction_drag_alt_override and not annotation.position_detached:
+            for item in self._sync_group_members(annotation, include_detached=False):
+                item.x += dx
+                item.y += dy
+        else:
+            annotation.x = target_x
+            annotation.y = target_y
+            if annotation.sync_group_id and self._correction_drag_alt_override:
+                annotation.position_detached = True
         self._render_correction_annotations()
         return "break"
 
@@ -3372,6 +3769,7 @@ class MainWindow:
             return None
         self._correction_drag_annotation_id = None
         self._correction_drag_offset_pdf = None
+        self._correction_drag_alt_override = False
         return "break"
 
     def _save_correction_annotations_to_pdfs(self) -> None:

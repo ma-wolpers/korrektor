@@ -1,6 +1,10 @@
 # Development Log
 
 ## [Unreleased]
+- Korrektur-Annotationen erweitert: neue Durchdruecken-Funktion erzeugt bereichs-/aufgabenbezogene Sync-Gruppen ueber alle Personen; beim Deaktivieren werden Fremdkopien entfernt und nur die aktuelle Personen-Markierung lokal behalten.
+- Sync-Bearbeitung erweitert: Farb-, Groessen- und Rotationsaenderungen propagieren jetzt gruppenweit; Alt-Drag erlaubt positionslokale Entkopplung eines Gruppenmitglieds ohne Einfluss auf gruppenweite Stilattribute.
+- Annotation-Zwischenablage erweitert: Strg+C/Strg+X/Strg+V fuer Markierungen in der Korrekturansicht (Cut entfernt bei Sync die gesamte Gruppe, Paste setzt im Zielkontext auf gleicher relativer Position im Bereichsclip).
+- Runtime-Einstellungen erweitert: persistente Defaults fuer Markierungsfarbe und PDF-Schriftgroesse (`default_annotation_color`, `default_annotation_pdf_font_size`) sind im Settings-Dialog konfigurierbar und wirken auf neue Annotationen.
 - PDF-Annotation-Writeback praezisiert: FreeText-Writeback nutzt jetzt explizite Zentrierung (`align=center`) und stabile Fontvorgaben (`helv`), um Vorschau-/Export-Versatz bei Symbolen und Kommentaren zu reduzieren.
 - Export-Filter gehaertet: Markierungen ausserhalb des aktiven Bereich-Clip werden beim `PDF ueberschreiben` gezielt ignoriert und als Warnliste gemeldet statt ungeprueft mitzuschreiben.
 - Annotationsmodell erweitert: `pdf_annotations` speichert jetzt optional `area_code`, damit Korrektur-Overlay und Exportbereich robust auf denselben Bereich begrenzt werden koennen.

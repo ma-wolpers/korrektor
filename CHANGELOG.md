@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- Neue Durchdruecken-Funktion fuer Markierungen/Kommentare: eine ausgewaehlte Annotation kann auf alle Personen im gleichen Bereich/Aufgabenkontext gespiegelt werden; beim Deaktivieren verschwinden die synchronisierten Kopien bei anderen Personen wieder.
+- Synchronisierte Annotationen bearbeiten sich jetzt gruppenweit (Farbe, Groesse, Rotation); mit Alt-Drag kann ein einzelnes Gruppenmitglied nur positionsseitig lokal verschoben werden.
+- Annotation-Zwischenablage hinzugefuegt: `Strg+C`, `Strg+X`, `Strg+V` fuer Markierungen in der Korrekturansicht (bei Sync schneidet `Strg+X` die gesamte Gruppe).
+- Einstellungen erweitert: Standardfarbe und Standard-PDF-Groesse fuer neue Markierungen sind jetzt im Settings-Dialog konfigurierbar und werden persistent gespeichert.
 - Beim `PDF ueberschreiben` werden Markierungen ausserhalb des aktiven Vorschau-Bereichs jetzt ignoriert und als Warnhinweis aufgelistet.
 - Exportierte Kommentar-/Symbol-Positionen wurden stabilisiert: PDF-FreeText wird jetzt mit expliziter Zentrierung geschrieben, um Links/Rechts-Versatz gegenueber der Vorschau zu reduzieren.
 - PDF-Annotationen speichern optional den Bereichscode (`area_code`), damit Overlay und Export sauber auf den zugehoerigen Korrekturbereich begrenzt bleiben.

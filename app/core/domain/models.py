@@ -170,6 +170,8 @@ class PdfAnnotation:
     area_code: str = ""
     font_size: float = 20.0
     rotation_deg: float = 0.0
+    sync_group_id: str = ""
+    position_detached: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -185,6 +187,8 @@ class PdfAnnotation:
             "area_code": self.area_code,
             "font_size": self.font_size,
             "rotation_deg": self.rotation_deg,
+            "sync_group_id": self.sync_group_id,
+            "position_detached": self.position_detached,
         }
 
     @classmethod
@@ -202,6 +206,8 @@ class PdfAnnotation:
             area_code=str(raw.get("area_code", "")).strip().upper(),
             font_size=float(raw.get("font_size", 20.0)),
             rotation_deg=float(raw.get("rotation_deg", 0.0)),
+            sync_group_id=str(raw.get("sync_group_id", "")).strip(),
+            position_detached=bool(raw.get("position_detached", False)),
         )
 
 
