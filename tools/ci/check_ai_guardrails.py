@@ -20,6 +20,7 @@ GUARDRAIL_RELEVANT_PATHS = {
     "bw_libs/ui_contract/hsm.py",
     "bw_libs/app_paths.py",
     "tools/ci/check_ai_guardrails.py",
+    "app/adapters/gui/main_window.py",
 }
 PROCESS_GUIDANCE_RULES = {
     "feature_commit": "Feature-Aenderungen werden in eigenstaendigen Commits",
@@ -83,6 +84,11 @@ def _read(rel_path: str) -> str:
 def _require_substring(text: str, needle: str, source: str, errors: list[str]) -> None:
     if needle not in text:
         errors.append(f"{source}: missing required text -> {needle}")
+
+
+def _forbid_substring(text: str, needle: str, source: str, errors: list[str]) -> None:
+    if needle in text:
+        errors.append(f"{source}: forbidden fallback text present -> {needle}")
 
 
 def _has_relevant_staged_changes(staged: set[str], repo_root: Path) -> bool:
@@ -187,6 +193,34 @@ def _check_runtime_shortcut_integration(errors: list[str]) -> None:
     )
 
 
+def _check_shared_ui_contracts(errors: list[str]) -> None:
+    """Require shared UI imports and block legacy fallback branches."""
+
+    main_window = _read("app/adapters/gui/main_window.py")
+
+    required_snippets = (
+        "from bw_gui.dialogs import open_tabbed_settings_dialog",
+        "from bw_gui.menu import CustomMenuBar as SharedCustomMenuBar",
+        "from bw_gui.shortcuts import compose_hover_text",
+        "from bw_gui.widgets import HoverTooltip as SharedHoverTooltip",
+        "self._menu_bar = SharedCustomMenuBar(",
+        "tooltip = SharedHoverTooltip(widget, text, theme_key=self._tooltip_theme_key)",
+        "open_tabbed_settings_dialog(",
+    )
+    forbidden_snippets = (
+        "except ModuleNotFoundError",
+        "if SharedCustomMenuBar is None",
+        "if SharedHoverTooltip is None",
+        "if compose_hover_text is None",
+        "if open_tabbed_settings_dialog is None",
+    )
+
+    for snippet in required_snippets:
+        _require_substring(main_window, snippet, "app/adapters/gui/main_window.py", errors)
+    for snippet in forbidden_snippets:
+        _forbid_substring(main_window, snippet, "app/adapters/gui/main_window.py", errors)
+
+
 def main() -> int:
     repo_root = _repo_root()
     staged = _staged_files(repo_root)
@@ -214,6 +248,7 @@ def main() -> int:
     _check_development_log_updated(staged, errors)
     _check_changelog_updated(staged, errors)
     _check_runtime_shortcut_integration(errors)
+    _check_shared_ui_contracts(errors)
     warnings = _collect_process_guidance_warnings()
 
     if errors:

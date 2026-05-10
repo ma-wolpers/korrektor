@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- AI guardrails were hardened to enforce mandatory shared UI contracts in `app/adapters/gui/main_window.py` and fail fast on legacy fallback branches.
 - Non-theme shared UI fallback branches were removed from the main window integration: shared menu, hover tooltip formatting, and shared tabbed settings are now mandatory runtime paths.
 - Theme fallback/special paths in the main window style pipeline were removed; Korrektor now requires the shared `bw_gui.theming` path consistently for window, ttk, and canvas token updates.
 - Reading and extra-page preview canvases now derive their surface and border colors from the shared theme tokens, so these workspaces update visually with theme changes.

@@ -1,6 +1,7 @@
 # Development Log
 
 ## [Unreleased]
+- Guardrails gehaertet: `tools/ci/check_ai_guardrails.py` erzwingt jetzt in `app/adapters/gui/main_window.py` verpflichtende Shared-UI-Contracts (Menue/Dialog/Hover) und blockiert Legacy-Fallbackmuster (`ModuleNotFoundError`/`None`-Guards).
 - Nicht-Theme-Sonderpfade entfernt: `app/adapters/gui/main_window.py` bindet Shared-Menue, Shared-Hover-Formatter und Shared-Settings-Dialog jetzt verpflichtend; optionale `ModuleNotFoundError`-/None-Guards wurden entfernt.
 - Theme-Sonderpfade entfernt: `app/adapters/gui/main_window.py` nutzt fuer Style-Aufbau und Token-Ableitung jetzt nur noch den verpflichtenden Shared-Pfad (`bw_gui.theming`) ohne callable-/Hex-Fallback-Zweige.
 - Canvas-Theme-Sync erweitert: Leseansicht und Extraseiten-Popup beziehen ihre Canvas-Hintergrund-/Rahmenfarben jetzt aus Shared-Theme-Tokens und werden bei Style-Refresh neu angewendet.
