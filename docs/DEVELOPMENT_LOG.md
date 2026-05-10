@@ -1,6 +1,8 @@
 # Development Log
 
 ## [Unreleased]
+- Step-5-Rollout gestartet: GUI-Bootstrap in `app/app.py` initialisiert das Root-Window jetzt ueber den zentralen Runtime-Host `bw_gui.runtime.TkRootHost` statt direkter `ui.Tk()`-Erzeugung.
+- Step-6-Guardrail-Hardening umgesetzt: `tools/ci/check_ai_guardrails.py` blockiert jetzt zusaetzlich repo-weit lokale Neudefinitionen der reservierten Shared-Primitives `TkRootHost`, `ScrollablePopupWindow` und `WrappedTextField`.
 - Korrektur-Annotationen erweitert: neue Durchdruecken-Funktion erzeugt bereichs-/aufgabenbezogene Sync-Gruppen ueber alle Personen; beim Deaktivieren werden Fremdkopien entfernt und nur die aktuelle Personen-Markierung lokal behalten.
 - Sync-Bearbeitung erweitert: Farb-, Groessen- und Rotationsaenderungen propagieren jetzt gruppenweit; Alt-Drag erlaubt positionslokale Entkopplung eines Gruppenmitglieds ohne Einfluss auf gruppenweite Stilattribute.
 - Annotation-Zwischenablage erweitert: Strg+C/Strg+X/Strg+V fuer Markierungen in der Korrekturansicht (Cut entfernt bei Sync die gesamte Gruppe, Paste setzt im Zielkontext auf gleicher relativer Position im Bereichsclip).
