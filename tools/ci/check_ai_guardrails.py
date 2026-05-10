@@ -23,6 +23,9 @@ GUARDRAIL_RELEVANT_PATHS = {
     "bw_libs/app_paths.py",
     "tools/ci/check_ai_guardrails.py",
     "app/adapters/gui/main_window.py",
+    "app/adapters/gui/ui_intent_controller.py",
+    "app/adapters/gui/ui_intents.py",
+    "app/adapters/undo/history.py",
 }
 PROCESS_GUIDANCE_RULES = {
     "feature_commit": "Feature-Aenderungen werden in eigenstaendigen Commits",
@@ -42,6 +45,7 @@ CHANGELOG_CODEV_RELEVANT_PATHS = {
     "bw_libs/ui_contract/popup.py",
     "bw_libs/ui_contract/hsm.py",
     "bw_libs/app_paths.py",
+    "app/adapters/undo/history.py",
 }
 FUTURE_GUI_SEARCH_ROOTS = (
     "app/adapters/gui",
@@ -290,6 +294,84 @@ def _check_runtime_shortcut_integration(errors: list[str]) -> None:
     )
 
 
+def _find_class(module: ast.Module, class_name: str) -> ast.ClassDef | None:
+    for node in module.body:
+        if isinstance(node, ast.ClassDef) and node.name == class_name:
+            return node
+    return None
+
+
+def _method_calls_self_helper(class_node: ast.ClassDef, method_name: str, helper_names: set[str]) -> bool:
+    for node in class_node.body:
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        if node.name != method_name:
+            continue
+        for child in ast.walk(node):
+            if not isinstance(child, ast.Call):
+                continue
+            func = child.func
+            if not isinstance(func, ast.Attribute):
+                continue
+            if not isinstance(func.value, ast.Name):
+                continue
+            if func.value.id != "self":
+                continue
+            if func.attr in helper_names:
+                return True
+    return False
+
+
+def _check_undo_redo_contracts(errors: list[str]) -> None:
+    controller_text = _read("app/adapters/gui/ui_intent_controller.py")
+    intents_text = _read("app/adapters/gui/ui_intents.py")
+    main_window = _read("app/adapters/gui/main_window.py")
+
+    _require_substring(controller_text, "def undo(self) -> bool:", "app/adapters/gui/ui_intent_controller.py", errors)
+    _require_substring(controller_text, "def redo(self) -> bool:", "app/adapters/gui/ui_intent_controller.py", errors)
+    _require_substring(controller_text, "self._deps.undo_history", "app/adapters/gui/ui_intent_controller.py", errors)
+    _require_substring(controller_text, "def _record_history_action(", "app/adapters/gui/ui_intent_controller.py", errors)
+
+    _require_substring(intents_text, "GLOBAL_UNDO", "app/adapters/gui/ui_intents.py", errors)
+    _require_substring(intents_text, "GLOBAL_REDO", "app/adapters/gui/ui_intents.py", errors)
+    _require_substring(main_window, "label=\"Bearbeiten\"", "app/adapters/gui/main_window.py", errors)
+    _require_substring(main_window, "<Control-z>", "app/adapters/gui/main_window.py", errors)
+    _require_substring(main_window, "<Control-y>", "app/adapters/gui/main_window.py", errors)
+
+    try:
+        module = ast.parse(controller_text, filename="app/adapters/gui/ui_intent_controller.py")
+    except Exception as exc:
+        errors.append(f"app/adapters/gui/ui_intent_controller.py: failed to parse Python AST -> {exc}")
+        return
+
+    class_node = _find_class(module, "UiIntentController")
+    if class_node is None:
+        errors.append("app/adapters/gui/ui_intent_controller.py: missing class UiIntentController")
+        return
+
+    tracked_mutators: set[str] = {
+        "create_exam",
+        "delete_selected_exam",
+        "update_exam_index_dir",
+        "save_score_immediate",
+        "upsert_region_immediate",
+        "save_exam_immediate",
+        "delete_region_immediate",
+        "finish_reading_mode",
+        "assign_extra_page_immediate",
+    }
+    for node in class_node.body:
+        if isinstance(node, ast.FunctionDef) and node.name.endswith("_immediate"):
+            tracked_mutators.add(node.name)
+
+    for method_name in sorted(tracked_mutators):
+        if not _method_calls_self_helper(class_node, method_name, {"_record_history_action", "_record_exam_payload_action"}):
+            errors.append(
+                "app/adapters/gui/ui_intent_controller.py: "
+                f"mutator '{method_name}' must register undo/redo history via _record_history_action or _record_exam_payload_action"
+            )
+
+
 def _check_shared_ui_contracts(errors: list[str]) -> None:
     """Require shared UI imports and block legacy fallback branches."""
 
@@ -405,6 +487,7 @@ def main() -> int:
     _check_development_log_updated(staged, errors)
     _check_changelog_updated(staged, errors)
     _check_runtime_shortcut_integration(errors)
+    _check_undo_redo_contracts(errors)
     _check_shared_ui_contracts(errors)
     _check_future_gui_entry_contracts(errors)
     _check_repo_wide_gui_contracts(errors)

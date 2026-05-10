@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
+from bw_libs.app_paths import atomic_write_text
 from app.adapters.bootstrap.wiring import GuiDependencies
 from app.adapters.gui.dialog_services import filedialog, messagebox, simpledialog
 from app.adapters.gui.view_models import ExamOverviewRow
+from app.adapters.undo import HistoryAction
 from app.core.domain.models import ExamProject, RegionAssignment, RegionBox, TaskDefinition
+from app.infrastructure.repositories.file_utils import atomic_write_json
 
 if TYPE_CHECKING:
     from app.adapters.gui.main_window import MainWindow
@@ -17,6 +21,105 @@ class UiIntentController:
     def __init__(self, app: "MainWindow", deps: GuiDependencies) -> None:
         self._app = app
         self._deps = deps
+
+    def can_undo(self) -> bool:
+        return self._deps.undo_history.can_undo()
+
+    def can_redo(self) -> bool:
+        return self._deps.undo_history.can_redo()
+
+    def undo_label(self) -> str | None:
+        return self._deps.undo_history.peek_undo()
+
+    def redo_label(self) -> str | None:
+        return self._deps.undo_history.peek_redo()
+
+    def undo(self) -> bool:
+        description = self._deps.undo_history.undo()
+        if description is None:
+            self._app.set_status("Nichts zum Rueckgaengigmachen")
+            return False
+        self._refresh_after_history_action()
+        self._app.set_status(f"Rueckgaengig: {description}")
+        return True
+
+    def redo(self) -> bool:
+        description = self._deps.undo_history.redo()
+        if description is None:
+            self._app.set_status("Nichts zum Wiederholen")
+            return False
+        self._refresh_after_history_action()
+        self._app.set_status(f"Wiederholt: {description}")
+        return True
+
+    def _refresh_after_history_action(self) -> None:
+        self.refresh_exam_overview()
+        self._app.sync_current_exam_from_repository()
+
+    def _record_history_action(self, *, description: str, undo, redo) -> None:
+        self._deps.undo_history.push(
+            HistoryAction(
+                description=description,
+                undo=undo,
+                redo=redo,
+            )
+        )
+
+    @staticmethod
+    def _read_text_or_none(path: Path) -> str | None:
+        if not path.exists():
+            return None
+        return path.read_text(encoding="utf-8")
+
+    @staticmethod
+    def _restore_text(path: Path, content: str | None) -> None:
+        if content is None:
+            if path.exists():
+                path.unlink()
+            return
+        atomic_write_text(path, content, encoding="utf-8")
+
+    @staticmethod
+    def _write_exam_payload(exam_file: Path, payload: dict[str, object]) -> None:
+        exam_file.parent.mkdir(parents=True, exist_ok=True)
+        atomic_write_json(exam_file, payload)
+
+    @staticmethod
+    def _index_to_area_label(index: int) -> str:
+        letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        result = ""
+        value = index
+        while True:
+            value, remainder = divmod(value, 26)
+            result = letters[remainder] + result
+            if value == 0:
+                break
+            value -= 1
+        return result
+
+    def _record_exam_payload_action(
+        self,
+        *,
+        description: str,
+        exam_id: str,
+        before_payload: dict[str, object],
+        after_payload: dict[str, object],
+    ) -> None:
+        exam_file = self._deps.exam_repository.index_root / f"{exam_id}.json"
+        before_copy = copy.deepcopy(before_payload)
+        after_copy = copy.deepcopy(after_payload)
+
+        self._record_history_action(
+            description=description,
+            undo=lambda: self._write_exam_payload(exam_file, before_copy),
+            redo=lambda: self._write_exam_payload(exam_file, after_copy),
+        )
+
+    def _apply_exam_index_dir(self, target: Path) -> None:
+        self._deps.settings_repository.save_exam_index_dir(target)
+        self._deps.exam_repository.set_index_root(target)
+        self._app.on_exam_index_dir_changed(target)
+        self.refresh_exam_overview()
 
     def refresh_exam_overview(self) -> None:
         overviews = self._deps.list_exams_usecase.execute()
@@ -59,6 +162,14 @@ class UiIntentController:
             messagebox.showerror("Fehler", str(exc))
             return
 
+        payload = copy.deepcopy(result.exam.to_dict())
+        exam_file = result.exam_file
+        self._record_history_action(
+            description=f"Klausur angelegt: {result.exam.exam_name}",
+            undo=lambda: exam_file.exists() and exam_file.unlink(),
+            redo=lambda: self._write_exam_payload(exam_file, payload),
+        )
+
         self.refresh_exam_overview()
         self._app.open_exam_detail(result.exam, result.exam_file)
         self._app.start_reading_mode_for_current_exam()
@@ -86,10 +197,24 @@ class UiIntentController:
             return
 
         try:
+            snapshot_exam = self._deps.load_exam_usecase.execute(exam_file=selected.source_file)
+        except Exception as exc:
+            messagebox.showerror("Fehler", f"Klausur konnte nicht geladen werden: {exc}")
+            return
+        payload = copy.deepcopy(snapshot_exam.to_dict())
+        exam_file = selected.source_file
+
+        try:
             self._deps.delete_exam_usecase.execute(exam_file=selected.source_file)
         except Exception as exc:
             messagebox.showerror("Fehler", f"Klausur konnte nicht geloescht werden: {exc}")
             return
+
+        self._record_history_action(
+            description=f"Klausur geloescht: {selected.exam_name}",
+            undo=lambda: self._write_exam_payload(exam_file, payload),
+            redo=lambda: exam_file.exists() and exam_file.unlink(),
+        )
 
         self._app.on_exam_deleted(selected.exam_id)
         self.refresh_exam_overview()
@@ -102,10 +227,17 @@ class UiIntentController:
             messagebox.showerror("Ungueltiger Pfad", str(exc))
             return None
 
-        self._deps.settings_repository.save_exam_index_dir(normalized)
-        self._deps.exam_repository.set_index_root(normalized)
-        self._app.on_exam_index_dir_changed(normalized)
-        self.refresh_exam_overview()
+        current = self._deps.exam_repository.index_root
+        if normalized == current:
+            self._app.set_status(f"JSON-Ablagepfad unveraendert: {normalized}")
+            return normalized
+
+        self._apply_exam_index_dir(normalized)
+        self._record_history_action(
+            description=f"JSON-Ablagepfad geaendert: {normalized}",
+            undo=lambda: self._apply_exam_index_dir(current),
+            redo=lambda: self._apply_exam_index_dir(normalized),
+        )
         self._app.set_status(f"JSON-Ablagepfad aktualisiert: {normalized}")
         return normalized
 
@@ -129,6 +261,9 @@ class UiIntentController:
             messagebox.showerror("Ungültige Eingabe", "Punkte und Max-Punkte müssen Zahlen sein.")
             return False
 
+        score_file = Path(exam.folder_path) / "korrektor_scores.csv"
+        before_csv = self._read_text_or_none(score_file)
+
         self._deps.save_score_usecase.execute(
             exam=exam,
             student_id=student_id,
@@ -136,6 +271,13 @@ class UiIntentController:
             points=points,
             max_points=max_points,
         )
+        after_csv = self._read_text_or_none(score_file)
+        if before_csv != after_csv:
+            self._record_history_action(
+                description=f"Punkte gesetzt: {task_code.strip()}",
+                undo=lambda: self._restore_text(score_file, before_csv),
+                redo=lambda: self._restore_text(score_file, after_csv),
+            )
         self._app.set_status("Punkte sofort gespeichert")
         return True
 
@@ -150,6 +292,7 @@ class UiIntentController:
         area_codes: list[str],
         region_id: str | None = None,
     ) -> ExamProject | None:
+        before_payload = copy.deepcopy(exam.to_dict())
         tasks = [
             TaskDefinition(code=code.strip().upper(), name=code.strip().upper(), max_points=max_points)
             for code, max_points in task_specs
@@ -175,24 +318,51 @@ class UiIntentController:
             is_extra_page=page_number > exam.standard_page_count,
         )
         updated = self._deps.upsert_region_usecase.execute(exam=exam, region=region)
+        self._record_exam_payload_action(
+            description=f"Bereich gespeichert: {region.assigned_area_codes[0]}",
+            exam_id=updated.exam_id,
+            before_payload=before_payload,
+            after_payload=updated.to_dict(),
+        )
         self.refresh_exam_overview()
         self._app.set_status("Bereich sofort gespeichert")
         return updated
 
     def save_exam_immediate(self, *, exam: ExamProject) -> ExamProject:
-        self._deps.exam_repository.save_exam(exam)
+        before_payload = copy.deepcopy(exam.to_dict())
+        exam_file = self._deps.exam_repository.save_exam(exam)
+        updated = self._deps.exam_repository.load_exam(exam_file)
+        self._record_exam_payload_action(
+            description="Klausur gespeichert",
+            exam_id=updated.exam_id,
+            before_payload=before_payload,
+            after_payload=updated.to_dict(),
+        )
         self.refresh_exam_overview()
         self._app.set_status("Aenderungen sofort gespeichert")
-        return exam
+        return updated
 
     def delete_region_immediate(self, *, exam: ExamProject, region_id: str) -> ExamProject:
+        before_payload = copy.deepcopy(exam.to_dict())
         exam.regions = [region for region in exam.regions if region.region_id != region_id]
-        self._deps.exam_repository.save_exam(exam)
+        ordered = [region for region in exam.regions if not region.is_extra_page]
+        for idx, region in enumerate(ordered):
+            code = self._index_to_area_label(idx)
+            region.assigned_area_codes = [code]
+        exam_file = self._deps.exam_repository.save_exam(exam)
+        updated = self._deps.exam_repository.load_exam(exam_file)
+        self._record_exam_payload_action(
+            description="Bereich geloescht",
+            exam_id=updated.exam_id,
+            before_payload=before_payload,
+            after_payload=updated.to_dict(),
+        )
         self.refresh_exam_overview()
         self._app.set_status("Bereich geloescht")
-        return exam
+        return updated
 
     def finish_reading_mode(self, *, exam: ExamProject) -> ExamProject:
+        before_payload = copy.deepcopy(exam.to_dict())
         expected = set(range(1, exam.standard_page_count + 1))
         marked = {
             region.page_number
@@ -211,6 +381,12 @@ class UiIntentController:
                 return exam
 
         updated = self._deps.set_reading_complete_usecase.execute(exam=exam, is_complete=True)
+        self._record_exam_payload_action(
+            description="Einlesemodus abgeschlossen",
+            exam_id=updated.exam_id,
+            before_payload=before_payload,
+            after_payload=updated.to_dict(),
+        )
         self.refresh_exam_overview()
         self._app.set_status("Einlesemodus abgeschlossen")
         return updated
@@ -224,6 +400,7 @@ class UiIntentController:
         box: tuple[float, float, float, float],
         area_codes: list[str],
     ) -> ExamProject | None:
+        before_payload = copy.deepcopy(exam.to_dict())
         normalized_areas = [code.strip().upper() for code in area_codes if code.strip()]
         if not normalized_areas:
             messagebox.showerror("Ungültige Eingabe", "Bitte mindestens einen Bereich angeben, z. B. A.")
@@ -252,6 +429,12 @@ class UiIntentController:
         )
 
         updated = self._deps.upsert_region_usecase.execute(exam=exam, region=region)
+        self._record_exam_payload_action(
+            description="Extraseite zugeordnet",
+            exam_id=updated.exam_id,
+            before_payload=before_payload,
+            after_payload=updated.to_dict(),
+        )
         self.refresh_exam_overview()
         self._app.set_status("Extraseite sofort zugeordnet")
         return updated

@@ -1,6 +1,9 @@
 # Development Log
 
 ## [Unreleased]
+- Sessionweite Undo/Redo-History eingefuehrt: Inhaltsmutationen werden jetzt zentral als Aktionen registriert und sind per `Strg+Z`/`Strg+Y` sowie ueber das neue `Bearbeiten`-Menue rueckgaengig/wiederholbar.
+- Undo-Guardrails erweitert: `tools/ci/check_ai_guardrails.py` erzwingt Undo/Redo-Vertraege in `ui_intent_controller.py` und prueft die Menue-/Shortcut-Verdrahtung (`Bearbeiten`, `Strg+Z`, `Strg+Y`).
+- Extraseiten-Editor parity hergestellt: Im Extraseitenmodus koennen Bereiche jetzt direkt gezogen, mit Aufgaben gespeichert und wieder geloescht werden (gleiches Editor-Panel wie im Einlesemodus).
 - Step-2-Guardrail-Scope abgeschlossen: die repo-weite GUI-Vertragspruefung in `tools/ci/check_ai_guardrails.py` umfasst jetzt zusaetzlich `bw_libs/`, sodass direkte `tkinter`/`ttk`-Imports und neue lokale `ui`/`widgets`/`tui`-Basisklassen auch in Shared-Library-Pfaden blockiert werden.
 - Einlese-Editor verbessert: unter dem aktiven Aufgaben-Eingabefeld werden jetzt modusabhaengige Formatbeispiele angezeigt (`Schnell`: `5B:2;5C:1`, `Formular`: zeilenweise `5B:2` / `5C:1`).
 - Step-3-Exemption-Abbau fortgesetzt: Future-Entrypoint-Baseline fuer `app/adapters/gui/main_window.py` entfernt; der Exemption-Backlog ist fuer Korrektor jetzt leer (nur `none`-Marker).

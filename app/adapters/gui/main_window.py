@@ -146,6 +146,8 @@ class MainWindow:
             intents=[
                 UiIntent.GLOBAL_CREATE_EXAM,
                 UiIntent.GLOBAL_ESCAPE,
+                UiIntent.GLOBAL_UNDO,
+                UiIntent.GLOBAL_REDO,
                 UiIntent.DETAIL_NAVIGATE_LEFT,
                 UiIntent.DETAIL_NAVIGATE_RIGHT,
                 UiIntent.DEBUG_RUNTIME_OVERLAY,
@@ -179,6 +181,12 @@ class MainWindow:
                 items_provider=self._menu_items_file,
             ),
             SharedMenuDefinition(
+                key="edit",
+                label="Bearbeiten",
+                alt="e",
+                items_provider=self._menu_items_edit,
+            ),
+            SharedMenuDefinition(
                 key="mode",
                 label="Modus",
                 alt="m",
@@ -208,6 +216,14 @@ class MainWindow:
         if self._controller is not None:
             self._controller.open_selected_exam()
 
+    def _menu_undo(self) -> None:
+        if self._controller is not None:
+            self._controller.undo()
+
+    def _menu_redo(self) -> None:
+        if self._controller is not None:
+            self._controller.redo()
+
     def _menu_items_file(self):
         return (
             SharedMenuItem(type="command", label="Neue Klausur (Strg+N)", command=self._menu_create_exam),
@@ -217,6 +233,31 @@ class MainWindow:
             SharedMenuItem(type="separator"),
             SharedMenuItem(type="command", label="Beenden", command=self.root.destroy),
         )
+
+    def _menu_items_edit(self):
+        can_undo = self._controller is not None and self._controller.can_undo()
+        can_redo = self._controller is not None and self._controller.can_redo()
+        undo_label = self._controller.undo_label() if self._controller is not None else None
+        redo_label = self._controller.redo_label() if self._controller is not None else None
+
+        undo_text = "Rueckgaengig (Strg+Z)"
+        redo_text = "Wiederholen (Strg+Y)"
+        if undo_label:
+            undo_text = f"Rueckgaengig: {undo_label} (Strg+Z)"
+        if redo_label:
+            redo_text = f"Wiederholen: {redo_label} (Strg+Y)"
+
+        undo_item = (
+            SharedMenuItem(type="command", label=undo_text, command=self._menu_undo)
+            if can_undo
+            else SharedMenuItem(type="disabled", label="Rueckgaengig (leer)")
+        )
+        redo_item = (
+            SharedMenuItem(type="command", label=redo_text, command=self._menu_redo)
+            if can_redo
+            else SharedMenuItem(type="disabled", label="Wiederholen (leer)")
+        )
+        return (undo_item, redo_item)
 
     def _menu_items_mode(self):
         return (
@@ -287,6 +328,22 @@ class MainWindow:
             binding_id="debug.runtime_offline",
             intent=UiIntent.DEBUG_RUNTIME_OFFLINE,
             modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Control-z>",
+            lambda _event: self._controller.undo(),
+            binding_id="global.undo",
+            intent=UiIntent.GLOBAL_UNDO,
+            modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG, UI_MODE_EDITOR),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Control-y>",
+            lambda _event: self._controller.redo(),
+            binding_id="global.redo",
+            intent=UiIntent.GLOBAL_REDO,
+            modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG, UI_MODE_EDITOR),
             allow_when_text_input=True,
         )
 
@@ -1220,6 +1277,18 @@ class MainWindow:
         self._exam_index_dir_value = str(index_root)
         self._return_to_overview()
 
+    def sync_current_exam_from_repository(self) -> None:
+        if self._current_exam is None:
+            return
+
+        exam_file = self.deps.exam_repository.index_root / f"{self._current_exam.exam_id}.json"
+        if not exam_file.exists():
+            self._return_to_overview()
+            return
+
+        exam = self.deps.exam_repository.load_exam(exam_file)
+        self.open_exam_detail(exam, exam_file)
+
     def _apply_detail_labels(self, exam: ExamProject) -> None:
         progress = ProgressCalculator().compute(exam)
 
@@ -1507,10 +1576,10 @@ class MainWindow:
             return
         region_id = region_tag.split(":", 1)[1]
         self._select_region_by_id(region_id)
-        self._render_current_reading_page()
+        self._rerender_active_page()
 
     def _on_canvas_press(self, event: ui.Event[ui.Misc]) -> None:
-        if not self._reading_active or self._extra_mode_active:
+        if not self._reading_active and not self._extra_mode_active:
             return
         x = float(self._reading_canvas.canvasx(event.x))
         y = float(self._reading_canvas.canvasy(event.y))
@@ -1535,7 +1604,7 @@ class MainWindow:
         self._reading_canvas.coords(self._drag_rect_id, x0, y0, x1, y1)
 
     def _on_canvas_release(self, event: ui.Event[ui.Misc]) -> None:
-        if not self._reading_active or self._extra_mode_active or self._drag_start is None:
+        if (not self._reading_active and not self._extra_mode_active) or self._drag_start is None:
             return
         if self._drag_rect_id is None:
             self._drag_start = None
@@ -1550,12 +1619,13 @@ class MainWindow:
             self._drag_start = None
             return
 
-        student = self._get_reading_student()
-        if student is None or self._current_exam is None:
+        context = self._current_canvas_context()
+        if context is None:
             self._reading_canvas.delete(self._drag_rect_id)
             self._drag_rect_id = None
             self._drag_start = None
             return
+        student, page_number = context
 
         box = (
             min(x0, x1) * self._x_factor,
@@ -1568,7 +1638,7 @@ class MainWindow:
         draft = DraftRegion(
             draft_id=draft_id,
             student_pdf=student.pdf_filename,
-            page_number=self._reading_page,
+            page_number=page_number,
             box=box,
             area_codes=[self._next_area_label()],
             task_specs=[],
@@ -1582,28 +1652,53 @@ class MainWindow:
         self._refresh_region_tree()
         self._select_region_by_id(draft_id)
 
-        self._render_current_reading_page()
+        self._rerender_active_page()
         self._drag_rect_id = None
         self._drag_start = None
         self._status_var.set("Bereich markiert. Jetzt Aufgaben eintragen und Speichern klicken.")
 
     def _on_canvas_mousewheel(self, event: ui.Event[ui.Misc]) -> None:
-        if not self._reading_active:
+        if not self._reading_active and not self._extra_mode_active:
             return
         step = int(-1 * (event.delta / 120)) if event.delta else 0
         if step:
             self._reading_canvas.yview_scroll(step, "units")
 
     def _on_canvas_shift_mousewheel(self, event: ui.Event[ui.Misc]) -> None:
-        if not self._reading_active:
+        if not self._reading_active and not self._extra_mode_active:
             return
         step = int(-1 * (event.delta / 120)) if event.delta else 0
         if step:
             self._reading_canvas.xview_scroll(step, "units")
 
+    def _current_canvas_context(self) -> tuple[StudentExam, int] | None:
+        if self._current_exam is None:
+            return None
+        if self._extra_mode_active and self._extra_sequence:
+            student_index, page_number = self._extra_sequence[self._extra_cursor]
+            return self._current_exam.students[student_index], page_number
+        student = self._get_reading_student()
+        if student is None:
+            return None
+        return student, self._reading_page
+
+    def _rerender_active_page(self) -> None:
+        if self._extra_mode_active:
+            self._render_current_extra_page()
+            return
+        self._render_current_reading_page()
+
     def _next_area_label(self) -> str:
         if self._current_exam is None:
             return "A"
+        if self._extra_mode_active:
+            extra_region_count = sum(1 for region in self._current_exam.regions if region.is_extra_page)
+            extra_draft_count = sum(
+                1
+                for draft in self._draft_regions.values()
+                if self._current_exam is not None and draft.page_number > self._current_exam.standard_page_count
+            )
+            return f"E{extra_region_count + extra_draft_count + 1}"
         standard_region_count = sum(1 for region in self._current_exam.regions if not region.is_extra_page)
         standard_draft_count = sum(
             1
@@ -2026,8 +2121,8 @@ class MainWindow:
 
         if mode == "extra":
             self._reading_toolbar.pack_forget()
-            self._mode_row.pack_forget()
-            self._regions_editor.pack_forget()
+            self._mode_row.pack(fill=ui.X, pady=(8, 0))
+            self._regions_editor.pack(fill=ui.BOTH, pady=(10, 0))
             self._extra_toolbar.pack(fill=ui.X, pady=(6, 0))
             return
 
@@ -2149,7 +2244,7 @@ class MainWindow:
             self._quick_tasks_var.set(quick_text)
             self._form_tasks_text.delete("1.0", ui.END)
             self._form_tasks_text.insert("1.0", form_text)
-            self._render_current_reading_page()
+            self._rerender_active_page()
             return
 
         region = next((item for item in self._current_exam.regions if item.region_id == region_id), None)
@@ -2191,7 +2286,7 @@ class MainWindow:
             self._refresh_region_tree()
             self._select_region_by_id(region.region_id)
             self._apply_detail_labels(updated)
-            self._render_current_reading_page()
+            self._rerender_active_page()
             return
 
         draft = self._draft_regions.get(self._selected_region_id)
@@ -2227,7 +2322,7 @@ class MainWindow:
         if persisted_id:
             self._select_region_by_id(persisted_id)
         self._apply_detail_labels(updated)
-        self._render_current_reading_page()
+        self._rerender_active_page()
 
     def _delete_selected_region(self) -> None:
         if self._current_exam is None or self._selected_region_id is None:
@@ -2240,7 +2335,7 @@ class MainWindow:
             self._quick_tasks_var.set("")
             self._form_tasks_text.delete("1.0", ui.END)
             self._refresh_region_tree()
-            self._render_current_reading_page()
+            self._rerender_active_page()
             return
 
         if self._controller is None:
@@ -2249,18 +2344,13 @@ class MainWindow:
         updated = self._controller.delete_region_immediate(exam=self._current_exam, region_id=self._selected_region_id)
         self._current_exam = updated
 
-        ordered = [region for region in self._current_exam.regions if not region.is_extra_page]
-        for idx, region in enumerate(ordered):
-            region.assigned_area_codes = [self._index_to_area_label(idx)]
-        self._controller.save_exam_immediate(exam=self._current_exam)
-
         self._selected_region_id = None
         self._active_region_var.set("-")
         self._quick_tasks_var.set("")
         self._form_tasks_text.delete("1.0", ui.END)
         self._refresh_region_tree()
         self._apply_detail_labels(self._current_exam)
-        self._render_current_reading_page()
+        self._rerender_active_page()
 
     def _on_delete_region_key(self, _event: ui.Event[ui.Misc]) -> None:
         self._delete_selected_region()

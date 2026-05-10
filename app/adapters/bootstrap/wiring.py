@@ -5,6 +5,7 @@ from pathlib import Path
 
 from app.app_info import APP_INFO, AppInfo
 from bw_libs.app_shell import AppShellConfig
+from app.adapters.undo import UndoHistory
 from app.core.domain.progress import ProgressCalculator
 from app.core.usecases.create_exam_usecase import CreateExamUseCase
 from app.core.usecases.delete_exam_usecase import DeleteExamUseCase
@@ -32,6 +33,7 @@ class GuiDependencies:
     exam_repository: JsonExamRepository
     settings_repository: JsonAppSettingsRepository
     runtime_settings: AppRuntimeSettings
+    undo_history: UndoHistory
     app_info: AppInfo
     shell_config: AppShellConfig
 
@@ -47,6 +49,7 @@ def build_gui_dependencies(base_dir: Path) -> GuiDependencies:
         default_exam_index_dir=default_index_root,
     )
     runtime_settings = settings_repository.load()
+    undo_history = UndoHistory()
 
     exam_repo = JsonExamRepository(index_root=runtime_settings.exam_index_dir)
     score_repo = CsvScoreRepository()
@@ -66,6 +69,7 @@ def build_gui_dependencies(base_dir: Path) -> GuiDependencies:
         exam_repository=exam_repo,
         settings_repository=settings_repository,
         runtime_settings=runtime_settings,
+        undo_history=undo_history,
         app_info=APP_INFO,
         shell_config=AppShellConfig(
             title=APP_INFO.window_title,
