@@ -16,6 +16,9 @@ class ExamRepository(Protocol):
     def save_exam(self, exam: ExamProject) -> Path:
         ...
 
+    def delete_exam(self, exam_file: Path) -> None:
+        ...
+
 
 class ScoreRepository(Protocol):
     def save_score(

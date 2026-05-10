@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 import fitz
 
@@ -54,6 +56,16 @@ if TYPE_CHECKING:
     from app.adapters.gui.ui_intent_controller import UiIntentController
 
 
+@dataclass(slots=True)
+class DraftRegion:
+    draft_id: str
+    student_pdf: str
+    page_number: int
+    box: tuple[float, float, float, float]
+    area_codes: list[str]
+    task_specs: list[tuple[str, float]]
+
+
 class MainWindow:
     def __init__(self, root: ui.Tk, deps: GuiDependencies) -> None:
         self.root = root
@@ -74,8 +86,10 @@ class MainWindow:
         self._controller = None
         self._correction_controls_frame: widgets.Frame | None = None
         self._in_detail_mode = False
+        self._active_view = "overview"
         self._selected_region_id: str | None = None
         self._region_tree_rows: dict[str, str] = {}
+        self._draft_regions: dict[str, DraftRegion] = {}
 
         self._status_var = ui.StringVar(value="Bereit")
         self._detail_exam_file: Path | None = None
@@ -127,6 +141,7 @@ class MainWindow:
         self._tooltip_theme_key = "sand_terracotta"
         self._menu_bar = None
         self._hover_tooltips: list[object] = []
+        self._exam_index_dir_value = str(self.deps.exam_repository.index_root)
         self._hsm_contract = build_ui_hsm_contract(
             intents=[
                 UiIntent.GLOBAL_CREATE_EXAM,
@@ -561,6 +576,13 @@ class MainWindow:
                             enum_values=("quick", "form"),
                             default=self._assignment_mode_var.get(),
                         ),
+                        SharedSettingsFieldSpec(
+                            key="exam_index_dir",
+                            label="Ablageordner Klausur-JSON",
+                            field_type="string",
+                            default=self._exam_index_dir_value,
+                            hint="Ein einzelner Ordner fuer alle Klausur-JSON-Dateien.",
+                        ),
                     ),
                 ),
                 SharedSettingsSectionSpec(
@@ -584,6 +606,7 @@ class MainWindow:
         return {
             "tooltip_theme_key": self._tooltip_theme_key,
             "assignment_mode": self._assignment_mode_var.get(),
+            "exam_index_dir": self._exam_index_dir_value,
             "runtime_offline": bool(self._shortcut_debug_offline_var.get()),
         }
 
@@ -612,6 +635,12 @@ class MainWindow:
         if assignment_mode not in {"quick", "form"}:
             assignment_mode = "quick"
         self._assignment_mode_var.set(assignment_mode)
+
+        requested_exam_index_dir = str(payload.get("exam_index_dir", self._exam_index_dir_value) or "").strip()
+        if requested_exam_index_dir and self._controller is not None:
+            normalized = self._controller.update_exam_index_dir(requested_exam_index_dir)
+            if normalized is not None:
+                self._exam_index_dir_value = str(normalized)
 
         self._shortcut_debug_offline_var.set(bool(payload.get("runtime_offline", self._shortcut_debug_offline_var.get())))
         self._refresh_shortcut_runtime_debug_dialog()
@@ -688,84 +717,47 @@ class MainWindow:
         title_row.pack(fill=ui.X)
 
         widgets.Label(title_row, text="Korrektor", style="Title.TLabel").pack(side=ui.LEFT)
-        widgets.Label(title_row, text="Workflow für Einlesen und Korrektur", style="Muted.TLabel").pack(side=ui.LEFT, padx=(12, 0), pady=(8, 0))
+        widgets.Label(title_row, text="Workflow fuer Einlesen und Korrektur", style="Muted.TLabel").pack(side=ui.LEFT, padx=(12, 0), pady=(8, 0))
 
-        action_row = widgets.Frame(shell, style="App.TFrame")
-        action_row.pack(fill=ui.X, pady=(14, 10))
+        self._view_stack = widgets.Frame(shell, style="App.TFrame")
+        self._view_stack.pack(fill=ui.BOTH, expand=True, pady=(14, 10))
+
+        self._overview_view = widgets.Frame(self._view_stack, style="Surface.TFrame", padding=12)
+        self._detail_view = widgets.Frame(self._view_stack, style="Surface.TFrame", padding=12)
+        self._reading_view = widgets.Frame(self._view_stack, style="Surface.TFrame", padding=12)
+
+        overview_actions = widgets.Frame(self._overview_view, style="Surface.TFrame")
+        overview_actions.pack(fill=ui.X, pady=(0, 10))
 
         create_exam_button = widgets.Button(
-            action_row,
+            overview_actions,
             text="Neue Klausur",
             style="PrimaryAction.TButton",
             command=lambda: self._controller and self._controller.create_exam(),
         )
         create_exam_button.pack(side=ui.LEFT)
         self._attach_hover_help(create_exam_button, label="Neue Klausur erstellen", shortcut="Ctrl+N")
-        self._back_button = widgets.Button(
-            action_row,
-            text="Zur Uebersicht",
-            style="SecondaryAction.TButton",
-            command=self._return_to_overview,
-        )
-        self._back_button.pack(side=ui.LEFT, padx=(10, 0))
-        self._back_button.state(["disabled"])
+
         open_exam_button = widgets.Button(
-            action_row,
-            text="Ausgewählte Klausur öffnen",
+            overview_actions,
+            text="Klausur oeffnen",
             style="SecondaryAction.TButton",
             command=lambda: self._controller and self._controller.open_selected_exam(),
         )
         open_exam_button.pack(side=ui.LEFT, padx=(10, 0))
         self._attach_hover_help(open_exam_button, label="Ausgewaehlte Klausur oeffnen", shortcut="Enter")
 
-        start_reading_button = widgets.Button(
-            action_row,
-            text="Einlesemodus starten",
+        delete_exam_button = widgets.Button(
+            overview_actions,
+            text="Klausur loeschen",
             style="SecondaryAction.TButton",
-            command=self._start_reading_mode,
+            command=lambda: self._controller and self._controller.delete_selected_exam(),
         )
-        start_reading_button.pack(side=ui.LEFT, padx=(10, 0))
-        self._attach_hover_help(start_reading_button, label="Einlesemodus starten", shortcut=None)
-
-        start_extra_button = widgets.Button(
-            action_row,
-            text="Extraseiten-Modus",
-            style="SecondaryAction.TButton",
-            command=self._start_extra_mode,
-        )
-        start_extra_button.pack(side=ui.LEFT, padx=(10, 0))
-        self._attach_hover_help(start_extra_button, label="Extraseiten-Modus starten", shortcut=None)
-
-        settings_button = widgets.Button(
-            action_row,
-            text="Einstellungen",
-            style="SecondaryAction.TButton",
-            command=self._open_settings_dialog,
-        )
-        settings_button.pack(side=ui.LEFT, padx=(10, 0))
-        self._attach_hover_help(settings_button, label="UI- und Debug-Einstellungen", shortcut=None)
-        shortcut_debug_button = widgets.Button(
-            action_row,
-            text="Shortcut Debug",
-            style="SecondaryAction.TButton",
-            command=self._open_shortcut_runtime_debug_dialog,
-        )
-        shortcut_debug_button.pack(side=ui.LEFT, padx=(10, 0))
-        self._attach_hover_help(shortcut_debug_button, label="Shortcut-Runtime-Debug anzeigen", shortcut="Ctrl+Shift+D")
-
-        content = widgets.PanedWindow(shell, orient=ui.HORIZONTAL)
-        content.pack(fill=ui.BOTH, expand=True)
-        self._content_pane = content
-
-        left = widgets.Frame(content, style="Surface.TFrame", padding=12)
-        right = widgets.Frame(content, style="Surface.TFrame", padding=12)
-        content.add(left, weight=2)
-        content.add(right, weight=1)
-        self._overview_panel = left
-        self._detail_panel = right
+        delete_exam_button.pack(side=ui.LEFT, padx=(10, 0))
+        self._attach_hover_help(delete_exam_button, label="Ausgewaehlte Klausur loeschen", shortcut=None)
 
         self._tree = widgets.Treeview(
-            left,
+            self._overview_view,
             columns=("name", "read", "corr", "regions", "done", "complete", "flags"),
             show="headings",
             height=18,
@@ -787,7 +779,47 @@ class MainWindow:
         self._tree.bind("<Double-1>", lambda _event: self._controller and self._controller.open_selected_exam())
         self._tree.bind("<Return>", lambda _event: self._controller and self._controller.open_selected_exam())
 
-        widgets.Label(right, text="Klausur-Details", style="Title.TLabel").pack(anchor=ui.W)
+        widgets.Label(self._detail_view, text="Klausur-Details", style="Title.TLabel").pack(anchor=ui.W)
+
+        detail_actions = widgets.Frame(self._detail_view, style="Surface.TFrame")
+        detail_actions.pack(fill=ui.X, pady=(8, 10))
+
+        back_button = widgets.Button(
+            detail_actions,
+            text="Zur Uebersicht",
+            style="SecondaryAction.TButton",
+            command=self._return_to_overview,
+        )
+        back_button.pack(side=ui.LEFT)
+        self._attach_hover_help(back_button, label="Zur Gesamtuebersicht wechseln", shortcut="Esc")
+
+        mode_reading_button = widgets.Button(
+            detail_actions,
+            text="Einlesen",
+            style="SecondaryAction.TButton",
+            command=self._start_reading_mode,
+        )
+        mode_reading_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(mode_reading_button, label="In den Einlesemodus wechseln", shortcut=None)
+
+        mode_extra_button = widgets.Button(
+            detail_actions,
+            text="Extraseiten",
+            style="SecondaryAction.TButton",
+            command=self._start_extra_mode,
+        )
+        mode_extra_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(mode_extra_button, label="In den Extraseitenmodus wechseln", shortcut=None)
+
+        mode_correction_button = widgets.Button(
+            detail_actions,
+            text="Korrektur",
+            style="SecondaryAction.TButton",
+            command=self._start_correction_mode,
+        )
+        mode_correction_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(mode_correction_button, label="In den Korrekturmodus wechseln", shortcut=None)
+
         self._detail_name = ui.StringVar(value="-")
         self._detail_pages = ui.StringVar(value="Standardseiten: -")
         self._detail_students = ui.StringVar(value="Schüler:innen: -")
@@ -803,38 +835,9 @@ class MainWindow:
             self._detail_status,
             self._active_student,
         ]:
-            widgets.Label(right, textvariable=variable, style="Muted.TLabel").pack(anchor=ui.W, pady=4)
+            widgets.Label(self._detail_view, textvariable=variable, style="Muted.TLabel").pack(anchor=ui.W, pady=4)
 
-        self._mode_tabs = widgets.Frame(right, style="Surface.TFrame")
-        self._mode_tabs.pack(fill=ui.X, pady=(8, 6))
-        mode_reading_button = widgets.Button(
-            self._mode_tabs,
-            text="Einlesen",
-            style="SecondaryAction.TButton",
-            command=self._start_reading_mode,
-        )
-        mode_reading_button.pack(side=ui.LEFT)
-        self._attach_hover_help(mode_reading_button, label="In den Einlesemodus wechseln", shortcut=None)
-
-        mode_correction_button = widgets.Button(
-            self._mode_tabs,
-            text="Korrektur",
-            style="SecondaryAction.TButton",
-            command=self._start_correction_mode,
-        )
-        mode_correction_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(mode_correction_button, label="In den Korrekturmodus wechseln", shortcut=None)
-
-        mode_extra_button = widgets.Button(
-            self._mode_tabs,
-            text="Extraseiten",
-            style="SecondaryAction.TButton",
-            command=self._start_extra_mode,
-        )
-        mode_extra_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(mode_extra_button, label="In den Extraseitenmodus wechseln", shortcut=None)
-
-        self._correction_controls_frame = widgets.Frame(right, style="Surface.TFrame")
+        self._correction_controls_frame = widgets.Frame(self._detail_view, style="Surface.TFrame")
         self._correction_controls_frame.pack(fill=ui.X, pady=(10, 0))
 
         widgets.Separator(self._correction_controls_frame).pack(fill=ui.X, pady=(0, 10))
@@ -925,13 +928,30 @@ class MainWindow:
         next_student_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(next_student_button, label="Naechste Person", shortcut="Rechts")
 
-        self._reading_workspace_frame = widgets.Frame(right, style="Surface.TFrame")
-        self._reading_workspace_frame.pack(fill=ui.BOTH, expand=True)
+        widgets.Label(self._reading_view, textvariable=self._reading_info_var, style="Muted.TLabel").pack(anchor=ui.W, pady=(0, 8))
 
-        widgets.Separator(self._reading_workspace_frame).pack(fill=ui.X, pady=(12, 10))
-        widgets.Label(self._reading_workspace_frame, textvariable=self._reading_info_var, style="Muted.TLabel").pack(anchor=ui.W, pady=(0, 8))
+        reading_nav = widgets.Frame(self._reading_view, style="Surface.TFrame")
+        reading_nav.pack(fill=ui.X, pady=(0, 8))
 
-        self._reading_toolbar = widgets.Frame(self._reading_workspace_frame, style="Surface.TFrame")
+        back_to_detail_button = widgets.Button(
+            reading_nav,
+            text="Zurueck zur Klausur",
+            style="SecondaryAction.TButton",
+            command=self._leave_reading_view,
+        )
+        back_to_detail_button.pack(side=ui.LEFT)
+        self._attach_hover_help(back_to_detail_button, label="Zur Klausurdetailansicht zurueck", shortcut="Esc")
+
+        finish_reading_button = widgets.Button(
+            reading_nav,
+            text="Einlesen abschliessen",
+            style="PrimaryAction.TButton",
+            command=self._finish_reading_mode,
+        )
+        finish_reading_button.pack(side=ui.RIGHT)
+        self._attach_hover_help(finish_reading_button, label="Einlesemodus abschliessen", shortcut=None)
+
+        self._reading_toolbar = widgets.Frame(self._reading_view, style="Surface.TFrame")
         self._reading_toolbar.pack(fill=ui.X)
         prev_page_button = widgets.Button(
             self._reading_toolbar,
@@ -969,16 +989,7 @@ class MainWindow:
         next_reading_student_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(next_reading_student_button, label="Naechste Person im Einlesen", shortcut=None)
 
-        finish_reading_button = widgets.Button(
-            self._reading_toolbar,
-            text="Einlesen abschließen",
-            style="PrimaryAction.TButton",
-            command=self._finish_reading_mode,
-        )
-        finish_reading_button.pack(side=ui.RIGHT)
-        self._attach_hover_help(finish_reading_button, label="Einlesemodus abschliessen", shortcut=None)
-
-        self._extra_toolbar = widgets.Frame(self._reading_workspace_frame, style="Surface.TFrame")
+        self._extra_toolbar = widgets.Frame(self._reading_view, style="Surface.TFrame")
         self._extra_toolbar.pack(fill=ui.X, pady=(6, 0))
         prev_extra_page_button = widgets.Button(
             self._extra_toolbar,
@@ -1007,16 +1018,23 @@ class MainWindow:
         assign_extra_page_button.pack(side=ui.RIGHT)
         self._attach_hover_help(assign_extra_page_button, label="Aktuelle Extraseite einem Bereich zuordnen", shortcut=None)
 
-        self._mode_row = widgets.Frame(self._reading_workspace_frame, style="Surface.TFrame")
+        self._mode_row = widgets.Frame(self._reading_view, style="Surface.TFrame")
         self._mode_row.pack(fill=ui.X, pady=(8, 0))
         widgets.Label(self._mode_row, text="Zuordnung:", style="Muted.TLabel").pack(side=ui.LEFT)
         widgets.Radiobutton(self._mode_row, text="Schnell (Code:Punkte)", value="quick", variable=self._assignment_mode_var).pack(side=ui.LEFT, padx=(8, 0))
         widgets.Radiobutton(self._mode_row, text="Formular", value="form", variable=self._assignment_mode_var).pack(side=ui.LEFT, padx=(8, 0))
         self._assignment_mode_var.trace_add("write", lambda *_args: self._refresh_task_input_mode())
 
-        canvas_container = widgets.Frame(self._reading_workspace_frame, style="Surface.TFrame", height=360)
-        canvas_container.pack(fill=ui.BOTH, expand=True, pady=(10, 0))
-        canvas_container.pack_propagate(False)
+        reading_split = widgets.PanedWindow(self._reading_view, orient=ui.HORIZONTAL)
+        reading_split.pack(fill=ui.BOTH, expand=True, pady=(10, 0))
+
+        canvas_panel = widgets.Frame(reading_split, style="Surface.TFrame", padding=(0, 0, 8, 0))
+        editor_panel = widgets.Frame(reading_split, style="Surface.TFrame", padding=(8, 0, 0, 0))
+        reading_split.add(canvas_panel, weight=3)
+        reading_split.add(editor_panel, weight=2)
+
+        canvas_container = widgets.Frame(canvas_panel, style="Surface.TFrame")
+        canvas_container.pack(fill=ui.BOTH, expand=True)
 
         canvas_scroll_x = widgets.Scrollbar(canvas_container, orient=ui.HORIZONTAL)
         canvas_scroll_y = widgets.Scrollbar(canvas_container, orient=ui.VERTICAL)
@@ -1041,12 +1059,17 @@ class MainWindow:
         self._reading_canvas.bind("<ButtonPress-1>", self._on_canvas_press)
         self._reading_canvas.bind("<B1-Motion>", self._on_canvas_drag)
         self._reading_canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
+        self._reading_canvas.bind("<MouseWheel>", self._on_canvas_mousewheel)
+        self._reading_canvas.bind("<Shift-MouseWheel>", self._on_canvas_shift_mousewheel)
 
-        self._regions_editor = widgets.Frame(self._reading_workspace_frame, style="Surface.TFrame")
+        self._regions_editor = widgets.Frame(editor_panel, style="Surface.TFrame")
         self._regions_editor.pack(fill=ui.BOTH, pady=(10, 0))
 
+        regions_tree_shell = widgets.Frame(self._regions_editor, style="Surface.TFrame")
+        regions_tree_shell.pack(fill=ui.BOTH, expand=True)
+
         self._regions_tree = widgets.Treeview(
-            self._regions_editor,
+            regions_tree_shell,
             columns=("area", "student", "page"),
             show="headings",
             height=5,
@@ -1057,7 +1080,13 @@ class MainWindow:
         self._regions_tree.column("area", width=80, anchor=ui.CENTER)
         self._regions_tree.column("student", width=180, anchor=ui.W)
         self._regions_tree.column("page", width=80, anchor=ui.CENTER)
-        self._regions_tree.pack(fill=ui.X)
+
+        regions_tree_scroll = widgets.Scrollbar(regions_tree_shell, orient=ui.VERTICAL)
+        self._regions_tree.configure(yscrollcommand=regions_tree_scroll.set)
+        regions_tree_scroll.configure(command=self._regions_tree.yview)
+        self._regions_tree.pack(side=ui.LEFT, fill=ui.BOTH, expand=True)
+        regions_tree_scroll.pack(side=ui.RIGHT, fill=ui.Y)
+
         self._regions_tree.bind("<<TreeviewSelect>>", self._on_region_selected)
         self.root.bind_all("<Delete>", self._on_delete_region_key)
 
@@ -1070,10 +1099,8 @@ class MainWindow:
         self._quick_tasks_var = ui.StringVar(value="")
         self._quick_tasks_entry = widgets.Entry(self._regions_editor, textvariable=self._quick_tasks_var)
         self._quick_tasks_entry.pack(fill=ui.X)
-        self._quick_tasks_entry.bind("<FocusOut>", lambda _e: self._save_selected_region())
 
         self._form_tasks_text = ui.Text(self._regions_editor, height=4, wrap="word")
-        self._form_tasks_text.bind("<FocusOut>", lambda _e: self._save_selected_region())
 
         region_actions = widgets.Frame(self._regions_editor, style="Surface.TFrame")
         region_actions.pack(fill=ui.X, pady=(6, 0))
@@ -1102,6 +1129,7 @@ class MainWindow:
 
         self._hide_correction_controls()
         self._set_detail_submode("reading")
+        self._show_view("overview")
 
     def render_overview_rows(self, rows: list[ExamOverviewRow]) -> None:
         self._rows_by_tree_id.clear()
@@ -1162,11 +1190,23 @@ class MainWindow:
         self._status_var.set(f"Detailansicht: {exam.exam_name}")
         self._reading_info_var.set("Einlesemodus: bereit")
         self._reading_canvas.delete("all")
+        self._draft_regions.clear()
         self._hide_correction_controls()
         self._close_extra_popup()
         self._selected_region_id = None
         self._refresh_region_tree()
         self._show_detail_mode()
+
+    def on_exam_deleted(self, exam_id: str) -> None:
+        if self._current_exam is None:
+            return
+        if self._current_exam.exam_id != exam_id:
+            return
+        self._return_to_overview()
+
+    def on_exam_index_dir_changed(self, index_root: Path) -> None:
+        self._exam_index_dir_value = str(index_root)
+        self._return_to_overview()
 
     def _apply_detail_labels(self, exam: ExamProject) -> None:
         progress = ProgressCalculator().compute(exam)
@@ -1225,14 +1265,7 @@ class MainWindow:
                 return
 
             if self._reading_active or self._extra_mode_active:
-                self._reading_active = False
-                self._extra_mode_active = False
-                self._extra_sequence = []
-                self._close_extra_popup()
-                self._reading_info_var.set("Einlesemodus: bereit")
-                self._status_var.set("Einlesemodus verlassen")
-                self._reading_canvas.delete("all")
-                self._hide_correction_controls()
+                self._leave_reading_view()
                 return
 
         if action != ESCAPE_POP_PARENT or self._current_exam is None:
@@ -1252,6 +1285,7 @@ class MainWindow:
         self._correction_mode_active = False
         self._correction_student_indices = []
         self._reading_info_var.set("Einlesemodus: nicht aktiv")
+        self._draft_regions.clear()
         self._reading_canvas.delete("all")
         self._hide_correction_controls()
         self._close_extra_popup()
@@ -1304,19 +1338,19 @@ class MainWindow:
         self._focus_first_input_field()
 
     def _on_left_key(self, _event: ui.Event[ui.Misc]) -> None:
-        if self._detail_submode == "extra" and self._extra_mode_active:
+        if self._active_view == "reading" and self._detail_submode == "extra" and self._extra_mode_active:
             self._change_extra_page(-1)
             return
-        if self._detail_submode == "reading" and self._reading_active:
+        if self._active_view == "reading" and self._detail_submode == "reading" and self._reading_active:
             self._change_reading_page(-1)
             return
         self._move_student(-1)
 
     def _on_right_key(self, _event: ui.Event[ui.Misc]) -> None:
-        if self._detail_submode == "extra" and self._extra_mode_active:
+        if self._active_view == "reading" and self._detail_submode == "extra" and self._extra_mode_active:
             self._change_extra_page(1)
             return
-        if self._detail_submode == "reading" and self._reading_active:
+        if self._active_view == "reading" and self._detail_submode == "reading" and self._reading_active:
             self._change_reading_page(1)
             return
         self._move_student(1)
@@ -1343,6 +1377,7 @@ class MainWindow:
         self._reading_student_cursor = 0
         self._reading_page = 1
         self._set_detail_submode("reading")
+        self._show_view("reading")
         self._render_current_reading_page()
         self._status_var.set("Einlesemodus aktiv")
 
@@ -1369,13 +1404,13 @@ class MainWindow:
         self._extra_sequence = sequence
         self._extra_cursor = 0
         self._set_detail_submode("extra")
+        self._show_view("reading")
         self._render_current_extra_page()
         self._status_var.set("Extraseiten-Modus aktiv")
 
     def _change_reading_student(self, delta: int) -> None:
         if not self._reading_active or not self._current_exam or not self._current_exam.students:
             return
-        self._save_selected_region()
         self._reading_student_cursor = (self._reading_student_cursor + delta) % len(self._current_exam.students)
         student = self._current_exam.students[self._reading_student_cursor]
         self._reading_page = min(self._reading_page, max(student.page_count, 1))
@@ -1384,7 +1419,6 @@ class MainWindow:
     def _change_reading_page(self, delta: int) -> None:
         if not self._reading_active:
             return
-        self._save_selected_region()
         student = self._get_reading_student()
         if student is None:
             return
@@ -1411,6 +1445,7 @@ class MainWindow:
     def _draw_existing_regions(self, student_pdf: str, page_number: int) -> None:
         if not self._current_exam:
             return
+
         for region in self._current_exam.regions:
             if region.student_pdf != student_pdf or region.page_number != page_number:
                 continue
@@ -1430,6 +1465,26 @@ class MainWindow:
             )
             self._reading_canvas.tag_bind(rect_id, "<Button-1>", self._on_canvas_region_click)
 
+        for draft in self._draft_regions.values():
+            if draft.student_pdf != student_pdf or draft.page_number != page_number:
+                continue
+            x0 = draft.box[0] / self._x_factor
+            y0 = draft.box[1] / self._y_factor
+            x1 = draft.box[2] / self._x_factor
+            y1 = draft.box[3] / self._y_factor
+            is_selected = draft.draft_id == self._selected_region_id
+            rect_id = self._reading_canvas.create_rectangle(
+                x0,
+                y0,
+                x1,
+                y1,
+                outline="#d17a00" if is_selected else "#1f6feb",
+                dash=(4, 2),
+                width=3 if is_selected else 2,
+                tags=("region", f"region:{draft.draft_id}"),
+            )
+            self._reading_canvas.tag_bind(rect_id, "<Button-1>", self._on_canvas_region_click)
+
     def _on_canvas_region_click(self, event: ui.Event[ui.Misc]) -> None:
         current = self._reading_canvas.find_withtag("current")
         if not current:
@@ -1445,14 +1500,16 @@ class MainWindow:
     def _on_canvas_press(self, event: ui.Event[ui.Misc]) -> None:
         if not self._reading_active or self._extra_mode_active:
             return
-        self._drag_start = (float(event.x), float(event.y))
+        x = float(self._reading_canvas.canvasx(event.x))
+        y = float(self._reading_canvas.canvasy(event.y))
+        self._drag_start = (x, y)
         if self._drag_rect_id is not None:
             self._reading_canvas.delete(self._drag_rect_id)
         self._drag_rect_id = self._reading_canvas.create_rectangle(
-            event.x,
-            event.y,
-            event.x,
-            event.y,
+            x,
+            y,
+            x,
+            y,
             outline="#1f6feb",
             width=2,
         )
@@ -1461,7 +1518,9 @@ class MainWindow:
         if self._drag_start is None or self._drag_rect_id is None:
             return
         x0, y0 = self._drag_start
-        self._reading_canvas.coords(self._drag_rect_id, x0, y0, event.x, event.y)
+        x1 = float(self._reading_canvas.canvasx(event.x))
+        y1 = float(self._reading_canvas.canvasy(event.y))
+        self._reading_canvas.coords(self._drag_rect_id, x0, y0, x1, y1)
 
     def _on_canvas_release(self, event: ui.Event[ui.Misc]) -> None:
         if not self._reading_active or self._extra_mode_active or self._drag_start is None:
@@ -1471,7 +1530,8 @@ class MainWindow:
             return
 
         x0, y0 = self._drag_start
-        x1, y1 = float(event.x), float(event.y)
+        x1 = float(self._reading_canvas.canvasx(event.x))
+        y1 = float(self._reading_canvas.canvasy(event.y))
         if abs(x1 - x0) < 5 or abs(y1 - y0) < 5:
             self._reading_canvas.delete(self._drag_rect_id)
             self._drag_rect_id = None
@@ -1479,11 +1539,11 @@ class MainWindow:
             return
 
         student = self._get_reading_student()
-        if student is None or self._current_exam is None or self._controller is None:
+        if student is None or self._current_exam is None:
+            self._reading_canvas.delete(self._drag_rect_id)
+            self._drag_rect_id = None
+            self._drag_start = None
             return
-        task_specs = self._read_task_specs_from_editor() or []
-        standard_region_count = sum(1 for region in self._current_exam.regions if not region.is_extra_page)
-        next_area = self._index_to_area_label(standard_region_count)
 
         box = (
             min(x0, x1) * self._x_factor,
@@ -1492,32 +1552,53 @@ class MainWindow:
             max(y0, y1) * self._y_factor,
         )
 
-        updated = self._controller.upsert_region_immediate(
-            exam=self._current_exam,
+        draft_id = f"draft-{uuid4().hex[:10]}"
+        draft = DraftRegion(
+            draft_id=draft_id,
             student_pdf=student.pdf_filename,
             page_number=self._reading_page,
             box=box,
-            task_specs=task_specs,
-            area_codes=[next_area],
+            area_codes=[self._next_area_label()],
+            task_specs=[],
         )
-        if updated is not None:
-            self._current_exam = updated
-            self._apply_detail_labels(updated)
-            target = next(
-                (
-                    region.region_id
-                    for region in reversed(updated.regions)
-                    if region.student_pdf == student.pdf_filename and region.page_number == self._reading_page
-                ),
-                None,
-            )
-            self._refresh_region_tree()
-            if target:
-                self._select_region_by_id(target)
+        self._draft_regions[draft_id] = draft
+
+        self._selected_region_id = draft_id
+        self._active_region_var.set("Draft")
+        self._quick_tasks_var.set("")
+        self._form_tasks_text.delete("1.0", ui.END)
+        self._refresh_region_tree()
+        self._select_region_by_id(draft_id)
 
         self._render_current_reading_page()
         self._drag_rect_id = None
         self._drag_start = None
+        self._status_var.set("Bereich markiert. Jetzt Aufgaben eintragen und Speichern klicken.")
+
+    def _on_canvas_mousewheel(self, event: ui.Event[ui.Misc]) -> None:
+        if not self._reading_active:
+            return
+        step = int(-1 * (event.delta / 120)) if event.delta else 0
+        if step:
+            self._reading_canvas.yview_scroll(step, "units")
+
+    def _on_canvas_shift_mousewheel(self, event: ui.Event[ui.Misc]) -> None:
+        if not self._reading_active:
+            return
+        step = int(-1 * (event.delta / 120)) if event.delta else 0
+        if step:
+            self._reading_canvas.xview_scroll(step, "units")
+
+    def _next_area_label(self) -> str:
+        if self._current_exam is None:
+            return "A"
+        standard_region_count = sum(1 for region in self._current_exam.regions if not region.is_extra_page)
+        standard_draft_count = sum(
+            1
+            for draft in self._draft_regions.values()
+            if self._current_exam is not None and draft.page_number <= self._current_exam.standard_page_count
+        )
+        return self._index_to_area_label(standard_region_count + standard_draft_count)
 
     def _finish_reading_mode(self) -> None:
         if not self._current_exam or not self._controller:
@@ -1527,6 +1608,7 @@ class MainWindow:
         self._apply_detail_labels(updated)
         self._reading_active = False
         self._reading_info_var.set("Einlesemodus: abgeschlossen")
+        self._show_detail_mode()
 
     def _change_extra_page(self, delta: int) -> None:
         if not self._extra_mode_active or not self._extra_sequence:
@@ -1672,10 +1754,14 @@ class MainWindow:
             messagebox.showinfo("Keine Fälle", f"Für Bereich {area} wurden noch keine Schüler:innen zugeordnet.")
             return
 
+        self._reading_active = False
+        self._extra_mode_active = False
+        self._extra_sequence = []
         self._correction_mode_active = True
         self._correction_student_indices = indices
         self._correction_cursor = 0
         self._student_cursor = indices[0]
+        self._show_detail_mode()
         self._show_correction_controls()
         self._set_detail_submode("correction")
         self._refresh_active_student_label()
@@ -1853,16 +1939,35 @@ class MainWindow:
         self._start_reading_mode()
 
     def _show_detail_mode(self) -> None:
-        if self._in_detail_mode:
+        if self._current_exam is None:
             return
-        panes = [str(widget) for widget in self._content_pane.panes()]
-        if str(self._overview_panel) in panes:
-            self._content_pane.forget(self._overview_panel)
-        panes = [str(widget) for widget in self._content_pane.panes()]
-        if str(self._detail_panel) not in panes:
-            self._content_pane.add(self._detail_panel, weight=1)
+        self._show_view("detail")
         self._in_detail_mode = True
-        self._back_button.state(["!disabled"])
+        self._set_detail_submode("reading")
+
+    def _show_view(self, view_name: str) -> None:
+        frames = {
+            "overview": self._overview_view,
+            "detail": self._detail_view,
+            "reading": self._reading_view,
+        }
+        target = frames.get(view_name)
+        if target is None:
+            return
+
+        for frame in frames.values():
+            frame.pack_forget()
+        target.pack(fill=ui.BOTH, expand=True)
+        self._active_view = view_name
+
+    def _leave_reading_view(self) -> None:
+        self._reading_active = False
+        self._extra_mode_active = False
+        self._extra_sequence = []
+        self._close_extra_popup()
+        self._reading_info_var.set("Einlesemodus: bereit")
+        self._status_var.set("Einlesemodus verlassen")
+        self._show_detail_mode()
 
     def _return_to_overview(self) -> None:
         self._current_exam = None
@@ -1871,20 +1976,22 @@ class MainWindow:
         self._extra_mode_active = False
         self._correction_mode_active = False
         self._selected_region_id = None
+        self._draft_regions.clear()
+        self._detail_name.set("-")
+        self._detail_pages.set("Standardseiten: -")
+        self._detail_students.set("Schüler:innen: -")
+        self._detail_regions.set("Bereiche: -")
+        self._detail_status.set("Status: -")
+        self._active_student.set("Aktive Person: -")
+        self._reading_info_var.set("Einlesemodus: nicht aktiv")
         self._close_extra_popup()
         self._reading_canvas.delete("all")
         self._active_region_var.set("-")
         self._quick_tasks_var.set("")
         self._form_tasks_text.delete("1.0", ui.END)
         self._refresh_region_tree()
-        panes = [str(widget) for widget in self._content_pane.panes()]
-        if str(self._detail_panel) in panes:
-            self._content_pane.forget(self._detail_panel)
-        panes = [str(widget) for widget in self._content_pane.panes()]
-        if str(self._overview_panel) not in panes:
-            self._content_pane.add(self._overview_panel, weight=1)
+        self._show_view("overview")
         self._in_detail_mode = False
-        self._back_button.state(["disabled"])
         self._status_var.set("Zur Uebersicht zurueckgekehrt")
 
     def _show_correction_controls(self) -> None:
@@ -1901,13 +2008,9 @@ class MainWindow:
         self._detail_submode = mode
 
         if mode == "correction":
-            self._reading_workspace_frame.pack_forget()
             self._show_correction_controls()
             return
-
-        # Reading and extra share the same workspace but with different tool rows.
         self._hide_correction_controls()
-        self._reading_workspace_frame.pack(fill=ui.BOTH, expand=True)
 
         if mode == "extra":
             self._reading_toolbar.pack_forget()
@@ -1916,7 +2019,6 @@ class MainWindow:
             self._extra_toolbar.pack(fill=ui.X, pady=(6, 0))
             return
 
-        # default reading mode
         self._extra_toolbar.pack_forget()
         self._reading_toolbar.pack(fill=ui.X)
         self._mode_row.pack(fill=ui.X, pady=(8, 0))
@@ -1988,6 +2090,15 @@ class MainWindow:
             )
             self._region_tree_rows[row_id] = region.region_id
 
+        for draft in self._draft_regions.values():
+            area = draft.area_codes[0] if draft.area_codes else "-"
+            row_id = self._regions_tree.insert(
+                "",
+                ui.END,
+                values=(f"{area}*", draft.student_pdf, draft.page_number),
+            )
+            self._region_tree_rows[row_id] = draft.draft_id
+
     def _select_region_by_id(self, region_id: str) -> None:
         for row_id, candidate in self._region_tree_rows.items():
             if candidate == region_id:
@@ -2008,6 +2119,20 @@ class MainWindow:
         region_id = self._region_tree_rows.get(selection[0])
         if region_id is None:
             return
+
+        draft = self._draft_regions.get(region_id)
+        if draft is not None:
+            self._selected_region_id = draft.draft_id
+            area = draft.area_codes[0] if draft.area_codes else "-"
+            self._active_region_var.set(f"{area} (Draft)")
+            quick_text = ";".join(f"{code}:{points:g}" for code, points in draft.task_specs)
+            form_text = "\n".join(f"{code}:{points:g}" for code, points in draft.task_specs)
+            self._quick_tasks_var.set(quick_text)
+            self._form_tasks_text.delete("1.0", ui.END)
+            self._form_tasks_text.insert("1.0", form_text)
+            self._render_current_reading_page()
+            return
+
         region = next((item for item in self._current_exam.regions if item.region_id == region_id), None)
         if region is None:
             return
@@ -2025,33 +2150,83 @@ class MainWindow:
     def _save_selected_region(self) -> None:
         if self._current_exam is None or self._selected_region_id is None or self._controller is None:
             return
-        region = next((item for item in self._current_exam.regions if item.region_id == self._selected_region_id), None)
-        if region is None:
-            return
 
         task_specs = self._read_task_specs_from_editor()
         if task_specs is None:
             return
+
+        region = next((item for item in self._current_exam.regions if item.region_id == self._selected_region_id), None)
+        if region is not None:
+            updated = self._controller.upsert_region_immediate(
+                exam=self._current_exam,
+                student_pdf=region.student_pdf,
+                page_number=region.page_number,
+                box=(region.box.x0, region.box.y0, region.box.x1, region.box.y1),
+                task_specs=task_specs,
+                area_codes=region.assigned_area_codes,
+                region_id=region.region_id,
+            )
+            if updated is None:
+                return
+            self._current_exam = updated
+            self._refresh_region_tree()
+            self._select_region_by_id(region.region_id)
+            self._apply_detail_labels(updated)
+            self._render_current_reading_page()
+            return
+
+        draft = self._draft_regions.get(self._selected_region_id)
+        if draft is None:
+            return
+
+        if not task_specs:
+            messagebox.showerror("Ungültige Eingabe", "Bitte mindestens eine Aufgabe mit Code und Punkten angeben.")
+            return
+
         updated = self._controller.upsert_region_immediate(
             exam=self._current_exam,
-            student_pdf=region.student_pdf,
-            page_number=region.page_number,
-            box=(region.box.x0, region.box.y0, region.box.x1, region.box.y1),
+            student_pdf=draft.student_pdf,
+            page_number=draft.page_number,
+            box=draft.box,
             task_specs=task_specs,
-            area_codes=region.assigned_area_codes,
-            region_id=region.region_id,
+            area_codes=draft.area_codes,
         )
         if updated is None:
             return
+        persisted_id = next(
+            (
+                region.region_id
+                for region in reversed(updated.regions)
+                if region.student_pdf == draft.student_pdf and region.page_number == draft.page_number
+            ),
+            None,
+        )
+
+        del self._draft_regions[draft.draft_id]
         self._current_exam = updated
         self._refresh_region_tree()
-        self._select_region_by_id(region.region_id)
+        if persisted_id:
+            self._select_region_by_id(persisted_id)
         self._apply_detail_labels(updated)
         self._render_current_reading_page()
 
     def _delete_selected_region(self) -> None:
-        if self._current_exam is None or self._selected_region_id is None or self._controller is None:
+        if self._current_exam is None or self._selected_region_id is None:
             return
+
+        if self._selected_region_id in self._draft_regions:
+            del self._draft_regions[self._selected_region_id]
+            self._selected_region_id = None
+            self._active_region_var.set("-")
+            self._quick_tasks_var.set("")
+            self._form_tasks_text.delete("1.0", ui.END)
+            self._refresh_region_tree()
+            self._render_current_reading_page()
+            return
+
+        if self._controller is None:
+            return
+
         updated = self._controller.delete_region_immediate(exam=self._current_exam, region_id=self._selected_region_id)
         self._current_exam = updated
 

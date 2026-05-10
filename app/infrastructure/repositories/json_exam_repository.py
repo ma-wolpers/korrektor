@@ -10,8 +10,16 @@ from app.infrastructure.repositories.file_utils import atomic_write_json
 
 class JsonExamRepository(ExamRepository):
     def __init__(self, index_root: Path) -> None:
-        self._index_root = index_root
-        self._index_root.mkdir(parents=True, exist_ok=True)
+        self.set_index_root(index_root)
+
+    @property
+    def index_root(self) -> Path:
+        return self._index_root
+
+    def set_index_root(self, index_root: Path) -> None:
+        normalized = index_root.resolve()
+        normalized.mkdir(parents=True, exist_ok=True)
+        self._index_root = normalized
 
     def list_exam_files(self) -> list[Path]:
         return sorted(self._index_root.glob("*.json"))
@@ -26,3 +34,10 @@ class JsonExamRepository(ExamRepository):
         target = self._index_root / f"{exam.exam_id}.json"
         atomic_write_json(target, exam.to_dict())
         return target
+
+    def delete_exam(self, exam_file: Path) -> None:
+        candidate = exam_file.resolve()
+        if candidate.parent != self._index_root:
+            raise ValueError("Exam file is outside configured index directory")
+        if candidate.exists():
+            candidate.unlink()

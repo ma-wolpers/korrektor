@@ -1,6 +1,15 @@
 # Changelog
 
 ## Unreleased
+- AI guardrails now require an explicit GUI migration backlog (`docs/GUI_MIGRATION_BACKLOG.md`) for active GUI baselines/exemptions, including time-bound `remove_by` tracking.
+- Klausur-JSONs koennen jetzt ueber die Einstellungen in einen frei waehlbaren zentralen Ablageordner geschrieben werden (`exam_index_dir` wird persistent gespeichert).
+- Die SplitView wurde entfernt: Beim Start erscheint nur die Uebersicht, und der Ablauf wechselt klar zwischen Uebersicht, Klausurdetail und Einlesen.
+- Die Uebersicht zeigt jetzt nur noch die Kernaktionen `Neue Klausur`, `Klausur oeffnen` und `Klausur loeschen`.
+- In der Klausurdetailansicht wurde die integrierte PDF-Vorschau entfernt; stattdessen gibt es eine eigene Modusleiste mit `Zur Uebersicht`, `Einlesen`, `Extraseiten` und `Korrektur`.
+- Der Einlesemodus ist jetzt eine eigene Ansicht mit `Zurueck zur Klausur`-Aktion (gleiches Verhalten wie Esc).
+- Rahmenauswahl im Einlesen bleibt nun auch nach Scrollen positionsgenau (scrolloffset-korrigierte Mauskoordinaten).
+- Neu markierte Bereiche werden zuerst als Draft gefuehrt; Pflichtvalidierung (`Ungueltige Eingabe`) passiert erst beim expliziten Speichern.
+- Die Regionenliste zeigt Draft-Bereiche sichtbar an und erlaubt deren Bearbeitung/Loeschung ohne sofortige JSON-Persistenz.
 - Governance policy now explicitly requires strict bw-gui-only usage: no local tkinter/ttk widget implementations in repo modules, and reusable GUI building blocks must be implemented in bw-gui first.
 - AI guardrails now enforce repo-wide strict bw-gui usage in `app/adapters/gui`: direct `tkinter`/`ttk` imports and new local `ui`/`widgets`/`tui` baseclass patterns are rejected via AST-based checks.
 - AI guardrails now also enforce shared-GUI bootstrap requirements for any newly added GUI entrypoint files and reject direct tkinter imports in those entrypoints.

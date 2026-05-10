@@ -1,6 +1,16 @@
 # Development Log
 
 ## [Unreleased]
+- Step-3-Exemption-Governance aktiviert: `docs/GUI_MIGRATION_BACKLOG.md` ist jetzt verbindliche Referenz fuer aktive GUI-Baselines/Exemptions inkl. `remove_by`-Datum; Guardrails validieren die Backlog-Referenzen explizit.
+- Klausur-JSON-Ablagepfad als persistente App-Einstellung erweitert: neuer Settings-Flow speichert `exam_index_dir` in `%APPDATA%/<app_name>/settings.json` und schaltet das aktive JSON-Repository zur Laufzeit auf den konfigurierten Ordner um.
+- Klausurverwaltung erweitert: eigener Delete-UseCase/Repository-Flow fuer das Loeschen ausgewaehlter Klausur-JSON-Dateien aus dem aktiven Indexordner.
+- UI-Flow umgebaut: bisherige SplitView/PanedWindow-Detailkopplung entfernt; Start zeigt nur die Uebersicht und wechselt explizit zwischen Uebersicht, Klausur-Detail und Einleseansicht.
+- Detailansicht entschlackt: eigene Detail-Buttonzeile (`Zur Uebersicht`, `Einlesen`, `Extraseiten`, `Korrektur`) ohne integrierte PDF-Vorschau.
+- Einleseansicht als eigene Arbeitsflaeche entkoppelt (inkl. `Zurueck zur Klausur`-Aktion mit Esc-aequivalenter Rueckkehr).
+- Canvas-Interaktion im Einlesen gehaertet: Mauskoordinaten werden scrolloffset-korrekt ueber `canvasx/canvasy` verarbeitet, sodass Rahmen trotz Scrollposition korrekt verfolgt werden.
+- Regionen-Workflow geaendert: Markierungen erzeugen zunaechst Draft-Regionen (ohne Sofort-Validierungsfehler); Validierung auf Pflicht-Aufgaben erfolgt erst bei explizitem Speichern.
+- Regionenliste erweitert: Draft-Regionen werden sichtbar gefuehrt und koennen ohne JSON-Schreibzugriff bearbeitet oder geloescht werden.
+- Tests erweitert: neue Unit-Tests fuer JSON-Exam-Repository (Delete/Indexwechsel) sowie fuer persistente App-Settings (`exam_index_dir`).
 - Governance-Policy geschaerft: `AGENTS.md` und `.github/copilot-instructions.md` enthalten jetzt explizit die Strict-bw-gui-only-Regel (keine lokale tkinter/ttk-Widgetimplementierung in Repos; wiederverwendbare GUI-Bausteine zuerst in bw-gui).
 - Repo-weite Strict-bw-gui-Guardrails eingefuehrt: `tools/ci/check_ai_guardrails.py` scannt jetzt alle GUI-Pythondateien unter `app/adapters/gui/` per AST, blockiert direkte `tkinter`/`ttk`-Imports und verhindert neue lokale Basisklassen auf `ui`/`widgets`/`tui`.
 - Future-App-Guardrails erweitert: `tools/ci/check_ai_guardrails.py` prueft jetzt zusaetzlich neue GUI-Entrypoint-Dateien (z. B. neue `main_window.py`/`ui.py`) auf verpflichtenden Shared-GUI-Bootstrap (`ensure_bw_gui_on_path`, `bw_gui.runtime`, Shared-Menu/Dialog/Shortcut/Hover) und blockiert direkte `tkinter`-Imports.

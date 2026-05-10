@@ -72,6 +72,43 @@ class UiIntentController:
         exam = self._deps.load_exam_usecase.execute(exam_file=selected.source_file)
         self._app.open_exam_detail(exam, selected.source_file)
 
+    def delete_selected_exam(self) -> None:
+        selected = self._app.get_selected_row()
+        if selected is None:
+            messagebox.showinfo("Hinweis", "Bitte zuerst eine Klausur auswählen.")
+            return
+
+        confirm = messagebox.askyesno(
+            "Klausur loeschen",
+            f"Klausur '{selected.exam_name}' wirklich loeschen?\nDie zugehoerige JSON-Datei wird entfernt.",
+        )
+        if not confirm:
+            return
+
+        try:
+            self._deps.delete_exam_usecase.execute(exam_file=selected.source_file)
+        except Exception as exc:
+            messagebox.showerror("Fehler", f"Klausur konnte nicht geloescht werden: {exc}")
+            return
+
+        self._app.on_exam_deleted(selected.exam_id)
+        self.refresh_exam_overview()
+        self._app.set_status("Klausur geloescht")
+
+    def update_exam_index_dir(self, raw_path: str) -> Path | None:
+        try:
+            normalized = self._deps.settings_repository.normalize_exam_index_dir(raw_path)
+        except Exception as exc:
+            messagebox.showerror("Ungueltiger Pfad", str(exc))
+            return None
+
+        self._deps.settings_repository.save_exam_index_dir(normalized)
+        self._deps.exam_repository.set_index_root(normalized)
+        self._app.on_exam_index_dir_changed(normalized)
+        self.refresh_exam_overview()
+        self._app.set_status(f"JSON-Ablagepfad aktualisiert: {normalized}")
+        return normalized
+
     def save_score_immediate(
         self,
         *,
