@@ -45,17 +45,17 @@ except ModuleNotFoundError:
     SharedMenuItem = None
 
 try:
-    from bw_gui.shortcuts import compose_hover_text as compose_shared_hover_text
+    from bw_gui.shortcuts import compose_hover_text
     from bw_gui.widgets import HoverTooltip as SharedHoverTooltip
 except ModuleNotFoundError:
-    compose_shared_hover_text = None
+    compose_hover_text = None
     SharedHoverTooltip = None
 
 try:
     from bw_gui.dialogs import SettingsDialogSpec as SharedSettingsDialogSpec
     from bw_gui.dialogs import SettingsFieldSpec as SharedSettingsFieldSpec
     from bw_gui.dialogs import SettingsSectionSpec as SharedSettingsSectionSpec
-    from bw_gui.dialogs import open_tabbed_settings_dialog as open_shared_tabbed_settings_dialog
+    from bw_gui.dialogs import open_tabbed_settings_dialog
     from bw_gui.theming import apply_window_theme
     from bw_gui.theming import configure_ttk_theme
     from bw_gui.theming import get_theme
@@ -65,7 +65,7 @@ except ModuleNotFoundError:
     SharedSettingsDialogSpec = None
     SharedSettingsFieldSpec = None
     SharedSettingsSectionSpec = None
-    open_shared_tabbed_settings_dialog = None
+    open_tabbed_settings_dialog = None
     apply_window_theme = None
     configure_ttk_theme = None
     get_theme = None
@@ -146,8 +146,8 @@ class MainWindow:
             )
         )
         self._tracked_popup_ids: set[str] = set()
-        self._shared_tooltip_theme_key = "sand_terracotta"
-        self._shared_menu_bar = None
+        self._tooltip_theme_key = "sand_terracotta"
+        self._menu_bar = None
         self._hover_tooltips: list[object] = []
         self._hsm_contract = build_ui_hsm_contract(
             intents=[
@@ -171,11 +171,11 @@ class MainWindow:
             return
 
         shortcut_text = (shortcut or "").strip()
-        if compose_shared_hover_text is not None:
-            text = compose_shared_hover_text(label, shortcut_text)
+        if compose_hover_text is not None:
+            text = compose_hover_text(label, shortcut_text)
         else:
             text = f"{label}\nShortcut: {shortcut_text}" if shortcut_text else label
-        tooltip = SharedHoverTooltip(widget, text, theme_key=self._shared_tooltip_theme_key)
+        tooltip = SharedHoverTooltip(widget, text, theme_key=self._tooltip_theme_key)
         self._hover_tooltips.append(tooltip)
 
     def _build_menu_bar(self) -> None:
@@ -185,8 +185,8 @@ class MainWindow:
             self.root.config(menu="")
             return
 
-        if self._shared_menu_bar is not None:
-            self._shared_menu_bar.destroy()
+        if self._menu_bar is not None:
+            self._menu_bar.destroy()
 
         definitions = (
             SharedMenuDefinition(
@@ -209,12 +209,12 @@ class MainWindow:
             ),
         )
 
-        self._shared_menu_bar = SharedCustomMenuBar(
+        self._menu_bar = SharedCustomMenuBar(
             self.root,
             definitions,
-            theme_key=self._shared_tooltip_theme_key,
+            theme_key=self._tooltip_theme_key,
         )
-        self._shared_menu_bar.build()
+        self._menu_bar.build()
         self.root.config(menu="")
 
     def _menu_create_exam(self) -> None:
@@ -587,7 +587,7 @@ class MainWindow:
                             label="Tooltip-Theme",
                             field_type="enum",
                             enum_values=tuple(THEME_ORDER),
-                            default=self._shared_tooltip_theme_key,
+                            default=self._tooltip_theme_key,
                         ),
                         SharedSettingsFieldSpec(
                             key="assignment_mode",
@@ -617,7 +617,7 @@ class MainWindow:
         """Collect current runtime values for shared settings dialog defaults."""
 
         return {
-            "tooltip_theme_key": self._shared_tooltip_theme_key,
+            "tooltip_theme_key": self._tooltip_theme_key,
             "assignment_mode": self._assignment_mode_var.get(),
             "runtime_offline": bool(self._shortcut_debug_offline_var.get()),
         }
@@ -628,17 +628,17 @@ class MainWindow:
         if not isinstance(payload, dict):
             return
 
-        theme_value = str(payload.get("tooltip_theme_key", self._shared_tooltip_theme_key) or self._shared_tooltip_theme_key)
+        theme_value = str(payload.get("tooltip_theme_key", self._tooltip_theme_key) or self._tooltip_theme_key)
         if callable(normalize_theme_key):
             theme_value = normalize_theme_key(theme_value)
-        self._shared_tooltip_theme_key = theme_value
+        self._tooltip_theme_key = theme_value
 
-        if self._shared_menu_bar is not None:
-            self._shared_menu_bar.refresh_theme(self._shared_tooltip_theme_key)
+        if self._menu_bar is not None:
+            self._menu_bar.refresh_theme(self._tooltip_theme_key)
 
         for tooltip in self._hover_tooltips:
             try:
-                setattr(tooltip, "theme_key", self._shared_tooltip_theme_key)
+                setattr(tooltip, "theme_key", self._tooltip_theme_key)
             except Exception:
                 continue
 
@@ -656,7 +656,7 @@ class MainWindow:
     def _open_settings_dialog(self) -> None:
         """Open shared tabbed settings dialog for runtime UI options."""
 
-        if open_shared_tabbed_settings_dialog is None:
+        if open_tabbed_settings_dialog is None:
             messagebox.showinfo(
                 "Einstellungen",
                 "Shared-Settings-Dialog ist in dieser Umgebung nicht verfuegbar.",
@@ -668,10 +668,10 @@ class MainWindow:
         if spec is None:
             return
 
-        open_shared_tabbed_settings_dialog(
+        open_tabbed_settings_dialog(
             self.root,
             title="Einstellungen",
-            theme_key=self._shared_tooltip_theme_key,
+            theme_key=self._tooltip_theme_key,
             spec=spec,
             initial_values=self._settings_dialog_values(),
             on_commit=self._apply_settings_dialog_payload,
@@ -680,17 +680,17 @@ class MainWindow:
     def _build_styles(self) -> None:
         style = widgets.Style(self.root)
         if callable(apply_window_theme):
-            apply_window_theme(self.root, self._shared_tooltip_theme_key)
+            apply_window_theme(self.root, self._tooltip_theme_key)
         else:
             self.root.configure(bg="#f5f2ea")
 
         if callable(configure_ttk_theme):
-            configure_ttk_theme(self.root, self._shared_tooltip_theme_key)
+            configure_ttk_theme(self.root, self._tooltip_theme_key)
         else:
             style.theme_use("clam")
 
         if callable(get_theme):
-            theme = get_theme(self._shared_tooltip_theme_key)
+            theme = get_theme(self._tooltip_theme_key)
             bg_main = theme["bg_main"]
             bg_surface = theme["bg_surface"]
             fg_primary = theme["fg_primary"]
@@ -720,7 +720,7 @@ class MainWindow:
         """Return surface/highlight colors for direct canvas styling."""
 
         if callable(get_theme):
-            theme = get_theme(self._shared_tooltip_theme_key)
+            theme = get_theme(self._tooltip_theme_key)
             return theme["bg_surface"], theme["border"]
         return "#f2ede3", "#b8aa96"
 
