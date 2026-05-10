@@ -1,6 +1,8 @@
 # Development Log
 
 ## [Unreleased]
+- Einlese-Editor erweitert: neuer One-Shot-Flow `Bereich neu ziehen` erlaubt das gezielte Ueberschreiben eines ausgewaehlten Standardbereichs mit der naechsten gezogenen Box (inkl. Seitenwechsel).
+- Einlese-Rendering erweitert: optionaler Superseitenmodus ueberlagert alle verfuegbaren PDFs einer Seite als pixelweise Dunkel-Superposition (dunkel gewinnt), um bereichsuebergreifende Markierungen robuster auszurichten.
 - Datenmodell auf zukunftsorientiertes Trennschema umgestellt: `regions` enthaelt nur noch Standard-Templatebereiche (nicht studentgebunden), Extraseiten-Zuordnungen werden separat in `extra_page_assignments` gepflegt.
 - Legacy-Kompatibilitaet bewusst entfernt: JSON-Dateien ohne `extra_page_assignments` werden als nicht unterstuetztes Altschema abgewiesen.
 - Repository-/Domain-Tests erweitert fuer das neue Vorwaerts-Schema (Akzeptanzfall + harte Ablehnung von Legacy-Strukturen).

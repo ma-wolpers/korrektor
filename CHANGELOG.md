@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Im Einlesemodus gibt es jetzt `Bereich neu ziehen`: Nach Aktivierung wird genau die naechste gezogene Box dem ausgewaehlten Bereich zugeordnet und ueberschreibt dessen bisherige Koordinaten (auch seitenuebergreifend).
+- Neuer Schalter `Superseite` im Einlesemodus: die aktuelle Seite wird als Dunkel-Superposition aller verfuegbaren PDFs angezeigt (dunkle Pixel setzen sich gegen helle durch).
 - Das Klausur-JSON nutzt jetzt ein zukunftsorientiertes Trennschema: Standardbereiche liegen als wiederverwendbare Templates in `regions`, Extraseiten-Zuordnungen separat in `extra_page_assignments`.
 - Legacy-JSON ohne `extra_page_assignments` wird nicht mehr geladen (bewusst ohne Rueckwaertskompatibilitaet).
 - Der Korrekturmodus wird auf eine eigene Ansicht umgestellt (nicht mehr als gequetschter Teilbereich unter den Klausurdetails); Bereich, Aufgabe und Punkte laufen jetzt in einer separaten Korrektur-Arbeitsflaeche mit Vorschauausschnitt.

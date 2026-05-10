@@ -114,6 +114,7 @@ class MainWindow:
         self._reading_page = 1
         self._reading_info_var = ui.StringVar(value="Einlesemodus: nicht aktiv")
         self._assignment_mode_var = ui.StringVar(value="quick")
+        self._superpage_var = ui.BooleanVar(value=False)
         self._extra_mode_active = False
         self._extra_sequence: list[tuple[int, int]] = []
         self._extra_cursor = 0
@@ -130,6 +131,8 @@ class MainWindow:
         self._extra_popup_student_index: int | None = None
         self._extra_popup_cursor = 0
         self._canvas_image_id: int | None = None
+        self._redraw_target_region_id: str | None = None
+        self._redraw_on_next_box: bool = False
         self._correction_templates: dict[str, CorrectionTemplate] = {}
         self._correction_task_items: list[tuple[str, float]] = []
         self._correction_photo: ui.PhotoImage | None = None
@@ -1066,6 +1069,19 @@ class MainWindow:
         next_reading_student_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(next_reading_student_button, label="Naechste Person im Einlesen", shortcut=None)
 
+        self._superpage_toggle = widgets.Checkbutton(
+            self._reading_toolbar,
+            text="Superseite",
+            variable=self._superpage_var,
+            command=self._on_superpage_toggle,
+        )
+        self._superpage_toggle.pack(side=ui.RIGHT)
+        self._attach_hover_help(
+            self._superpage_toggle,
+            label="Alle PDFs der aktuellen Seite als dunkle Superposition anzeigen",
+            shortcut=None,
+        )
+
         self._extra_toolbar = widgets.Frame(self._reading_view, style="Surface.TFrame")
         self._extra_toolbar.pack(fill=ui.X, pady=(6, 0))
         prev_extra_page_button = widgets.Button(
@@ -1224,6 +1240,19 @@ class MainWindow:
         )
         delete_region_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(delete_region_button, label="Aktiven Bereich loeschen", shortcut="Entf")
+
+        redraw_region_button = widgets.Button(
+            region_actions,
+            text="Bereich neu ziehen",
+            style="SecondaryAction.TButton",
+            command=self._arm_redraw_selected_region,
+        )
+        redraw_region_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(
+            redraw_region_button,
+            label="Naechste gezogene Box ueberschreibt den ausgewaehlten Bereich",
+            shortcut=None,
+        )
 
         self._refresh_task_input_mode()
 
@@ -1390,6 +1419,7 @@ class MainWindow:
         self._reading_active = False
         self._reading_student_cursor = 0
         self._reading_page = 1
+        self._superpage_var.set(False)
         self._extra_mode_active = False
         self._extra_sequence = []
         self._extra_cursor = 0
@@ -1407,6 +1437,7 @@ class MainWindow:
         self._close_extra_popup()
         self._selected_region_id = None
         self._selected_region_kind = None
+        self._clear_pending_redraw()
         self._refresh_region_tree()
         self._show_detail_mode()
 
@@ -1630,6 +1661,7 @@ class MainWindow:
 
         self._reading_active = False
         self._extra_mode_active = True
+        self._superpage_var.set(False)
         self._stop_correction_mode(silent=True)
         self._extra_sequence = sequence
         self._extra_cursor = 0
@@ -1642,18 +1674,23 @@ class MainWindow:
         if not self._reading_active or not self._current_exam or not self._current_exam.students:
             return
         self._reading_student_cursor = (self._reading_student_cursor + delta) % len(self._current_exam.students)
-        student = self._current_exam.students[self._reading_student_cursor]
-        self._reading_page = min(self._reading_page, max(student.page_count, 1))
+        if not bool(self._superpage_var.get()):
+            student = self._current_exam.students[self._reading_student_cursor]
+            self._reading_page = min(self._reading_page, max(student.page_count, 1))
         self._render_current_reading_page()
 
     def _change_reading_page(self, delta: int) -> None:
         if not self._reading_active:
             return
-        student = self._get_reading_student()
-        if student is None:
-            return
         new_page = self._reading_page + delta
-        self._reading_page = max(1, min(student.page_count, new_page))
+        if bool(self._superpage_var.get()):
+            max_page = self._max_available_page()
+        else:
+            student = self._get_reading_student()
+            if student is None:
+                return
+            max_page = max(student.page_count, 1)
+        self._reading_page = max(1, min(max_page, new_page))
         self._render_current_reading_page()
 
     def _get_reading_student(self) -> StudentExam | None:
@@ -1665,12 +1702,120 @@ class MainWindow:
         student = self._get_reading_student()
         if student is None or self._current_exam is None:
             return
+
+        if bool(self._superpage_var.get()):
+            used = self._render_superposed_page(page_number=self._reading_page)
+            max_page = self._max_available_page()
+            if used > 0:
+                self._reading_info_var.set(
+                    f"Superseite | Seite {self._reading_page}/{max_page} | Quellen: {used}"
+                )
+            return
+
         self._render_pdf_page(student=student, page_number=self._reading_page)
 
         extra_marker = " (Extraseite)" if self._reading_page > self._current_exam.standard_page_count else ""
         self._reading_info_var.set(
             f"{student.display_name} | Seite {self._reading_page}/{student.page_count}{extra_marker}"
         )
+
+    def _on_superpage_toggle(self) -> None:
+        if not self._reading_active:
+            self._superpage_var.set(False)
+            return
+        if bool(self._superpage_var.get()):
+            self._reading_page = min(self._reading_page, self._max_available_page())
+            self._status_var.set("Superseite aktiv")
+        else:
+            student = self._get_reading_student()
+            if student is not None:
+                self._reading_page = min(self._reading_page, max(student.page_count, 1))
+            self._status_var.set("Superseite aus")
+        self._render_current_reading_page()
+
+    def _max_available_page(self) -> int:
+        if self._current_exam is None or not self._current_exam.students:
+            return 1
+        return max(max(student.page_count, 1) for student in self._current_exam.students)
+
+    def _render_superposed_page(self, *, page_number: int) -> int:
+        if self._current_exam is None:
+            return 0
+
+        pixmaps: list[fitz.Pixmap] = []
+        reference_rect: fitz.Rect | None = None
+        target_width = 520.0
+
+        for student in self._current_exam.students:
+            if page_number > student.page_count:
+                continue
+            pdf_path = Path(self._current_exam.folder_path) / student.pdf_filename
+            if not pdf_path.exists():
+                continue
+
+            document = self._doc_cache.get(student.pdf_filename)
+            if document is None:
+                try:
+                    document = fitz.open(pdf_path)
+                except Exception:
+                    continue
+                self._doc_cache[student.pdf_filename] = document
+
+            try:
+                page = document.load_page(page_number - 1)
+            except Exception:
+                continue
+
+            if reference_rect is None:
+                reference_rect = page.rect
+            scale = target_width / max(reference_rect.width, 1.0)
+
+            try:
+                pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), colorspace=fitz.csGRAY, alpha=False)
+            except Exception:
+                continue
+
+            if not pixmaps:
+                pixmaps.append(pix)
+                continue
+
+            first = pixmaps[0]
+            if pix.width == first.width and pix.height == first.height and pix.n == first.n:
+                pixmaps.append(pix)
+
+        if not pixmaps or reference_rect is None:
+            self._reading_canvas.delete("all")
+            self._reading_info_var.set("Superseite: Keine renderbaren Seiten vorhanden")
+            return 0
+
+        first = pixmaps[0]
+        merged = bytearray(first.width * first.height)
+        for y in range(first.height):
+            source_start = y * first.stride
+            target_start = y * first.width
+            merged[target_start : target_start + first.width] = first.samples[source_start : source_start + first.width]
+
+        for pix in pixmaps[1:]:
+            for y in range(pix.height):
+                source_start = y * pix.stride
+                target_start = y * pix.width
+                row = pix.samples[source_start : source_start + pix.width]
+                for x, value in enumerate(row):
+                    index = target_start + x
+                    if value < merged[index]:
+                        merged[index] = value
+
+        pgm_header = f"P5 {first.width} {first.height} 255\n".encode("ascii")
+        self._render_photo = ui.PhotoImage(data=pgm_header + bytes(merged), format="ppm")
+
+        self._x_factor = reference_rect.width / max(first.width, 1)
+        self._y_factor = reference_rect.height / max(first.height, 1)
+        self._reading_canvas.configure(width=first.width, height=first.height)
+        self._reading_canvas.delete("all")
+        self._canvas_image_id = self._reading_canvas.create_image(0, 0, anchor=ui.NW, image=self._render_photo)
+        self._reading_canvas.configure(scrollregion=(0, 0, first.width, first.height))
+        self._draw_existing_regions("", page_number)
+        return len(pixmaps)
 
     def _draw_existing_regions(self, student_pdf: str, page_number: int) -> None:
         if not self._current_exam:
@@ -1818,6 +1963,13 @@ class MainWindow:
             max(y0, y1) * self._y_factor,
         )
 
+        if self._try_apply_pending_redraw(page_number=page_number, box=box):
+            self._reading_canvas.delete(self._drag_rect_id)
+            self._drag_rect_id = None
+            self._drag_start = None
+            self._rerender_active_page()
+            return
+
         draft_id = f"draft-{uuid4().hex[:10]}"
         draft_student_pdf = student.pdf_filename if self._extra_mode_active else ""
         draft = DraftRegion(
@@ -1845,6 +1997,59 @@ class MainWindow:
             self._status_var.set("Extraseiten-Bereich markiert. Bereich(e) eintragen und Speichern klicken.")
         else:
             self._status_var.set("Bereich markiert. Jetzt Aufgaben eintragen und Speichern klicken.")
+
+    def _arm_redraw_selected_region(self) -> None:
+        if self._extra_mode_active:
+            messagebox.showinfo("Hinweis", "Neuziehen ist hier nur fuer Standardbereiche im Einlesemodus verfuegbar.")
+            return
+        if self._selected_region_kind != "region" or self._selected_region_id is None:
+            messagebox.showinfo("Hinweis", "Bitte zuerst einen bestehenden Bereich auswaehlen.")
+            return
+        self._redraw_target_region_id = self._selected_region_id
+        self._redraw_on_next_box = True
+        self._status_var.set("Neuziehen aktiv: Die naechste gezogene Box ueberschreibt den ausgewaehlten Bereich.")
+
+    def _clear_pending_redraw(self) -> None:
+        self._redraw_target_region_id = None
+        self._redraw_on_next_box = False
+
+    def _try_apply_pending_redraw(self, *, page_number: int, box: tuple[float, float, float, float]) -> bool:
+        if not self._redraw_on_next_box or self._redraw_target_region_id is None:
+            return False
+        if self._controller is None or self._current_exam is None:
+            self._clear_pending_redraw()
+            return False
+
+        region = next(
+            (item for item in self._current_exam.regions if item.region_id == self._redraw_target_region_id),
+            None,
+        )
+        if region is None:
+            self._clear_pending_redraw()
+            messagebox.showerror("Bereich fehlt", "Der ausgewaehlte Bereich konnte nicht mehr gefunden werden.")
+            return False
+
+        task_specs = [(task.code, float(task.max_points)) for task in region.tasks]
+        updated = self._controller.upsert_region_immediate(
+            exam=self._current_exam,
+            student_pdf="",
+            page_number=page_number,
+            box=box,
+            task_specs=task_specs,
+            area_codes=region.assigned_area_codes,
+            region_id=region.region_id,
+        )
+        self._clear_pending_redraw()
+        if updated is None:
+            return True
+
+        self._current_exam = updated
+        self._refresh_region_tree()
+        self._select_region_by_id(region.region_id)
+        self._apply_detail_labels(updated)
+        area_text = region.assigned_area_codes[0] if region.assigned_area_codes else region.region_id
+        self._status_var.set(f"Bereich {area_text} neu gezogen und ueberschrieben.")
+        return True
 
     def _on_canvas_mousewheel(self, event: ui.Event[ui.Misc]) -> None:
         if not self._reading_active and not self._extra_mode_active:
@@ -2442,7 +2647,9 @@ class MainWindow:
     def _leave_reading_view(self) -> None:
         self._reading_active = False
         self._extra_mode_active = False
+        self._superpage_var.set(False)
         self._extra_sequence = []
+        self._clear_pending_redraw()
         self._close_extra_popup()
         self._reading_info_var.set("Einlesemodus: bereit")
         self._status_var.set("Einlesemodus verlassen")
@@ -2454,8 +2661,10 @@ class MainWindow:
         self._reading_active = False
         self._extra_mode_active = False
         self._correction_mode_active = False
+        self._superpage_var.set(False)
         self._selected_region_id = None
         self._selected_region_kind = None
+        self._clear_pending_redraw()
         self._draft_regions.clear()
         self._detail_name.set("-")
         self._detail_pages.set("Standardseiten: -")
@@ -2511,6 +2720,8 @@ class MainWindow:
 
         self._extra_toolbar.pack_forget()
         self._reading_toolbar.pack(fill=ui.X)
+        self._superpage_toggle.pack_forget()
+        self._superpage_toggle.pack(side=ui.RIGHT)
         self._mode_row.pack(fill=ui.X, pady=(8, 0))
         self._regions_editor.pack(fill=ui.BOTH, pady=(10, 0))
         self._extra_area_container.pack_forget()
