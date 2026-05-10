@@ -1,6 +1,9 @@
 # Development Log
 
 ## [Unreleased]
+- Korrekturmodus begonnen umzubauen: eigene Korrekturansicht mit getrennter Arbeitsflaeche (statt eingebettetem Schnellkorrektur-Block in der Detailansicht).
+- Korrekturansicht nutzt bereichsbasierte Vorschau-Ausschnitte je Schueler:in (Koordinaten aus dem eingelesenen Standardbereich werden auf das aktuelle PDF angewandt).
+- Extraseitenfluss gehaertet: Aufgabenpflege fuer Extraseiten wird unterbunden; Extraseiten duerfen nur bestehenden Standard-Bereichen zugeordnet werden.
 - Sessionweite Undo/Redo-History eingefuehrt: Inhaltsmutationen werden jetzt zentral als Aktionen registriert und sind per `Strg+Z`/`Strg+Y` sowie ueber das neue `Bearbeiten`-Menue rueckgaengig/wiederholbar.
 - Undo-Guardrails erweitert: `tools/ci/check_ai_guardrails.py` erzwingt Undo/Redo-Vertraege in `ui_intent_controller.py` und prueft die Menue-/Shortcut-Verdrahtung (`Bearbeiten`, `Strg+Z`, `Strg+Y`).
 - Extraseiten-Editor parity hergestellt: Im Extraseitenmodus koennen Bereiche jetzt direkt gezogen, mit Aufgaben gespeichert und wieder geloescht werden (gleiches Editor-Panel wie im Einlesemodus).

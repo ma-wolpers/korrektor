@@ -34,5 +34,11 @@
 
 ## Extra-Seiten-Workflow
 
-- Im Extraseitenmodus ist derselbe Bereichseditor wie im Einlesemodus sichtbar (Aufgaben-Eingabe, Speichern, Loeschen).
 - Bereichsrahmen koennen direkt auf Extraseiten gezogen, gespeichert und wieder geloescht werden.
+- Extraseiten erhalten keine eigene Aufgabenpflege; sie werden nur vorhandenen Standard-Bereichen zugeordnet.
+
+## Aktueller Umbau (Modi)
+
+- Die Korrektur laeuft in einer eigenen Ansicht (separat von Klausur-Details und Einlesen) und nicht mehr als eingebetteter Formularblock in der Detailansicht.
+- Die Detailansicht bleibt Hub fuer den Moduswechsel (Einlesen, Extraseiten, Korrektur).
+- Im Extraseitenmodus werden keine neuen Aufgaben definiert; es sind nur Zuordnungen zu bereits vorhandenen Standard-Bereichen erlaubt.

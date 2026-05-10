@@ -1,8 +1,10 @@
 # Changelog
 
 ## Unreleased
+- Der Korrekturmodus wird auf eine eigene Ansicht umgestellt (nicht mehr als gequetschter Teilbereich unter den Klausurdetails); Bereich, Aufgabe und Punkte laufen jetzt in einer separaten Korrektur-Arbeitsflaeche mit Vorschauausschnitt.
+- Extraseiten sind fachlich eingeschraenkt: dort koennen keine neuen Aufgaben oder Max-Punkte mehr gepflegt werden, sondern nur Zuordnungen zu bereits existierenden Standard-Bereichen.
 - Neues `Bearbeiten`-Menue mit `Rueckgaengig`/`Wiederholen` sowie Shortcuts `Strg+Z` und `Strg+Y`: Inhaltsaenderungen (u. a. Bereiche, Extraseitenzuordnung, Punkte, Klausur anlegen/loeschen, JSON-Ablagepfad) sind jetzt in der laufenden Sitzung undo/redo-faehig.
-- Der Extraseitenmodus hat jetzt den vollen Bereichs-Editor: Bereich ziehen, Aufgaben zuordnen, speichern und loeschen direkt in derselben Ansicht.
+- Der Extraseitenmodus hat jetzt den vollen Bereichs-Editor fuer Zuordnungen: Bereich ziehen, bestehenden Bereich zuordnen, speichern und loeschen direkt in derselben Ansicht.
 - AI guardrails now include `bw_libs/` in the repo-wide GUI contract scan scope, so direct `tkinter`/`ttk` imports and new local `ui`/`widgets`/`tui` baseclass patterns are also blocked in shared-library paths.
 - Unter dem Aufgaben-Eingabefeld im Einlesen werden jetzt je nach Eingabemodus direkte Formatbeispiele angezeigt (Schnell vs. Formular), damit die Punkteingabe sofort klar ist.
 - AI guardrails no longer keep a future-entrypoint baseline exemption for `app/adapters/gui/main_window.py`; Korrektor now runs this entrypoint under the strict shared-GUI contract checks.

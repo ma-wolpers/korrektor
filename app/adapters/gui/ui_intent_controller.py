@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import copy
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -281,6 +282,34 @@ class UiIntentController:
         self._app.set_status("Punkte sofort gespeichert")
         return True
 
+    def load_saved_points(self, *, exam: ExamProject, student_id: str, task_code: str) -> str | None:
+        score_file = Path(exam.folder_path) / "korrektor_scores.csv"
+        if not score_file.exists():
+            return None
+
+        points_col = f"{task_code.strip()}_points"
+        try:
+            with score_file.open("r", encoding="utf-8", newline="") as handle:
+                reader = csv.DictReader(handle)
+                for row in reader:
+                    if row.get("student_id", "").strip() != student_id:
+                        continue
+                    raw_points = str(row.get(points_col, "") or "").strip()
+                    return raw_points or None
+        except Exception:
+            return None
+        return None
+
+    @staticmethod
+    def _existing_standard_area_codes(exam: ExamProject) -> set[str]:
+        return {
+            code.strip().upper()
+            for region in exam.regions
+            if not region.is_extra_page
+            for code in region.assigned_area_codes
+            if code.strip()
+        }
+
     def upsert_region_immediate(
         self,
         *,
@@ -292,6 +321,13 @@ class UiIntentController:
         area_codes: list[str],
         region_id: str | None = None,
     ) -> ExamProject | None:
+        if page_number > exam.standard_page_count:
+            messagebox.showerror(
+                "Ungültige Eingabe",
+                "Im Extraseitenmodus koennen keine Aufgaben definiert werden. Bitte nur Bereich(e) zuordnen.",
+            )
+            return None
+
         before_payload = copy.deepcopy(exam.to_dict())
         tasks = [
             TaskDefinition(code=code.strip().upper(), name=code.strip().upper(), max_points=max_points)
@@ -406,6 +442,20 @@ class UiIntentController:
             messagebox.showerror("Ungültige Eingabe", "Bitte mindestens einen Bereich angeben, z. B. A.")
             return None
 
+        existing_areas = self._existing_standard_area_codes(exam)
+        if not existing_areas:
+            messagebox.showerror("Keine Bereiche", "Bitte zuerst Standardbereiche im Einlesemodus anlegen.")
+            return None
+
+        unknown = [code for code in normalized_areas if code not in existing_areas]
+        if unknown:
+            unknown_text = ", ".join(unknown)
+            messagebox.showerror(
+                "Unbekannter Bereich",
+                f"Folgende Bereiche existieren nicht als Standardbereich: {unknown_text}",
+            )
+            return None
+
         existing = next(
             (
                 region
@@ -421,7 +471,7 @@ class UiIntentController:
             student_pdf=student_pdf,
             page_number=page_number,
             box=RegionBox(x0=box[0], y0=box[1], x1=box[2], y1=box[3]),
-            tasks=existing.tasks if existing else [],
+            tasks=[],
             assigned_area_codes=normalized_areas,
             is_read_complete=True,
             is_corrected=existing.is_corrected if existing else False,
