@@ -56,9 +56,9 @@ try:
     from bw_gui.dialogs import SettingsFieldSpec as SharedSettingsFieldSpec
     from bw_gui.dialogs import SettingsSectionSpec as SharedSettingsSectionSpec
     from bw_gui.dialogs import open_tabbed_settings_dialog as open_shared_tabbed_settings_dialog
-    from bw_gui.theming import apply_window_theme as apply_shared_window_theme
-    from bw_gui.theming import configure_ttk_theme as configure_shared_ttk_theme
-    from bw_gui.theming import get_theme as get_shared_theme
+    from bw_gui.theming import apply_window_theme
+    from bw_gui.theming import configure_ttk_theme
+    from bw_gui.theming import get_theme
     from bw_gui.theming import THEME_ORDER as SHARED_THEME_ORDER
     from bw_gui.theming import normalize_theme_key as normalize_shared_theme_key
 except ModuleNotFoundError:
@@ -66,9 +66,9 @@ except ModuleNotFoundError:
     SharedSettingsFieldSpec = None
     SharedSettingsSectionSpec = None
     open_shared_tabbed_settings_dialog = None
-    apply_shared_window_theme = None
-    configure_shared_ttk_theme = None
-    get_shared_theme = None
+    apply_window_theme = None
+    configure_ttk_theme = None
+    get_theme = None
     SHARED_THEME_ORDER = ()
     normalize_shared_theme_key = None
 
@@ -679,18 +679,18 @@ class MainWindow:
 
     def _build_styles(self) -> None:
         style = widgets.Style(self.root)
-        if callable(apply_shared_window_theme):
-            apply_shared_window_theme(self.root, self._shared_tooltip_theme_key)
+        if callable(apply_window_theme):
+            apply_window_theme(self.root, self._shared_tooltip_theme_key)
         else:
             self.root.configure(bg="#f5f2ea")
 
-        if callable(configure_shared_ttk_theme):
-            configure_shared_ttk_theme(self.root, self._shared_tooltip_theme_key)
+        if callable(configure_ttk_theme):
+            configure_ttk_theme(self.root, self._shared_tooltip_theme_key)
         else:
             style.theme_use("clam")
 
-        if callable(get_shared_theme):
-            theme = get_shared_theme(self._shared_tooltip_theme_key)
+        if callable(get_theme):
+            theme = get_theme(self._shared_tooltip_theme_key)
             bg_main = theme["bg_main"]
             bg_surface = theme["bg_surface"]
             fg_primary = theme["fg_primary"]
@@ -719,8 +719,8 @@ class MainWindow:
     def _canvas_theme_tokens(self) -> tuple[str, str]:
         """Return surface/highlight colors for direct canvas styling."""
 
-        if callable(get_shared_theme):
-            theme = get_shared_theme(self._shared_tooltip_theme_key)
+        if callable(get_theme):
+            theme = get_theme(self._shared_tooltip_theme_key)
             return theme["bg_surface"], theme["border"]
         return "#f2ede3", "#b8aa96"
 
