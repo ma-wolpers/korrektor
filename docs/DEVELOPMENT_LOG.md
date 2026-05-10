@@ -1,6 +1,11 @@
 # Development Log
 
 ## [Unreleased]
+- Korrektur-Workflow erweitert: pro Person+Aufgabe koennen jetzt persistente Freitextkommentare erfasst werden (`task_comments` im Exam-JSON) inklusive Immediate-Save und Undo/Redo.
+- Korrektur-Shortcut angepasst: Fertig-Toggle liegt jetzt auf `Strg+Leertaste`, damit `Leertaste` in Eingabefeldern konfliktfrei bleibt.
+- Korrektur-Eingabefluss gehaertet: Punktefeld wird jetzt auch bei Korrekturstart sowie bei Aufgaben-/Bereichswechsel automatisch fokussiert und voll selektiert.
+- Korrekturmaske erweitert: neues Aufgaben-Kommentarfeld (neben Punkten) mit Speichern auf Fokusverlust/Commit.
+- Export-Flow erweitert: neuer Punkte-CSV-Export (Menue + `Strg+E` + Export-Button) schreibt Zeilen pro Person mit Aufgaben als Spalten; erste Datenzeile enthaelt die Maximalpunkte je Aufgabe.
 - Korrekturansicht um Vorschau-Zoom erweitert (10%-Schritte, Grenzen 10-240): Zoom-Buttons `-`/`+`, Reset auf `100%`, Shortcuts `Strg+Mausrad`, `Strg++`, `Strg+-` und `Strg+0` analog zum Blattwerk-Preview-Verhalten.
 - Korrekturmodus-Shortcut ergaenzt: `Leertaste` toggelt jetzt robust `Fertig korrigiert` (auch bei Fokus im Punktefeld) und nutzt dafuer einen eigenen zentralen Runtime-Intent.
 - Detail-Hub semantisch bereinigt: die Bereichszeile zeigt jetzt eindeutig `Fertig korrigiert X/Y`; `Aktive Person` wird in der Detailansicht nicht mehr angezeigt, sondern nur in Arbeitsansichten (Einlesen/Korrektur).

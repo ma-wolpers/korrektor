@@ -33,6 +33,16 @@ class ScoreRepository(Protocol):
         ...
 
 
+class ScoreExportRepository(Protocol):
+    def export_scores(
+        self,
+        *,
+        exam: ExamProject,
+        output_csv: Path,
+    ) -> None:
+        ...
+
+
 class PdfScanRepository(Protocol):
     def scan_exam_folder(self, folder_path: Path) -> list[tuple[str, int]]:
         ...

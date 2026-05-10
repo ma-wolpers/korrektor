@@ -9,11 +9,13 @@ from app.adapters.undo import UndoHistory
 from app.core.domain.progress import ProgressCalculator
 from app.core.usecases.create_exam_usecase import CreateExamUseCase
 from app.core.usecases.delete_exam_usecase import DeleteExamUseCase
+from app.core.usecases.export_scores_usecase import ExportScoresUseCase
 from app.core.usecases.list_exams_usecase import ListExamsUseCase
 from app.core.usecases.load_exam_usecase import LoadExamUseCase
 from app.core.usecases.save_score_usecase import SaveScoreUseCase
 from app.core.usecases.set_reading_complete_usecase import SetReadingCompleteUseCase
 from app.core.usecases.upsert_region_usecase import UpsertRegionUseCase
+from app.infrastructure.repositories.csv_score_export_repository import CsvScoreExportRepository
 from app.infrastructure.repositories.csv_score_repository import CsvScoreRepository
 from app.infrastructure.repositories.in_memory_region_repository import InMemoryRegionRepository
 from app.infrastructure.repositories.json_app_settings_repository import AppRuntimeSettings, JsonAppSettingsRepository
@@ -29,6 +31,7 @@ class GuiDependencies:
     load_exam_usecase: LoadExamUseCase
     upsert_region_usecase: UpsertRegionUseCase
     save_score_usecase: SaveScoreUseCase
+    export_scores_usecase: ExportScoresUseCase
     set_reading_complete_usecase: SetReadingCompleteUseCase
     exam_repository: JsonExamRepository
     settings_repository: JsonAppSettingsRepository
@@ -53,6 +56,7 @@ def build_gui_dependencies(base_dir: Path) -> GuiDependencies:
 
     exam_repo = JsonExamRepository(index_root=runtime_settings.exam_index_dir)
     score_repo = CsvScoreRepository()
+    export_repo = CsvScoreExportRepository()
     scan_repo = PyMuPdfScanRepository()
     region_repo = InMemoryRegionRepository()
 
@@ -65,6 +69,7 @@ def build_gui_dependencies(base_dir: Path) -> GuiDependencies:
         load_exam_usecase=LoadExamUseCase(exam_repo=exam_repo),
         upsert_region_usecase=UpsertRegionUseCase(exam_repo=exam_repo, region_repo=region_repo),
         save_score_usecase=SaveScoreUseCase(score_repo=score_repo),
+        export_scores_usecase=ExportScoresUseCase(export_repo=export_repo),
         set_reading_complete_usecase=SetReadingCompleteUseCase(exam_repo=exam_repo),
         exam_repository=exam_repo,
         settings_repository=settings_repository,

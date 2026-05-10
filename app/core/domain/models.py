@@ -199,9 +199,24 @@ class ExamProject:
     extra_page_assignments: list[ExtraPageAssignment] = field(default_factory=list)
     # Korrekturabschluss je Person+Bereich.
     person_area_completions: list[PersonAreaCompletion] = field(default_factory=list)
+    # Freitextkommentare je Person+Aufgabe (student_id -> task_code -> comment).
+    task_comments: dict[str, dict[str, str]] = field(default_factory=dict)
     is_reading_complete: bool = False
 
     def to_dict(self) -> dict[str, Any]:
+        normalized_task_comments: dict[str, dict[str, str]] = {}
+        for student_id, comments in self.task_comments.items():
+            normalized_student = student_id.strip()
+            if not normalized_student:
+                continue
+            normalized_comments = {
+                task_code.strip().upper(): str(comment).strip()
+                for task_code, comment in comments.items()
+                if task_code.strip() and str(comment).strip()
+            }
+            if normalized_comments:
+                normalized_task_comments[normalized_student] = normalized_comments
+
         return {
             "exam_id": self.exam_id,
             "exam_name": self.exam_name,
@@ -213,6 +228,7 @@ class ExamProject:
             "regions": [region.to_dict() for region in self.regions],
             "extra_page_assignments": [assignment.to_dict() for assignment in self.extra_page_assignments],
             "person_area_completions": [item.to_dict() for item in self.person_area_completions],
+            "task_comments": normalized_task_comments,
             "is_reading_complete": self.is_reading_complete,
         }
 
@@ -230,6 +246,22 @@ class ExamProject:
 
         extra_assignments = [ExtraPageAssignment.from_dict(item) for item in raw.get("extra_page_assignments", [])]
         completions = [PersonAreaCompletion.from_dict(item) for item in raw.get("person_area_completions", [])]
+        task_comments_raw = raw.get("task_comments", {})
+        task_comments: dict[str, dict[str, str]] = {}
+        if isinstance(task_comments_raw, dict):
+            for raw_student_id, raw_comments in task_comments_raw.items():
+                student_id = str(raw_student_id).strip()
+                if not student_id or not isinstance(raw_comments, dict):
+                    continue
+                normalized_comments: dict[str, str] = {}
+                for raw_task_code, raw_comment in raw_comments.items():
+                    task_code = str(raw_task_code).strip().upper()
+                    comment = str(raw_comment).strip()
+                    if not task_code or not comment:
+                        continue
+                    normalized_comments[task_code] = comment
+                if normalized_comments:
+                    task_comments[student_id] = normalized_comments
 
         return cls(
             exam_id=str(raw.get("exam_id", "")).strip(),
@@ -242,6 +274,7 @@ class ExamProject:
             regions=standard_templates,
             extra_page_assignments=extra_assignments,
             person_area_completions=completions,
+            task_comments=task_comments,
             is_reading_complete=bool(raw.get("is_reading_complete", False)),
         )
 

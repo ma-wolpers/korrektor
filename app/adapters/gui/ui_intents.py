@@ -5,6 +5,7 @@ from __future__ import annotations
 
 class UiIntent:
     GLOBAL_CREATE_EXAM = "global.create_exam"
+    GLOBAL_EXPORT = "global.export"
     GLOBAL_ESCAPE = "global.escape"
     GLOBAL_UNDO = "global.undo"
     GLOBAL_REDO = "global.redo"

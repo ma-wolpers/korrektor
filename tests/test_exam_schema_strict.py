@@ -53,6 +53,11 @@ def _base_raw_exam() -> dict[str, object]:
                 "is_finished": True,
             }
         ],
+        "task_comments": {
+            "alice": {
+                "A1": "Sauber gerechnet.",
+            }
+        },
         "is_reading_complete": False,
     }
 
@@ -63,6 +68,16 @@ def test_from_dict_accepts_forward_only_schema() -> None:
     assert len(exam.regions) == 1
     assert len(exam.extra_page_assignments) == 1
     assert len(exam.person_area_completions) == 1
+    assert exam.task_comments == {"alice": {"A1": "Sauber gerechnet."}}
+
+
+def test_from_dict_defaults_task_comments_when_missing() -> None:
+    raw = _base_raw_exam()
+    raw.pop("task_comments")
+
+    exam = ExamProject.from_dict(raw)
+
+    assert exam.task_comments == {}
 
 
 def test_from_dict_rejects_missing_extra_assignment_field() -> None:

@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- In der Korrekturansicht gibt es jetzt pro Aufgabe ein Kommentarfeld; Kommentare werden je Person+Aufgabe mitgespeichert.
+- Das Fertig-Toggle wurde von `Leertaste` auf `Strg+Leertaste` umgelegt.
+- Beim Start der Korrektur sowie beim Wechsel von Aufgabe/Bereich wird der Inhalt des Punktefelds jetzt automatisch markiert.
+- Neuer Export-Flow fuer Punkte: Export-Button in der Korrekturansicht, Menueeintrag und Shortcut `Strg+E`; CSV-Format mit erster Datenzeile fuer Maximalpunkte und danach je Person eine Zeile (unkorrigierte Aufgaben bleiben leer).
 - Die Korrekturvorschau hat jetzt Zoom-Buttons (`-`/`+`), Reset auf `100%` sowie Zoom-Shortcuts wie in Blattwerk: `Strg+Mausrad`, `Strg++`, `Strg+-` und `Strg+0`.
 - In der Korrekturansicht toggelt `Leertaste` jetzt verlaesslich `Fertig korrigiert` (auch wenn der Fokus noch im Punktefeld liegt).
 - Die Detailzeile wurde vereinfacht auf `Fertig korrigiert X/Y`; die Anzeige `Aktive Person` erscheint dort nicht mehr, sondern nur in den Arbeitsansichten.

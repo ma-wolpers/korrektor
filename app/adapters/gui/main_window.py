@@ -146,6 +146,8 @@ class MainWindow:
         self._correction_photo: ui.PhotoImage | None = None
         self._correction_zoom_percent = 100
         self._correction_zoom_info_var = ui.StringVar(value="Zoom: 100%")
+        self._correction_comment_var = ui.StringVar(value="")
+        self._correction_comment_entry: widgets.Entry | None = None
         self._correction_finished_var = ui.BooleanVar(value=False)
         self._correction_finished_hint_var = ui.StringVar(value="Fertigstatus nicht aktiv")
         self._correction_finished_check: widgets.Checkbutton | None = None
@@ -174,6 +176,7 @@ class MainWindow:
         self._hsm_contract = build_ui_hsm_contract(
             intents=[
                 UiIntent.GLOBAL_CREATE_EXAM,
+                UiIntent.GLOBAL_EXPORT,
                 UiIntent.GLOBAL_ESCAPE,
                 UiIntent.GLOBAL_UNDO,
                 UiIntent.GLOBAL_REDO,
@@ -253,6 +256,22 @@ class MainWindow:
         if self._controller is not None:
             self._controller.open_selected_exam()
 
+    def _menu_export_scores(self) -> None:
+        if self._controller is None:
+            return
+        exam = self._current_exam
+        if exam is None:
+            selected = self.get_selected_row()
+            if selected is None:
+                messagebox.showinfo("Hinweis", "Bitte zuerst eine Klausur auswählen.")
+                return
+            try:
+                exam = self.deps.load_exam_usecase.execute(exam_file=selected.source_file)
+            except Exception as exc:
+                messagebox.showerror("Fehler", f"Klausur konnte nicht geladen werden: {exc}")
+                return
+        self._controller.export_scores_for_exam(exam=exam)
+
     def _menu_undo(self) -> None:
         if self._controller is not None:
             self._controller.undo()
@@ -265,6 +284,7 @@ class MainWindow:
         return (
             SharedMenuItem(type="command", label="Neue Klausur (Strg+N)", command=self._menu_create_exam),
             SharedMenuItem(type="command", label="Ausgewaehlte Klausur oeffnen", command=self._menu_open_selected_exam),
+            SharedMenuItem(type="command", label="Punkte exportieren (Strg+E)", command=self._menu_export_scores),
             SharedMenuItem(type="separator"),
             SharedMenuItem(type="command", label="Einstellungen", command=self._open_settings_dialog),
             SharedMenuItem(type="separator"),
@@ -386,11 +406,18 @@ class MainWindow:
             allow_when_text_input=True,
         )
         self._bind_runtime_shortcut(
-            "<space>",
-            self._on_space_key,
+            "<Control-space>",
+            self._on_ctrl_space_key,
             binding_id="correction.toggle_finished",
             intent=UiIntent.CORRECTION_TOGGLE_FINISHED,
             modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+        )
+        self._bind_runtime_shortcut(
+            "<Control-e>",
+            self._on_ctrl_e_key,
+            binding_id="global.export",
+            intent=UiIntent.GLOBAL_EXPORT,
+            modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG, UI_MODE_EDITOR),
             allow_when_text_input=True,
         )
         self._bind_runtime_shortcut(
@@ -1495,6 +1522,19 @@ class MainWindow:
         self._correction_points_entry.bind("<Return>", self._on_correction_points_commit)
         self._correction_points_entry.bind("<Escape>", self._on_correction_points_escape)
 
+        widgets.Label(correction_form, text="Kommentar", style="Muted.TLabel").grid(
+            row=1,
+            column=0,
+            sticky=ui.W,
+            padx=(0, 6),
+            pady=4,
+        )
+        self._correction_comment_entry = widgets.Entry(correction_form, textvariable=self._correction_comment_var)
+        self._correction_comment_entry.grid(row=1, column=1, sticky=ui.EW, pady=4)
+        self._correction_comment_entry.bind("<FocusOut>", self._on_correction_comment_focus_out)
+        self._correction_comment_entry.bind("<Return>", self._on_correction_comment_commit)
+        self._correction_comment_entry.bind("<Escape>", self._on_correction_comment_escape)
+
         self._correction_finished_check = widgets.Checkbutton(
             correction_form,
             text="Fertig korrigiert",
@@ -1502,12 +1542,12 @@ class MainWindow:
             command=self._on_correction_finished_toggled,
             state="disabled",
         )
-        self._correction_finished_check.grid(row=1, column=0, columnspan=2, sticky=ui.W, pady=(4, 0))
+        self._correction_finished_check.grid(row=2, column=0, columnspan=2, sticky=ui.W, pady=(4, 0))
         widgets.Label(
             correction_form,
             textvariable=self._correction_finished_hint_var,
             style="Muted.TLabel",
-        ).grid(row=2, column=0, columnspan=2, sticky=ui.W, pady=(2, 0))
+        ).grid(row=3, column=0, columnspan=2, sticky=ui.W, pady=(2, 0))
 
         correction_buttons = widgets.Frame(correction_form_panel, style="Surface.TFrame")
         correction_buttons.pack(fill=ui.X, pady=(10, 0))
@@ -1524,6 +1564,15 @@ class MainWindow:
             label="Punkte fuer aktuelle Aufgabe speichern",
             shortcut="Enter",
         )
+
+        export_correction_button = widgets.Button(
+            correction_buttons,
+            text="Export",
+            style="SecondaryAction.TButton",
+            command=self._menu_export_scores,
+        )
+        export_correction_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(export_correction_button, label="Punkte als CSV exportieren", shortcut="Strg+E")
 
         prev_correction_student_button = widgets.Button(
             correction_buttons,
@@ -1846,7 +1895,7 @@ class MainWindow:
         if self._active_view == "correction" and self._correction_mode_active:
             self._cycle_correction_area(1)
 
-    def _on_space_key(self, _event: ui.Event[ui.Misc]):
+    def _on_ctrl_space_key(self, _event: ui.Event[ui.Misc]):
         if self._active_view != "correction" or not self._correction_mode_active:
             return None
         if self._correction_finished_check is None:
@@ -1855,6 +1904,10 @@ class MainWindow:
             return "break"
         self._correction_finished_var.set(not bool(self._correction_finished_var.get()))
         self._on_correction_finished_toggled()
+        return "break"
+
+    def _on_ctrl_e_key(self, _event: ui.Event[ui.Misc]):
+        self._menu_export_scores()
         return "break"
 
     def _on_ctrl_plus_key(self, _event: ui.Event[ui.Misc]):
@@ -1896,6 +1949,7 @@ class MainWindow:
     def _commit_points_if_possible(self) -> None:
         if self._correction_mode_active:
             self._save_current_correction_score()
+            self._save_current_correction_comment()
             return
         if not self._controller or not self._current_exam or not self._current_exam.students:
             return
@@ -2640,6 +2694,7 @@ class MainWindow:
         self._refresh_active_student_label()
         self._refresh_correction_task_choices(load_saved_points=True)
         self._refresh_correction_completion_controls()
+        self._focus_first_input_field()
         self._status_var.set(f"Korrekturmodus aktiv für Bereich {area}")
 
     def _stop_correction_mode(self, *, silent: bool = False) -> None:
@@ -2685,6 +2740,7 @@ class MainWindow:
             self._correction_task_var.set("")
             self._correction_max_points_var.set("Max: -")
             self._correction_points_var.set("")
+            self._correction_comment_var.set("")
             self._render_correction_preview()
             return
 
@@ -2707,6 +2763,7 @@ class MainWindow:
             self._correction_max_points_var.set("Max: -")
             if load_saved_points:
                 self._correction_points_var.set("")
+                self._correction_comment_var.set("")
             self._refresh_correction_completion_controls()
             return
 
@@ -2721,7 +2778,13 @@ class MainWindow:
             student_id=student.student_id,
             task_code=task_code,
         )
+        existing_comment = self._controller.load_saved_comment(
+            exam=self._current_exam,
+            student_id=student.student_id,
+            task_code=task_code,
+        )
         self._correction_points_var.set(existing_points if existing_points is not None else "")
+        self._correction_comment_var.set(existing_comment if existing_comment is not None else "")
         self._refresh_correction_completion_controls()
 
     def _cycle_combobox_value(self, combo: widgets.Combobox, value_var: ui.StringVar, delta: int) -> bool:
@@ -2739,16 +2802,22 @@ class MainWindow:
     def _cycle_correction_task(self, delta: int) -> None:
         if not self._correction_mode_active:
             return
+        self._save_current_correction_score()
+        self._save_current_correction_comment()
         if not self._cycle_combobox_value(self._correction_task_combo, self._correction_task_var, delta):
             return
         self._refresh_correction_task_meta(load_saved_points=True)
+        self._focus_first_input_field()
 
     def _cycle_correction_area(self, delta: int) -> None:
         if not self._correction_mode_active:
             return
+        self._save_current_correction_score()
+        self._save_current_correction_comment()
         if not self._cycle_combobox_value(self._correction_area_combo_view, self._correction_area_var, delta):
             return
         self._refresh_correction_task_choices(load_saved_points=True)
+        self._focus_first_input_field()
 
     def _all_tasks_scored_for_current_area(self) -> bool:
         if self._controller is None or self._current_exam is None:
@@ -2889,6 +2958,7 @@ class MainWindow:
         if not self._correction_mode_active or not self._correction_student_indices:
             return
         self._save_current_correction_score()
+        self._save_current_correction_comment()
         self._correction_cursor = (self._correction_cursor + delta) % len(self._correction_student_indices)
         self._student_cursor = self._correction_student_indices[self._correction_cursor]
         self._refresh_active_student_label()
@@ -2918,17 +2988,40 @@ class MainWindow:
         self._refresh_correction_completion_controls()
         return saved
 
+    def _save_current_correction_comment(self) -> bool:
+        if not self._correction_mode_active or self._controller is None or self._current_exam is None:
+            return False
+        student = self._current_correction_student()
+        if student is None:
+            return False
+        task_code, _max_points = self._selected_correction_task()
+        if task_code is None:
+            return False
+        updated = self._controller.set_task_comment_immediate(
+            exam=self._current_exam,
+            student_id=student.student_id,
+            task_code=task_code,
+            comment_text=self._correction_comment_var.get(),
+        )
+        if updated is None:
+            return False
+        self._current_exam = updated
+        self._apply_detail_labels(updated)
+        return True
+
     def _on_correction_area_changed(self, _event: ui.Event[ui.Misc]) -> None:
         if not self._correction_mode_active:
             return
         self._refresh_correction_task_choices(load_saved_points=True)
         self._refresh_correction_completion_controls()
+        self._focus_first_input_field()
 
     def _on_correction_task_changed(self, _event: ui.Event[ui.Misc]) -> None:
         if not self._correction_mode_active:
             return
         self._refresh_correction_task_meta(load_saved_points=True)
         self._refresh_correction_completion_controls()
+        self._focus_first_input_field()
 
     def _on_correction_points_focus_out(self, _event: ui.Event[ui.Misc]) -> None:
         self._save_current_correction_score()
@@ -2939,6 +3032,17 @@ class MainWindow:
 
     def _on_correction_points_escape(self, _event: ui.Event[ui.Misc]) -> None:
         self._save_current_correction_score()
+        self.root.focus_set()
+
+    def _on_correction_comment_focus_out(self, _event: ui.Event[ui.Misc]) -> None:
+        self._save_current_correction_comment()
+
+    def _on_correction_comment_commit(self, _event: ui.Event[ui.Misc]) -> None:
+        self._save_current_correction_comment()
+        self.root.focus_set()
+
+    def _on_correction_comment_escape(self, _event: ui.Event[ui.Misc]) -> None:
+        self._save_current_correction_comment()
         self.root.focus_set()
 
     def _toggle_extra_pages_popup_for_current(self) -> None:
@@ -3167,6 +3271,8 @@ class MainWindow:
             self._correction_info_var.set("Korrektur: nicht aktiv")
         if hasattr(self, "_correction_points_var"):
             self._correction_points_var.set("")
+        if hasattr(self, "_correction_comment_var"):
+            self._correction_comment_var.set("")
         if hasattr(self, "_correction_finished_var"):
             self._correction_finished_var.set(False)
         self._close_extra_popup()
