@@ -1,6 +1,7 @@
 # Development Log
 
 ## [Unreleased]
+- Governance-Policy geschaerft: `AGENTS.md` und `.github/copilot-instructions.md` enthalten jetzt explizit die Strict-bw-gui-only-Regel (keine lokale tkinter/ttk-Widgetimplementierung in Repos; wiederverwendbare GUI-Bausteine zuerst in bw-gui).
 - Repo-weite Strict-bw-gui-Guardrails eingefuehrt: `tools/ci/check_ai_guardrails.py` scannt jetzt alle GUI-Pythondateien unter `app/adapters/gui/` per AST, blockiert direkte `tkinter`/`ttk`-Imports und verhindert neue lokale Basisklassen auf `ui`/`widgets`/`tui`.
 - Future-App-Guardrails erweitert: `tools/ci/check_ai_guardrails.py` prueft jetzt zusaetzlich neue GUI-Entrypoint-Dateien (z. B. neue `main_window.py`/`ui.py`) auf verpflichtenden Shared-GUI-Bootstrap (`ensure_bw_gui_on_path`, `bw_gui.runtime`, Shared-Menu/Dialog/Shortcut/Hover) und blockiert direkte `tkinter`-Imports.
 - Guardrails gehaertet: `tools/ci/check_ai_guardrails.py` erzwingt jetzt in `app/adapters/gui/main_window.py` verpflichtende Shared-UI-Contracts (Menue/Dialog/Hover) und blockiert Legacy-Fallbackmuster (`ModuleNotFoundError`/`None`-Guards).

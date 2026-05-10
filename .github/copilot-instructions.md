@@ -20,9 +20,13 @@ Pflichtregeln:
 - Pop-up-Regeln zentral in `bw_libs/ui_contract/popup.py` verwalten.
 - Neue Shortcut-/Popup-Funktionen zuerst zentral registrieren, dann in Views anbinden.
 
-5. Commit-/Push-Workflow
+5. Strict bw-gui-only-Policy
+- Keine lokale tkinter/ttk-Widgetimplementierung in Repos.
+- Neue wiederverwendbare GUI-Bausteine zuerst in bw-gui implementieren und erst danach in Repos anbinden.
+
+6. Commit-/Push-Workflow
 - Feature-Aenderungen als eigene Commits strukturieren.
 - Push bleibt manuell; kein automatisches Pushen.
 
-6. Guardrails sind bindend
+7. Guardrails sind bindend
 - `tools/ci/check_ai_guardrails.py` muss lokal und in CI bestehen.
