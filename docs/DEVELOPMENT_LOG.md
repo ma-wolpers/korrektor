@@ -1,6 +1,7 @@
 # Development Log
 
 ## [Unreleased]
+- Hover-Contract weiter ausgebaut: zusaetzliche Buttons in Korrektur-/Einlese-Workflows, Bereichsaktionen und Extraseiten-Popup-Navigation nutzen jetzt `SharedHoverTooltip` mit konsistenten Action-/Shortcut-Hinweisen.
 - Shared-Menueleiste integriert: `app/adapters/gui/main_window.py` nutzt jetzt primaer `bw_gui.menu.CustomMenuBar` mit provider-basierten Menues (`Datei`/`Modus`/`Debug`) fuer zentrale Datei-, Modus- und Runtime-Debug-Aktionen.
 - Menu-Theme-Sync verdrahtet: bei Settings-Commit aktualisiert `_apply_settings_dialog_payload` jetzt auch das Theme der Shared-Menueleiste, sodass Tooltip- und Menu-Theme konsistent wechseln.
 - Hover-Contract im Hauptlayout ausgebaut: zentrale Action-Buttons (oeffnen/einlesen/extraseiten/debug) und Modus-Umschalter in `app/adapters/gui/main_window.py` nutzen jetzt konsequent `SharedHoverTooltip` mit einheitlicher Shared-Shortcut-Formatierung.

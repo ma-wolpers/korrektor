@@ -467,13 +467,23 @@ class MainWindow:
             fill=ui.X,
             expand=True,
         )
-        widgets.Checkbutton(
+        offline_check = widgets.Checkbutton(
             toolbar,
             text="Offline simulieren",
             variable=self._shortcut_debug_offline_var,
             command=self._refresh_shortcut_runtime_debug_dialog,
-        ).pack(side=ui.LEFT, padx=(12, 0))
-        widgets.Button(toolbar, text="Aktualisieren", style="SecondaryAction.TButton", command=self._refresh_shortcut_runtime_debug_dialog).pack(side=ui.LEFT, padx=(8, 0))
+        )
+        offline_check.pack(side=ui.LEFT, padx=(12, 0))
+        self._attach_hover_help(offline_check, label="Offline-Simulation fuer Runtime-Resolver umschalten", shortcut="Ctrl+Shift+O")
+
+        refresh_button = widgets.Button(
+            toolbar,
+            text="Aktualisieren",
+            style="SecondaryAction.TButton",
+            command=self._refresh_shortcut_runtime_debug_dialog,
+        )
+        refresh_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(refresh_button, label="Shortcut-Runtime-Debug neu berechnen", shortcut=None)
 
         body = widgets.Frame(window, padding=(10, 0, 10, 8))
         body.pack(fill=ui.BOTH, expand=True)
@@ -844,9 +854,32 @@ class MainWindow:
             values=("A",),
         )
         self._correction_area_combo.pack(side=ui.LEFT, padx=(8, 8))
-        widgets.Button(correction_header, text="Korrekturmodus", style="SecondaryAction.TButton", command=self._start_correction_mode).pack(side=ui.LEFT)
-        widgets.Button(correction_header, text="Modus beenden", style="SecondaryAction.TButton", command=self._stop_correction_mode).pack(side=ui.LEFT, padx=(8, 0))
-        widgets.Button(correction_header, text="Extraseiten ansehen", style="SecondaryAction.TButton", command=self._toggle_extra_pages_popup_for_current).pack(side=ui.RIGHT)
+        start_correction_button = widgets.Button(
+            correction_header,
+            text="Korrekturmodus",
+            style="SecondaryAction.TButton",
+            command=self._start_correction_mode,
+        )
+        start_correction_button.pack(side=ui.LEFT)
+        self._attach_hover_help(start_correction_button, label="Korrekturmodus starten", shortcut=None)
+
+        stop_correction_button = widgets.Button(
+            correction_header,
+            text="Modus beenden",
+            style="SecondaryAction.TButton",
+            command=self._stop_correction_mode,
+        )
+        stop_correction_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(stop_correction_button, label="Aktiven Modus beenden", shortcut="Esc")
+
+        show_extras_button = widgets.Button(
+            correction_header,
+            text="Extraseiten ansehen",
+            style="SecondaryAction.TButton",
+            command=self._toggle_extra_pages_popup_for_current,
+        )
+        show_extras_button.pack(side=ui.RIGHT)
+        self._attach_hover_help(show_extras_button, label="Extraseiten-Popup der aktuellen Person oeffnen", shortcut=None)
 
         form = widgets.Frame(self._correction_controls_frame, style="Surface.TFrame")
         form.pack(fill=ui.X, pady=(8, 0))
@@ -876,8 +909,23 @@ class MainWindow:
 
         nav = widgets.Frame(self._correction_controls_frame, style="Surface.TFrame")
         nav.pack(fill=ui.X, pady=(10, 0))
-        widgets.Button(nav, text="◀ Person", style="SecondaryAction.TButton", command=lambda: self._move_student(-1)).pack(side=ui.LEFT)
-        widgets.Button(nav, text="Person ▶", style="SecondaryAction.TButton", command=lambda: self._move_student(1)).pack(side=ui.LEFT, padx=(8, 0))
+        prev_student_button = widgets.Button(
+            nav,
+            text="◀ Person",
+            style="SecondaryAction.TButton",
+            command=lambda: self._move_student(-1),
+        )
+        prev_student_button.pack(side=ui.LEFT)
+        self._attach_hover_help(prev_student_button, label="Vorherige Person", shortcut="Links")
+
+        next_student_button = widgets.Button(
+            nav,
+            text="Person ▶",
+            style="SecondaryAction.TButton",
+            command=lambda: self._move_student(1),
+        )
+        next_student_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(next_student_button, label="Naechste Person", shortcut="Rechts")
 
         self._reading_workspace_frame = widgets.Frame(right, style="Surface.TFrame")
         self._reading_workspace_frame.pack(fill=ui.BOTH, expand=True)
@@ -887,17 +935,79 @@ class MainWindow:
 
         self._reading_toolbar = widgets.Frame(self._reading_workspace_frame, style="Surface.TFrame")
         self._reading_toolbar.pack(fill=ui.X)
-        widgets.Button(self._reading_toolbar, text="◀ Seite", style="SecondaryAction.TButton", command=lambda: self._change_reading_page(-1)).pack(side=ui.LEFT)
-        widgets.Button(self._reading_toolbar, text="Seite ▶", style="SecondaryAction.TButton", command=lambda: self._change_reading_page(1)).pack(side=ui.LEFT, padx=(8, 0))
-        widgets.Button(self._reading_toolbar, text="◀ Schüler:in", style="SecondaryAction.TButton", command=lambda: self._change_reading_student(-1)).pack(side=ui.LEFT, padx=(14, 0))
-        widgets.Button(self._reading_toolbar, text="Schüler:in ▶", style="SecondaryAction.TButton", command=lambda: self._change_reading_student(1)).pack(side=ui.LEFT, padx=(8, 0))
-        widgets.Button(self._reading_toolbar, text="Einlesen abschließen", style="PrimaryAction.TButton", command=self._finish_reading_mode).pack(side=ui.RIGHT)
+        prev_page_button = widgets.Button(
+            self._reading_toolbar,
+            text="◀ Seite",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_reading_page(-1),
+        )
+        prev_page_button.pack(side=ui.LEFT)
+        self._attach_hover_help(prev_page_button, label="Vorherige Seite", shortcut="Links")
+
+        next_page_button = widgets.Button(
+            self._reading_toolbar,
+            text="Seite ▶",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_reading_page(1),
+        )
+        next_page_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(next_page_button, label="Naechste Seite", shortcut="Rechts")
+
+        prev_reading_student_button = widgets.Button(
+            self._reading_toolbar,
+            text="◀ Schüler:in",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_reading_student(-1),
+        )
+        prev_reading_student_button.pack(side=ui.LEFT, padx=(14, 0))
+        self._attach_hover_help(prev_reading_student_button, label="Vorherige Person im Einlesen", shortcut=None)
+
+        next_reading_student_button = widgets.Button(
+            self._reading_toolbar,
+            text="Schüler:in ▶",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_reading_student(1),
+        )
+        next_reading_student_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(next_reading_student_button, label="Naechste Person im Einlesen", shortcut=None)
+
+        finish_reading_button = widgets.Button(
+            self._reading_toolbar,
+            text="Einlesen abschließen",
+            style="PrimaryAction.TButton",
+            command=self._finish_reading_mode,
+        )
+        finish_reading_button.pack(side=ui.RIGHT)
+        self._attach_hover_help(finish_reading_button, label="Einlesemodus abschliessen", shortcut=None)
 
         self._extra_toolbar = widgets.Frame(self._reading_workspace_frame, style="Surface.TFrame")
         self._extra_toolbar.pack(fill=ui.X, pady=(6, 0))
-        widgets.Button(self._extra_toolbar, text="◀ Extraseite", style="SecondaryAction.TButton", command=lambda: self._change_extra_page(-1)).pack(side=ui.LEFT)
-        widgets.Button(self._extra_toolbar, text="Extraseite ▶", style="SecondaryAction.TButton", command=lambda: self._change_extra_page(1)).pack(side=ui.LEFT, padx=(8, 0))
-        widgets.Button(self._extra_toolbar, text="Bereich zuordnen", style="PrimaryAction.TButton", command=self._assign_current_extra_page).pack(side=ui.RIGHT)
+        prev_extra_page_button = widgets.Button(
+            self._extra_toolbar,
+            text="◀ Extraseite",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_extra_page(-1),
+        )
+        prev_extra_page_button.pack(side=ui.LEFT)
+        self._attach_hover_help(prev_extra_page_button, label="Vorherige Extraseite", shortcut=None)
+
+        next_extra_page_button = widgets.Button(
+            self._extra_toolbar,
+            text="Extraseite ▶",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_extra_page(1),
+        )
+        next_extra_page_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(next_extra_page_button, label="Naechste Extraseite", shortcut=None)
+
+        assign_extra_page_button = widgets.Button(
+            self._extra_toolbar,
+            text="Bereich zuordnen",
+            style="PrimaryAction.TButton",
+            command=self._assign_current_extra_page,
+        )
+        assign_extra_page_button.pack(side=ui.RIGHT)
+        self._attach_hover_help(assign_extra_page_button, label="Aktuelle Extraseite einem Bereich zuordnen", shortcut=None)
 
         self._mode_row = widgets.Frame(self._reading_workspace_frame, style="Surface.TFrame")
         self._mode_row.pack(fill=ui.X, pady=(8, 0))
@@ -968,8 +1078,23 @@ class MainWindow:
 
         region_actions = widgets.Frame(self._regions_editor, style="Surface.TFrame")
         region_actions.pack(fill=ui.X, pady=(6, 0))
-        widgets.Button(region_actions, text="Speichern", style="SecondaryAction.TButton", command=self._save_selected_region).pack(side=ui.LEFT)
-        widgets.Button(region_actions, text="Loeschen", style="SecondaryAction.TButton", command=self._delete_selected_region).pack(side=ui.LEFT, padx=(8, 0))
+        save_region_button = widgets.Button(
+            region_actions,
+            text="Speichern",
+            style="SecondaryAction.TButton",
+            command=self._save_selected_region,
+        )
+        save_region_button.pack(side=ui.LEFT)
+        self._attach_hover_help(save_region_button, label="Aktiven Bereich speichern", shortcut=None)
+
+        delete_region_button = widgets.Button(
+            region_actions,
+            text="Loeschen",
+            style="SecondaryAction.TButton",
+            command=self._delete_selected_region,
+        )
+        delete_region_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(delete_region_button, label="Aktiven Bereich loeschen", shortcut="Entf")
 
         self._refresh_task_input_mode()
 
@@ -1611,9 +1736,32 @@ class MainWindow:
 
             nav = widgets.Frame(popup, padding=(10, 0, 10, 10))
             nav.pack(fill=ui.X)
-            widgets.Button(nav, text="◀", style="SecondaryAction.TButton", command=lambda: self._change_extra_popup_page(-1)).pack(side=ui.LEFT)
-            widgets.Button(nav, text="▶", style="SecondaryAction.TButton", command=lambda: self._change_extra_popup_page(1)).pack(side=ui.LEFT, padx=(8, 0))
-            widgets.Button(nav, text="Schließen", style="SecondaryAction.TButton", command=self._close_extra_popup).pack(side=ui.RIGHT)
+            popup_prev_button = widgets.Button(
+                nav,
+                text="◀",
+                style="SecondaryAction.TButton",
+                command=lambda: self._change_extra_popup_page(-1),
+            )
+            popup_prev_button.pack(side=ui.LEFT)
+            self._attach_hover_help(popup_prev_button, label="Vorherige Extraseite", shortcut="Links")
+
+            popup_next_button = widgets.Button(
+                nav,
+                text="▶",
+                style="SecondaryAction.TButton",
+                command=lambda: self._change_extra_popup_page(1),
+            )
+            popup_next_button.pack(side=ui.LEFT, padx=(8, 0))
+            self._attach_hover_help(popup_next_button, label="Naechste Extraseite", shortcut="Rechts")
+
+            popup_close_button = widgets.Button(
+                nav,
+                text="Schließen",
+                style="SecondaryAction.TButton",
+                command=self._close_extra_popup,
+            )
+            popup_close_button.pack(side=ui.RIGHT)
+            self._attach_hover_help(popup_close_button, label="Extraseiten-Popup schliessen", shortcut="Esc")
 
             popup.protocol("WM_DELETE_WINDOW", self._close_extra_popup)
             self._extra_popup = popup
