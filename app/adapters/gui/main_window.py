@@ -1096,11 +1096,23 @@ class MainWindow:
         self._active_region_var = ui.StringVar(value="-")
         widgets.Label(editor_head, textvariable=self._active_region_var, style="Status.TLabel").pack(side=ui.LEFT, padx=(8, 0))
 
+        self._task_input_container = widgets.Frame(self._regions_editor, style="Surface.TFrame")
+        self._task_input_container.pack(fill=ui.X)
+
         self._quick_tasks_var = ui.StringVar(value="")
-        self._quick_tasks_entry = widgets.Entry(self._regions_editor, textvariable=self._quick_tasks_var)
+        self._quick_tasks_entry = widgets.Entry(self._task_input_container, textvariable=self._quick_tasks_var)
         self._quick_tasks_entry.pack(fill=ui.X)
 
-        self._form_tasks_text = ui.Text(self._regions_editor, height=4, wrap="word")
+        self._form_tasks_text = ui.Text(self._task_input_container, height=4, wrap="word")
+
+        self._task_input_example_var = ui.StringVar(value="")
+        self._task_input_example_label = widgets.Label(
+            self._task_input_container,
+            textvariable=self._task_input_example_var,
+            style="Muted.TLabel",
+            justify=ui.LEFT,
+        )
+        self._task_input_example_label.pack(fill=ui.X, pady=(4, 0))
 
         region_actions = widgets.Frame(self._regions_editor, style="Surface.TFrame")
         region_actions.pack(fill=ui.X, pady=(6, 0))
@@ -2028,10 +2040,17 @@ class MainWindow:
         mode = self._assignment_mode_var.get()
         if mode == "form":
             self._quick_tasks_entry.pack_forget()
+            self._form_tasks_text.pack_forget()
             self._form_tasks_text.pack(fill=ui.X, pady=(4, 0))
+            self._task_input_example_var.set("Beispiel (Formular):\n5B:2\n5C:1")
         else:
             self._form_tasks_text.pack_forget()
+            self._quick_tasks_entry.pack_forget()
             self._quick_tasks_entry.pack(fill=ui.X)
+            self._task_input_example_var.set("Beispiel (Schnell): 5B:2;5C:1")
+
+        self._task_input_example_label.pack_forget()
+        self._task_input_example_label.pack(fill=ui.X, pady=(4, 0))
 
     def _read_task_specs_from_editor(self) -> list[tuple[str, float]] | None:
         if self._assignment_mode_var.get() == "form":
