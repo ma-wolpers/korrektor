@@ -42,6 +42,21 @@ except ModuleNotFoundError:
     compose_shared_hover_text = None
     SharedHoverTooltip = None
 
+try:
+    from bw_gui.dialogs import SettingsDialogSpec as SharedSettingsDialogSpec
+    from bw_gui.dialogs import SettingsFieldSpec as SharedSettingsFieldSpec
+    from bw_gui.dialogs import SettingsSectionSpec as SharedSettingsSectionSpec
+    from bw_gui.dialogs import open_tabbed_settings_dialog as open_shared_tabbed_settings_dialog
+    from bw_gui.theming import THEME_ORDER as SHARED_THEME_ORDER
+    from bw_gui.theming import normalize_theme_key as normalize_shared_theme_key
+except ModuleNotFoundError:
+    SharedSettingsDialogSpec = None
+    SharedSettingsFieldSpec = None
+    SharedSettingsSectionSpec = None
+    open_shared_tabbed_settings_dialog = None
+    SHARED_THEME_ORDER = ()
+    normalize_shared_theme_key = None
+
 if TYPE_CHECKING:
     from app.adapters.gui.ui_intent_controller import UiIntentController
 
@@ -448,6 +463,108 @@ class MainWindow:
             f"Bindings: {total} total | {active_count} active | {disabled_count} disabled"
         )
 
+    def _build_settings_dialog_spec(self):
+        """Build shared settings schema for Korrektor runtime options."""
+
+        if SharedSettingsDialogSpec is None or SharedSettingsSectionSpec is None or SharedSettingsFieldSpec is None:
+            return None
+
+        return SharedSettingsDialogSpec(
+            sections=(
+                SharedSettingsSectionSpec(
+                    key="ui",
+                    label="UI",
+                    fields=(
+                        SharedSettingsFieldSpec(
+                            key="tooltip_theme_key",
+                            label="Tooltip-Theme",
+                            field_type="enum",
+                            enum_values=tuple(SHARED_THEME_ORDER),
+                            default=self._shared_tooltip_theme_key,
+                        ),
+                        SharedSettingsFieldSpec(
+                            key="assignment_mode",
+                            label="Zuordnungsmodus (Detailansicht)",
+                            field_type="enum",
+                            enum_values=("quick", "form"),
+                            default=self._assignment_mode_var.get(),
+                        ),
+                    ),
+                ),
+                SharedSettingsSectionSpec(
+                    key="debug",
+                    label="Debug",
+                    fields=(
+                        SharedSettingsFieldSpec(
+                            key="runtime_offline",
+                            label="Runtime offline simulieren",
+                            field_type="bool",
+                            default=bool(self._shortcut_debug_offline_var.get()),
+                        ),
+                    ),
+                ),
+            )
+        )
+
+    def _settings_dialog_values(self) -> dict[str, object]:
+        """Collect current runtime values for shared settings dialog defaults."""
+
+        return {
+            "tooltip_theme_key": self._shared_tooltip_theme_key,
+            "assignment_mode": self._assignment_mode_var.get(),
+            "runtime_offline": bool(self._shortcut_debug_offline_var.get()),
+        }
+
+    def _apply_settings_dialog_payload(self, payload: dict[str, object]) -> None:
+        """Apply committed settings payload to runtime state."""
+
+        if not isinstance(payload, dict):
+            return
+
+        theme_value = str(payload.get("tooltip_theme_key", self._shared_tooltip_theme_key) or self._shared_tooltip_theme_key)
+        if callable(normalize_shared_theme_key):
+            theme_value = normalize_shared_theme_key(theme_value)
+        self._shared_tooltip_theme_key = theme_value
+
+        for tooltip in self._hover_tooltips:
+            try:
+                setattr(tooltip, "theme_key", self._shared_tooltip_theme_key)
+            except Exception:
+                continue
+
+        assignment_mode = str(payload.get("assignment_mode", self._assignment_mode_var.get()) or "quick")
+        if assignment_mode not in {"quick", "form"}:
+            assignment_mode = "quick"
+        self._assignment_mode_var.set(assignment_mode)
+
+        self._shortcut_debug_offline_var.set(bool(payload.get("runtime_offline", self._shortcut_debug_offline_var.get())))
+        self._refresh_shortcut_runtime_debug_dialog()
+        self.set_status("Einstellungen aktualisiert")
+
+    def _open_settings_dialog(self) -> None:
+        """Open shared tabbed settings dialog for runtime UI options."""
+
+        if open_shared_tabbed_settings_dialog is None:
+            messagebox.showinfo(
+                "Einstellungen",
+                "Shared-Settings-Dialog ist in dieser Umgebung nicht verfuegbar.",
+                parent=self.root,
+            )
+            return
+
+        spec = self._build_settings_dialog_spec()
+        if spec is None:
+            return
+
+        open_shared_tabbed_settings_dialog(
+            self.root,
+            title="Einstellungen",
+            theme_key=self._shared_tooltip_theme_key,
+            spec=spec,
+            initial_values=self._settings_dialog_values(),
+            on_commit=self._apply_settings_dialog_payload,
+        )
+
     def _build_styles(self) -> None:
         style = widgets.Style(self.root)
         style.theme_use("clam")
@@ -508,6 +625,14 @@ class MainWindow:
             style="SecondaryAction.TButton",
             command=self._start_extra_mode,
         ).pack(side=ui.LEFT, padx=(10, 0))
+        settings_button = widgets.Button(
+            action_row,
+            text="Einstellungen",
+            style="SecondaryAction.TButton",
+            command=self._open_settings_dialog,
+        )
+        settings_button.pack(side=ui.LEFT, padx=(10, 0))
+        self._attach_hover_help(settings_button, label="UI- und Debug-Einstellungen", shortcut=None)
         widgets.Button(
             action_row,
             text="Shortcut Debug",

@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Main window action bar now includes `Einstellungen`, opening a shared tab-based settings dialog for tooltip theme, assignment mode defaults, and runtime debug offline simulation.
 - Shared GUI hover tooltips now open with smoother delayed behavior, follow the active app theme automatically, and clamp to visible screen bounds.
 - Shared settings/sidebar and scrollbar theming received a visual polish via the updated `bw-gui` baseline.
 - Toolbar/action hover overlays now use the shared shortcut formatter for consistent wording and shortcut rendering.

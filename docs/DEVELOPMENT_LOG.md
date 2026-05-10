@@ -1,6 +1,8 @@
 # Development Log
 
 ## [Unreleased]
+- Shared-Settings-Dialog integriert: `app/adapters/gui/main_window.py` oeffnet jetzt einen tab-basierten `bw_gui.dialogs.open_tabbed_settings_dialog`-Flow fuer Tooltip-Theme, Detail-Zuordnungsmodus und Runtime-Offline-Simulation.
+- Einstellungs-Entry im UI erweitert: neue Aktion `Einstellungen` in der Hauptaktionsleiste startet den Shared-Dialog und schreibt Commit-Werte in die bestehenden Runtime-Variablen/Handler zurueck.
 - Shared-Tooltip-Polish uebernommen: `bw_gui.widgets.HoverTooltip` zeigt Hinweise jetzt verzoegert, ermittelt den aktiven Theme-Kontext aus dem Host-Fenster und haelt Tooltip-Positionen per Bildschirm-Clamping sichtbar.
 - Shared-Theme-Feinschliff uebernommen: Settings-/Sidebar-Stile und verfeinerte Scrollbar-Kontraste stammen jetzt aus dem aktualisierten `bw-gui`-Submodule-Stand.
 - Hover-Overlay-Formatierung harmonisiert: `app/adapters/gui/main_window.py` nutzt jetzt `bw_gui.shortcuts.compose_hover_text(...)` und setzt einen konsistenten Shared-Tooltip-Theme-Key fuer Aktionshinweise.
