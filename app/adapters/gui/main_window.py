@@ -1066,6 +1066,15 @@ class MainWindow:
         mode_correction_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(mode_correction_button, label="In den Korrekturmodus wechseln", shortcut=None)
 
+        export_detail_button = widgets.Button(
+            detail_actions,
+            text="Export",
+            style="SecondaryAction.TButton",
+            command=self._menu_export_scores,
+        )
+        export_detail_button.pack(side=ui.RIGHT)
+        self._attach_hover_help(export_detail_button, label="Punkte als CSV exportieren", shortcut="Strg+E")
+
         self._detail_name = ui.StringVar(value="-")
         self._detail_pages = ui.StringVar(value="Standardseiten: -")
         self._detail_students = ui.StringVar(value="Schüler:innen: -")
@@ -1652,7 +1661,7 @@ class MainWindow:
             text="↺",
             style="SecondaryAction.TButton",
             width=4,
-            command=lambda: self._rotate_selected_correction_annotation(-15.0),
+            command=lambda: self._rotate_selected_correction_annotation(90.0),
         )
         rotate_left_button.pack(side=ui.LEFT, padx=(8, 4))
         self._attach_hover_help(rotate_left_button, label="Ausgewaehlte Markierung nach links drehen")
@@ -1662,7 +1671,7 @@ class MainWindow:
             text="↻",
             style="SecondaryAction.TButton",
             width=4,
-            command=lambda: self._rotate_selected_correction_annotation(15.0),
+            command=lambda: self._rotate_selected_correction_annotation(-90.0),
         )
         rotate_right_button.pack(side=ui.LEFT, padx=(0, 4))
         self._attach_hover_help(rotate_right_button, label="Ausgewaehlte Markierung nach rechts drehen")
@@ -1676,36 +1685,14 @@ class MainWindow:
         correction_buttons = widgets.Frame(correction_form_panel, style="Surface.TFrame")
         correction_buttons.pack(fill=ui.X, pady=(10, 0))
 
-        self._save_correction_button = widgets.Button(
-            correction_buttons,
-            text="Punkte speichern",
-            style="PrimaryAction.TButton",
-            command=self._save_current_correction_score,
-        )
-        self._save_correction_button.pack(side=ui.LEFT)
-        self._attach_hover_help(
-            self._save_correction_button,
-            label="Punkte fuer aktuelle Aufgabe speichern",
-            shortcut="Enter",
-        )
-
-        export_correction_button = widgets.Button(
-            correction_buttons,
-            text="Export",
-            style="SecondaryAction.TButton",
-            command=self._menu_export_scores,
-        )
-        export_correction_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(export_correction_button, label="Punkte als CSV exportieren", shortcut="Strg+E")
-
         save_comments_button = widgets.Button(
             correction_buttons,
-            text="Kommentare speichern",
+            text="PDF ueberschreiben",
             style="SecondaryAction.TButton",
             command=self._save_correction_annotations_to_pdfs,
         )
-        save_comments_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(save_comments_button, label="Markierungen in Original-PDF speichern")
+        save_comments_button.pack(side=ui.LEFT)
+        self._attach_hover_help(save_comments_button, label="Original-PDF mit Markierungen ueberschreiben")
 
         prev_correction_student_button = widgets.Button(
             correction_buttons,
@@ -3170,9 +3157,16 @@ class MainWindow:
         annotation = self._annotation_by_id(annotation_id)
         if annotation is None:
             return
-        annotation.rotation_deg = (float(annotation.rotation_deg) + delta_deg) % 360.0
+        current = self._normalize_rotation_deg(annotation.rotation_deg)
+        annotation.rotation_deg = self._normalize_rotation_deg(current + delta_deg)
         self._render_correction_annotations()
         self._status_var.set(f"Markierungswinkel: {annotation.rotation_deg:.0f}°")
+
+    @staticmethod
+    def _normalize_rotation_deg(raw_deg: float) -> float:
+        # PDF freetext rotation is reliable for 90-degree steps.
+        snapped = int(round(float(raw_deg) / 90.0)) * 90
+        return float(snapped % 360)
 
     def _render_correction_annotations(self) -> None:
         if self._correction_canvas is None:
@@ -3188,7 +3182,7 @@ class MainWindow:
             if canvas_pos is None:
                 continue
             canvas_x, canvas_y = canvas_pos
-            font_size = max(8, int(float(annotation.font_size) * (self._correction_zoom_percent / 100.0)))
+            font_size = max(8, int(round(float(annotation.font_size) * self._correction_scale)))
             item_id = self._correction_canvas.create_text(
                 canvas_x,
                 canvas_y,
@@ -3196,7 +3190,7 @@ class MainWindow:
                 fill=annotation.color_hex,
                 font=("Segoe UI", font_size, "bold"),
                 anchor=ui.CENTER,
-                angle=float(annotation.rotation_deg),
+                angle=self._normalize_rotation_deg(annotation.rotation_deg),
                 tags=("correction_annotation", f"annotation:{annotation.annotation_id}"),
             )
             self._correction_annotation_items[annotation.annotation_id] = item_id
@@ -3221,6 +3215,7 @@ class MainWindow:
         if not comment:
             messagebox.showinfo("Hinweis", "Bitte zuerst einen Kommentar eintragen.")
             return
+        self._save_current_correction_comment()
         if self._correction_canvas is None:
             return
         center_x = float(self._correction_canvas.canvasx(self._correction_canvas.winfo_width() / 2.0))
@@ -3395,11 +3390,8 @@ class MainWindow:
                         annotation.content,
                         fontsize=fontsize,
                         text_color=self._hex_to_rgb_fraction(annotation.color_hex),
+                        rotate=int(self._normalize_rotation_deg(annotation.rotation_deg)),
                     )
-                    try:
-                        annot.set_rotation(int(round(float(annotation.rotation_deg))) % 360)
-                    except Exception:
-                        pass
                     annot.set_info(
                         title="Korrektor",
                         subject=f"KORREKTOR_MARKER:{annotation.annotation_id}",
@@ -3432,7 +3424,7 @@ class MainWindow:
         self._current_exam = self._controller.save_exam_immediate(exam=self._current_exam)
         self._apply_detail_labels(self._current_exam)
         self._render_correction_preview()
-        self._status_var.set("Kommentare und Markierungen in PDF gespeichert")
+        self._status_var.set("Original-PDF mit Markierungen ueberschrieben")
 
     def _render_correction_preview(self) -> None:
         if self._current_exam is None:
@@ -3467,7 +3459,10 @@ class MainWindow:
                 clip = page_rect
             target_width = 560.0
             scale = (target_width / max(clip.width, 1.0)) * (self._correction_zoom_percent / 100.0)
-            pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=clip, alpha=False)
+            try:
+                pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=clip, alpha=False, annots=False)
+            except TypeError:
+                pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=clip, alpha=False)
             self._correction_clip_box = (float(clip.x0), float(clip.y0), float(clip.x1), float(clip.y1))
             self._correction_scale = scale
             self._correction_photo = ui.PhotoImage(data=pix.tobytes("ppm"), format="ppm")
@@ -3542,6 +3537,8 @@ class MainWindow:
     def _on_correction_area_changed(self, _event: ui.Event[ui.Misc]) -> None:
         if not self._correction_mode_active:
             return
+        self._save_current_correction_score()
+        self._save_current_correction_comment()
         self._correction_selected_annotation_id = None
         self._refresh_correction_task_choices(load_saved_points=True)
         self._refresh_correction_completion_controls()
@@ -3550,6 +3547,8 @@ class MainWindow:
     def _on_correction_task_changed(self, _event: ui.Event[ui.Misc]) -> None:
         if not self._correction_mode_active:
             return
+        self._save_current_correction_score()
+        self._save_current_correction_comment()
         self._correction_selected_annotation_id = None
         self._refresh_correction_task_meta(load_saved_points=True)
         self._refresh_correction_completion_controls()

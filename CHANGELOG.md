@@ -1,16 +1,21 @@
 # Changelog
 
 ## Unreleased
+- Rotations-Buttons in der Korrekturansicht drehen jetzt in die erwartete Richtung (links/rechts) und arbeiten in stabilen 90-Grad-Schritten.
+- Die Korrekturvorschau blendet eingebrannte PDF-Anmerkungen jetzt aus, damit nach `PDF ueberschreiben` keine doppelte Markeranzeige mehr entsteht.
+- Der Export-Button wurde aus dem Korrekturmodus in die Klausur-Detailansicht verschoben.
+- Der manuelle Button `Punkte speichern` wurde entfernt; Punkte und Aufgabenkommentare werden weiterhin sofort beim Arbeitsfluss gespeichert.
+- Der Button `Kommentare speichern` wurde in `PDF ueberschreiben` umbenannt.
 - Die Marker-Farbauswahl in der Korrekturansicht enthaelt jetzt auch `Pink`.
 - Ausgewaehlte Markierungen/Kommentare koennen jetzt direkt in der Korrekturansicht vergroessert, verkleinert und rotiert werden (`A-`, `A+`, `↺`, `↻`).
 - Das Speichern in die Original-PDFs wurde auf Windows stabilisiert: offene Vorschau-Dateihandles blockieren das Ueberschreiben nicht mehr.
 - In der Korrekturansicht koennen jetzt Markierungssymbole direkt in die Vorschau gesetzt, mit der Maus verschoben und mit `Entf` geloescht werden; die Symbolfarbe ist waehlbar.
 - Neuer Button `Einfuegen`: setzt den aktuellen Aufgabenkommentar als Text direkt in die Mitte der Korrekturvorschau.
-- Neuer Button `Kommentare speichern`: schreibt alle app-generierten Markierungen direkt in die Original-PDFs, sodass sie auch in externen PDF-Programmen sichtbar sind.
+- Neuer Button `PDF ueberschreiben`: schreibt alle app-generierten Markierungen direkt in die Original-PDFs, sodass sie auch in externen PDF-Programmen sichtbar sind.
 - In der Korrekturansicht gibt es jetzt pro Aufgabe ein Kommentarfeld; Kommentare werden je Person+Aufgabe mitgespeichert.
 - Das Fertig-Toggle wurde von `Leertaste` auf `Strg+Leertaste` umgelegt.
 - Beim Start der Korrektur sowie beim Wechsel von Aufgabe/Bereich wird der Inhalt des Punktefelds jetzt automatisch markiert.
-- Neuer Export-Flow fuer Punkte: Export-Button in der Korrekturansicht, Menueeintrag und Shortcut `Strg+E`; CSV-Format mit erster Datenzeile fuer Maximalpunkte und danach je Person eine Zeile (unkorrigierte Aufgaben bleiben leer).
+- Neuer Export-Flow fuer Punkte: Export-Button in der Klausur-Detailansicht, Menueeintrag und Shortcut `Strg+E`; CSV-Format mit erster Datenzeile fuer Maximalpunkte und danach je Person eine Zeile (unkorrigierte Aufgaben bleiben leer).
 - Die Korrekturvorschau hat jetzt Zoom-Buttons (`-`/`+`), Reset auf `100%` sowie Zoom-Shortcuts wie in Blattwerk: `Strg+Mausrad`, `Strg++`, `Strg+-` und `Strg+0`.
 - In der Korrekturansicht toggelt `Leertaste` jetzt verlaesslich `Fertig korrigiert` (auch wenn der Fokus noch im Punktefeld liegt).
 - Die Detailzeile wurde vereinfacht auf `Fertig korrigiert X/Y`; die Anzeige `Aktive Person` erscheint dort nicht mehr, sondern nur in den Arbeitsansichten.

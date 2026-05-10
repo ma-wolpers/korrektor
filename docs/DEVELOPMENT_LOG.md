@@ -1,6 +1,10 @@
 # Development Log
 
 ## [Unreleased]
+- Korrektur-UX verfeinert: Rotations-Buttons drehen jetzt semantisch korrekt (links/rechts) in stabilen 90-Grad-Schritten; PDF-Writeback nutzt denselben 90-Grad-Pfad fuer verlaessliche Darstellung in externen Viewern.
+- Korrektur-Preview entkoppelt vom PDF-Annotation-Layer: Basisrendering blendet PDF-Anmerkungen aus, sodass nur das editierbare Korrektor-Overlay sichtbar bleibt (keine Doppelanzeige nach PDF-Ueberschreiben).
+- Korrektur-Layout bereinigt: Export-Button aus der Korrekturansicht in die Klausur-Details verschoben; manueller `Punkte speichern`-Button entfernt; `Kommentare speichern` in `PDF ueberschreiben` umbenannt.
+- Korrektur-Autosave gehaertet: bei manuellem Aufgaben-/Bereichswechsel werden aktuelle Punkte und Kommentare vor dem Wechsel sofort persistiert.
 - PDF-Writeback stabilisiert (Windows): vor dem Ersetzen der Originaldatei werden offene Preview-Handles aus dem Dokument-Cache explizit geschlossen, damit `os.replace(...)` nicht mehr an geoeffneten Dateien scheitert.
 - Marker-Tools erweitert: zusaetzliche Farbe `Pink` sowie Transformationsaktionen fuer ausgewaehlte Markierungen (Groesse +/- und Rotation links/rechts) inkl. persistenter Speicherung (`font_size`, `rotation_deg`) und PDF-Writeback.
 - Korrekturansicht erweitert: Symbol-Markierungen und Freitext-Einfuegen direkt im Vorschau-Canvas (Farbauswahl, Platzieren per Klick, Verschieben per Drag, Loeschen per Entf) mit persistenter Speicherung im Exam-JSON (`pdf_annotations`).
