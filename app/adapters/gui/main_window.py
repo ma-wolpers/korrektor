@@ -56,21 +56,17 @@ try:
     from bw_gui.dialogs import SettingsFieldSpec as SharedSettingsFieldSpec
     from bw_gui.dialogs import SettingsSectionSpec as SharedSettingsSectionSpec
     from bw_gui.dialogs import open_tabbed_settings_dialog
-    from bw_gui.theming import apply_window_theme
-    from bw_gui.theming import configure_ttk_theme
-    from bw_gui.theming import get_theme
-    from bw_gui.theming import THEME_ORDER
-    from bw_gui.theming import normalize_theme_key
 except ModuleNotFoundError:
     SharedSettingsDialogSpec = None
     SharedSettingsFieldSpec = None
     SharedSettingsSectionSpec = None
     open_tabbed_settings_dialog = None
-    apply_window_theme = None
-    configure_ttk_theme = None
-    get_theme = None
-    THEME_ORDER = ()
-    normalize_theme_key = None
+
+from bw_gui.theming import THEME_ORDER
+from bw_gui.theming import apply_window_theme
+from bw_gui.theming import configure_ttk_theme
+from bw_gui.theming import get_theme
+from bw_gui.theming import normalize_theme_key
 
 if TYPE_CHECKING:
     from app.adapters.gui.ui_intent_controller import UiIntentController
@@ -629,8 +625,7 @@ class MainWindow:
             return
 
         theme_value = str(payload.get("tooltip_theme_key", self._tooltip_theme_key) or self._tooltip_theme_key)
-        if callable(normalize_theme_key):
-            theme_value = normalize_theme_key(theme_value)
+        theme_value = normalize_theme_key(theme_value)
         self._tooltip_theme_key = theme_value
 
         if self._menu_bar is not None:
@@ -679,29 +674,15 @@ class MainWindow:
 
     def _build_styles(self) -> None:
         style = widgets.Style(self.root)
-        if callable(apply_window_theme):
-            apply_window_theme(self.root, self._tooltip_theme_key)
-        else:
-            self.root.configure(bg="#f5f2ea")
+        apply_window_theme(self.root, self._tooltip_theme_key)
+        configure_ttk_theme(self.root, self._tooltip_theme_key)
 
-        if callable(configure_ttk_theme):
-            configure_ttk_theme(self.root, self._tooltip_theme_key)
-        else:
-            style.theme_use("clam")
-
-        if callable(get_theme):
-            theme = get_theme(self._tooltip_theme_key)
-            bg_main = theme["bg_main"]
-            bg_surface = theme["bg_surface"]
-            fg_primary = theme["fg_primary"]
-            fg_muted = theme["fg_muted"]
-            panel_strong = theme.get("panel_strong", theme.get("bg_panel", bg_main))
-        else:
-            bg_main = "#f5f2ea"
-            bg_surface = "#fffdf8"
-            fg_primary = "#2a2218"
-            fg_muted = "#6a5d4d"
-            panel_strong = "#f5f2ea"
+        theme = get_theme(self._tooltip_theme_key)
+        bg_main = theme["bg_main"]
+        bg_surface = theme["bg_surface"]
+        fg_primary = theme["fg_primary"]
+        fg_muted = theme["fg_muted"]
+        panel_strong = theme.get("panel_strong", theme.get("bg_panel", bg_main))
 
         style.configure("App.TFrame", background=bg_main)
         style.configure("Surface.TFrame", background=bg_surface)
@@ -719,10 +700,8 @@ class MainWindow:
     def _canvas_theme_tokens(self) -> tuple[str, str]:
         """Return surface/highlight colors for direct canvas styling."""
 
-        if callable(get_theme):
-            theme = get_theme(self._tooltip_theme_key)
-            return theme["bg_surface"], theme["border"]
-        return "#f2ede3", "#b8aa96"
+        theme = get_theme(self._tooltip_theme_key)
+        return theme["bg_surface"], theme["border"]
 
     def _apply_canvas_theme_tokens(self) -> None:
         """Apply canvas colors to existing reading/extra popup surfaces."""

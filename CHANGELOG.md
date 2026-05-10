@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Theme fallback/special paths in the main window style pipeline were removed; Korrektor now requires the shared `bw_gui.theming` path consistently for window, ttk, and canvas token updates.
 - Reading and extra-page preview canvases now derive their surface and border colors from the shared theme tokens, so these workspaces update visually with theme changes.
 - Main widget styling now applies the shared `bw_gui.theming` baseline tokens, and changing the tooltip/theme setting re-applies window and ttk styles immediately for closer cross-app visual parity.
 - Shared hover overlays now also cover correction/reading workflow actions and extra-page popup navigation, aligning button guidance beyond the top action row.

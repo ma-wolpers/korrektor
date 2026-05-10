@@ -1,6 +1,7 @@
 # Development Log
 
 ## [Unreleased]
+- Theme-Sonderpfade entfernt: `app/adapters/gui/main_window.py` nutzt fuer Style-Aufbau und Token-Ableitung jetzt nur noch den verpflichtenden Shared-Pfad (`bw_gui.theming`) ohne callable-/Hex-Fallback-Zweige.
 - Canvas-Theme-Sync erweitert: Leseansicht und Extraseiten-Popup beziehen ihre Canvas-Hintergrund-/Rahmenfarben jetzt aus Shared-Theme-Tokens und werden bei Style-Refresh neu angewendet.
 - Welle-13-Pilot gestartet: `app/adapters/gui/main_window.py` nutzt fuer die Haupt-Widgetstyles jetzt die Shared-Theme-Basis aus `bw_gui.theming` (`apply_window_theme`, `configure_ttk_theme`, `get_theme`) statt fixer Hex-Farben.
 - Theme-Reapply verdrahtet: beim Commit aus dem Shared-Settings-Dialog wird `_build_styles()` erneut ausgefuehrt, sodass Tooltip-/Menu- und Widget-Theme im selben Schritt aktualisiert werden.
