@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- AI guardrails now enforce repo-wide strict bw-gui usage in `app/adapters/gui`: direct `tkinter`/`ttk` imports and new local `ui`/`widgets`/`tui` baseclass patterns are rejected via AST-based checks.
 - AI guardrails now also enforce shared-GUI bootstrap requirements for any newly added GUI entrypoint files and reject direct tkinter imports in those entrypoints.
 - AI guardrails were hardened to enforce mandatory shared UI contracts in `app/adapters/gui/main_window.py` and fail fast on legacy fallback branches.
 - Non-theme shared UI fallback branches were removed from the main window integration: shared menu, hover tooltip formatting, and shared tabbed settings are now mandatory runtime paths.
