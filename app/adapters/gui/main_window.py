@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -31,7 +32,7 @@ from bw_libs.ui_contract.hsm import (
 from bw_libs.ui_contract.popup import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry
 from app.adapters.gui.ui_intents import UiIntent
 from app.adapters.gui.view_models import ExamOverviewRow
-from app.core.domain.models import ExamProject, StudentExam, TaskDefinition
+from app.core.domain.models import ExamProject, PdfAnnotation, StudentExam, TaskDefinition
 from app.core.domain.progress import ProgressCalculator
 
 ensure_bw_gui_on_path()
@@ -76,6 +77,26 @@ class CorrectionTemplate:
 
 CORRECTION_ZOOM_MIN_PERCENT = 10
 CORRECTION_ZOOM_MAX_PERCENT = 240
+
+CORRECTION_MARKER_TOOLS: tuple[tuple[str, str, str], ...] = (
+    ("check", "✓", "Richtig"),
+    ("wrong", "✗", "Falsch"),
+    ("follow", "↻", "Folgefehler"),
+    ("partial", "△", "Teilrichtig"),
+    ("swap_h", "⇄", "Vertauschung horizontal"),
+    ("swap_v", "⇅", "Vertauschung vertikal"),
+    ("hint", "!", "Hinweis"),
+    ("question", "?", "Unklar"),
+)
+
+CORRECTION_MARKER_COLORS: dict[str, str] = {
+    "Rot": "#d62828",
+    "Blau": "#1d4ed8",
+    "Gruen": "#2a9d8f",
+    "Orange": "#f77f00",
+    "Violett": "#7b2cbf",
+    "Schwarz": "#111111",
+}
 
 
 class MainWindow:
@@ -148,6 +169,15 @@ class MainWindow:
         self._correction_zoom_info_var = ui.StringVar(value="Zoom: 100%")
         self._correction_comment_var = ui.StringVar(value="")
         self._correction_comment_entry: widgets.Entry | None = None
+        self._correction_marker_tool_key = "check"
+        self._correction_marker_color_name_var = ui.StringVar(value="Rot")
+        self._correction_marker_info_var = ui.StringVar(value="Markierung: Richtig")
+        self._correction_selected_annotation_id: str | None = None
+        self._correction_drag_annotation_id: str | None = None
+        self._correction_drag_offset_pdf: tuple[float, float] | None = None
+        self._correction_annotation_items: dict[str, int] = {}
+        self._correction_clip_box: tuple[float, float, float, float] | None = None
+        self._correction_scale = 1.0
         self._correction_finished_var = ui.BooleanVar(value=False)
         self._correction_finished_hint_var = ui.StringVar(value="Fertigstatus nicht aktiv")
         self._correction_finished_check: widgets.Checkbutton | None = None
@@ -1503,10 +1533,14 @@ class MainWindow:
         self._correction_canvas.bind("<Shift-Button-5>", self._on_correction_mousewheel)
         self._correction_canvas.bind("<Control-Button-4>", self._on_correction_mousewheel)
         self._correction_canvas.bind("<Control-Button-5>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Button-1>", self._on_correction_canvas_press)
+        self._correction_canvas.bind("<B1-Motion>", self._on_correction_canvas_drag)
+        self._correction_canvas.bind("<ButtonRelease-1>", self._on_correction_canvas_release)
 
         correction_form = widgets.Frame(correction_form_panel, style="Surface.TFrame")
         correction_form.pack(fill=ui.X, pady=(8, 0))
         correction_form.columnconfigure(1, weight=1)
+        correction_form.columnconfigure(2, weight=0)
 
         widgets.Label(correction_form, text="Erreichte Punkte", style="Muted.TLabel").grid(
             row=0,
@@ -1535,6 +1569,15 @@ class MainWindow:
         self._correction_comment_entry.bind("<Return>", self._on_correction_comment_commit)
         self._correction_comment_entry.bind("<Escape>", self._on_correction_comment_escape)
 
+        insert_comment_button = widgets.Button(
+            correction_form,
+            text="Einfuegen",
+            style="SecondaryAction.TButton",
+            command=self._insert_current_comment_into_preview_center,
+        )
+        insert_comment_button.grid(row=1, column=2, padx=(8, 0), sticky=ui.E)
+        self._attach_hover_help(insert_comment_button, label="Kommentar in der Vorschau-Mitte einfuegen")
+
         self._correction_finished_check = widgets.Checkbutton(
             correction_form,
             text="Fertig korrigiert",
@@ -1542,12 +1585,49 @@ class MainWindow:
             command=self._on_correction_finished_toggled,
             state="disabled",
         )
-        self._correction_finished_check.grid(row=2, column=0, columnspan=2, sticky=ui.W, pady=(4, 0))
+        self._correction_finished_check.grid(row=3, column=0, columnspan=3, sticky=ui.W, pady=(4, 0))
         widgets.Label(
             correction_form,
             textvariable=self._correction_finished_hint_var,
             style="Muted.TLabel",
-        ).grid(row=3, column=0, columnspan=2, sticky=ui.W, pady=(2, 0))
+        ).grid(row=4, column=0, columnspan=3, sticky=ui.W, pady=(2, 0))
+
+        marker_controls = widgets.Frame(correction_form_panel, style="Surface.TFrame")
+        marker_controls.pack(fill=ui.X, pady=(10, 0))
+
+        widgets.Label(marker_controls, text="Markierungen", style="Muted.TLabel").pack(anchor=ui.W)
+
+        color_row = widgets.Frame(marker_controls, style="Surface.TFrame")
+        color_row.pack(fill=ui.X, pady=(4, 0))
+        widgets.Label(color_row, text="Farbe", style="Muted.TLabel").pack(side=ui.LEFT)
+        color_combo = widgets.Combobox(
+            color_row,
+            textvariable=self._correction_marker_color_name_var,
+            values=tuple(CORRECTION_MARKER_COLORS.keys()),
+            state="readonly",
+            width=12,
+        )
+        color_combo.pack(side=ui.LEFT, padx=(8, 0))
+        color_combo.bind("<<ComboboxSelected>>", self._on_correction_marker_color_changed)
+
+        marker_row = widgets.Frame(marker_controls, style="Surface.TFrame")
+        marker_row.pack(fill=ui.X, pady=(6, 0))
+        for tool_key, glyph, label in CORRECTION_MARKER_TOOLS:
+            marker_button = widgets.Button(
+                marker_row,
+                text=glyph,
+                style="SecondaryAction.TButton",
+                width=3,
+                command=lambda value=tool_key: self._set_correction_marker_tool(value),
+            )
+            marker_button.pack(side=ui.LEFT, padx=(0, 4))
+            self._attach_hover_help(marker_button, label=f"Markierung: {label}")
+
+        widgets.Label(
+            marker_controls,
+            textvariable=self._correction_marker_info_var,
+            style="Muted.TLabel",
+        ).pack(anchor=ui.W, pady=(4, 0))
 
         correction_buttons = widgets.Frame(correction_form_panel, style="Surface.TFrame")
         correction_buttons.pack(fill=ui.X, pady=(10, 0))
@@ -1573,6 +1653,15 @@ class MainWindow:
         )
         export_correction_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(export_correction_button, label="Punkte als CSV exportieren", shortcut="Strg+E")
+
+        save_comments_button = widgets.Button(
+            correction_buttons,
+            text="Kommentare speichern",
+            style="SecondaryAction.TButton",
+            command=self._save_correction_annotations_to_pdfs,
+        )
+        save_comments_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(save_comments_button, label="Markierungen in Original-PDF speichern")
 
         prev_correction_student_button = widgets.Button(
             correction_buttons,
@@ -2686,10 +2775,14 @@ class MainWindow:
         self._correction_mode_active = True
         self._correction_zoom_percent = 100
         self._refresh_correction_zoom_label()
+        self._correction_selected_annotation_id = None
+        self._correction_drag_annotation_id = None
+        self._correction_drag_offset_pdf = None
         self._correction_templates = templates
         self._correction_student_indices = indices
         self._correction_cursor = 0
         self._student_cursor = indices[0]
+        self._set_correction_marker_tool(self._correction_marker_tool_key)
         self._show_view("correction")
         self._refresh_active_student_label()
         self._refresh_correction_task_choices(load_saved_points=True)
@@ -2704,6 +2797,12 @@ class MainWindow:
         self._correction_task_items = []
         self._correction_student_indices = []
         self._correction_cursor = 0
+        self._correction_clip_box = None
+        self._correction_scale = 1.0
+        self._correction_selected_annotation_id = None
+        self._correction_drag_annotation_id = None
+        self._correction_drag_offset_pdf = None
+        self._correction_annotation_items.clear()
         self._correction_finished_var.set(False)
         self._refresh_correction_completion_controls()
         self._close_extra_popup()
@@ -2736,6 +2835,7 @@ class MainWindow:
         template = self._correction_templates.get(area_code)
         if template is None:
             self._correction_task_items = []
+            self._correction_selected_annotation_id = None
             self._correction_task_combo["values"] = ()
             self._correction_task_var.set("")
             self._correction_max_points_var.set("Max: -")
@@ -2806,6 +2906,7 @@ class MainWindow:
         self._save_current_correction_comment()
         if not self._cycle_combobox_value(self._correction_task_combo, self._correction_task_var, delta):
             return
+        self._correction_selected_annotation_id = None
         self._refresh_correction_task_meta(load_saved_points=True)
         self._focus_first_input_field()
 
@@ -2816,6 +2917,7 @@ class MainWindow:
         self._save_current_correction_comment()
         if not self._cycle_combobox_value(self._correction_area_combo_view, self._correction_area_var, delta):
             return
+        self._correction_selected_annotation_id = None
         self._refresh_correction_task_choices(load_saved_points=True)
         self._focus_first_input_field()
 
@@ -2911,6 +3013,341 @@ class MainWindow:
                 return code, max_points
         return None, 0.0
 
+    @staticmethod
+    def _marker_tool_lookup(tool_key: str) -> tuple[str, str] | None:
+        for key, glyph, label in CORRECTION_MARKER_TOOLS:
+            if key == tool_key:
+                return glyph, label
+        return None
+
+    def _set_correction_marker_tool(self, tool_key: str) -> None:
+        lookup = self._marker_tool_lookup(tool_key)
+        if lookup is None:
+            return
+        _glyph, label = lookup
+        self._correction_marker_tool_key = tool_key
+        self._correction_marker_info_var.set(f"Markierung: {label}")
+
+    def _on_correction_marker_color_changed(self, _event: ui.Event[ui.Misc]) -> None:
+        color_name = self._correction_marker_color_name_var.get()
+        if color_name not in CORRECTION_MARKER_COLORS:
+            self._correction_marker_color_name_var.set("Rot")
+
+    def _current_marker_color_hex(self) -> str:
+        selected = self._correction_marker_color_name_var.get()
+        return CORRECTION_MARKER_COLORS.get(selected, CORRECTION_MARKER_COLORS["Rot"])
+
+    @staticmethod
+    def _hex_to_rgb_fraction(color_hex: str) -> tuple[float, float, float]:
+        raw = color_hex.strip().lstrip("#")
+        if len(raw) != 6:
+            return (0.0, 0.0, 0.0)
+        try:
+            red = int(raw[0:2], 16) / 255.0
+            green = int(raw[2:4], 16) / 255.0
+            blue = int(raw[4:6], 16) / 255.0
+        except ValueError:
+            return (0.0, 0.0, 0.0)
+        return red, green, blue
+
+    def _current_correction_annotations(self) -> list[PdfAnnotation]:
+        if self._current_exam is None:
+            return []
+        student = self._current_correction_student()
+        area_code = self._correction_area_var.get().strip().upper()
+        template = self._correction_templates.get(area_code)
+        if student is None or template is None:
+            return []
+        return [
+            item
+            for item in self._current_exam.pdf_annotations
+            if item.student_pdf == student.pdf_filename and item.page_number == template.page_number
+        ]
+
+    def _annotation_by_id(self, annotation_id: str) -> PdfAnnotation | None:
+        if self._current_exam is None:
+            return None
+        return next((item for item in self._current_exam.pdf_annotations if item.annotation_id == annotation_id), None)
+
+    def _canvas_to_pdf_coords(self, x: float, y: float) -> tuple[float, float] | None:
+        if self._correction_clip_box is None or self._correction_scale <= 0:
+            return None
+        clip_x0, clip_y0, _clip_x1, _clip_y1 = self._correction_clip_box
+        return clip_x0 + (x / self._correction_scale), clip_y0 + (y / self._correction_scale)
+
+    def _pdf_to_canvas_coords(self, x: float, y: float) -> tuple[float, float] | None:
+        if self._correction_clip_box is None or self._correction_scale <= 0:
+            return None
+        clip_x0, clip_y0, _clip_x1, _clip_y1 = self._correction_clip_box
+        return (x - clip_x0) * self._correction_scale, (y - clip_y0) * self._correction_scale
+
+    def _upsert_annotation(self, annotation: PdfAnnotation) -> None:
+        if self._current_exam is None:
+            return
+        for index, existing in enumerate(self._current_exam.pdf_annotations):
+            if existing.annotation_id == annotation.annotation_id:
+                self._current_exam.pdf_annotations[index] = annotation
+                return
+        self._current_exam.pdf_annotations.append(annotation)
+
+    def _delete_selected_correction_annotation(self) -> bool:
+        if self._current_exam is None or self._correction_selected_annotation_id is None:
+            return False
+        target_id = self._correction_selected_annotation_id
+        before_count = len(self._current_exam.pdf_annotations)
+        self._current_exam.pdf_annotations = [
+            item for item in self._current_exam.pdf_annotations if item.annotation_id != target_id
+        ]
+        if len(self._current_exam.pdf_annotations) == before_count:
+            return False
+        self._correction_selected_annotation_id = None
+        self._render_correction_annotations()
+        self._status_var.set("Markierung geloescht")
+        return True
+
+    def _render_correction_annotations(self) -> None:
+        if self._correction_canvas is None:
+            return
+        self._correction_canvas.delete("correction_annotation")
+        self._correction_annotation_items.clear()
+        annotations = self._current_correction_annotations()
+        if not annotations:
+            return
+
+        base_font = max(12, int(18 * (self._correction_zoom_percent / 100.0)))
+        for annotation in annotations:
+            canvas_pos = self._pdf_to_canvas_coords(annotation.x, annotation.y)
+            if canvas_pos is None:
+                continue
+            canvas_x, canvas_y = canvas_pos
+            item_id = self._correction_canvas.create_text(
+                canvas_x,
+                canvas_y,
+                text=annotation.content,
+                fill=annotation.color_hex,
+                font=("Segoe UI", base_font, "bold"),
+                anchor=ui.CENTER,
+                tags=("correction_annotation", f"annotation:{annotation.annotation_id}"),
+            )
+            self._correction_annotation_items[annotation.annotation_id] = item_id
+            if annotation.annotation_id == self._correction_selected_annotation_id:
+                bbox = self._correction_canvas.bbox(item_id)
+                if bbox is not None:
+                    self._correction_canvas.create_rectangle(
+                        bbox[0] - 4,
+                        bbox[1] - 2,
+                        bbox[2] + 4,
+                        bbox[3] + 2,
+                        outline="#f4a261",
+                        width=2,
+                        tags=("correction_annotation",),
+                    )
+                    self._correction_canvas.tag_raise(item_id)
+
+    def _insert_current_comment_into_preview_center(self) -> None:
+        if not self._correction_mode_active:
+            return
+        comment = self._correction_comment_var.get().strip()
+        if not comment:
+            messagebox.showinfo("Hinweis", "Bitte zuerst einen Kommentar eintragen.")
+            return
+        if self._correction_canvas is None:
+            return
+        center_x = float(self._correction_canvas.canvasx(self._correction_canvas.winfo_width() / 2.0))
+        center_y = float(self._correction_canvas.canvasy(self._correction_canvas.winfo_height() / 2.0))
+        created = self._place_annotation_from_canvas(
+            canvas_x=center_x,
+            canvas_y=center_y,
+            annotation_type="text",
+            content=comment,
+        )
+        if created:
+            self._status_var.set("Kommentar in Vorschau-Mitte eingefuegt")
+
+    def _place_annotation_from_canvas(
+        self,
+        *,
+        canvas_x: float,
+        canvas_y: float,
+        annotation_type: str,
+        content: str,
+    ) -> bool:
+        if self._current_exam is None:
+            return False
+        student = self._current_correction_student()
+        area_code = self._correction_area_var.get().strip().upper()
+        template = self._correction_templates.get(area_code)
+        if student is None or template is None:
+            return False
+        pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y)
+        if pdf_pos is None:
+            return False
+
+        task_code, _max_points = self._selected_correction_task()
+        annotation = PdfAnnotation(
+            annotation_id=f"ann-{uuid4().hex[:12]}",
+            student_pdf=student.pdf_filename,
+            page_number=template.page_number,
+            annotation_type=annotation_type,
+            content=content,
+            color_hex=self._current_marker_color_hex(),
+            x=pdf_pos[0],
+            y=pdf_pos[1],
+            task_code=task_code or "",
+        )
+        self._upsert_annotation(annotation)
+        self._correction_selected_annotation_id = annotation.annotation_id
+        self._render_correction_annotations()
+        return True
+
+    def _on_correction_canvas_press(self, event: ui.Event[ui.Misc]):
+        if not self._correction_mode_active:
+            return None
+        self._correction_canvas.focus_set()
+        canvas_x = float(self._correction_canvas.canvasx(event.x))
+        canvas_y = float(self._correction_canvas.canvasy(event.y))
+
+        item_under_cursor = self._correction_canvas.find_withtag("current")
+        if item_under_cursor:
+            item_id = item_under_cursor[0]
+            annotation_id = next(
+                (key for key, value in self._correction_annotation_items.items() if value == item_id),
+                None,
+            )
+            if annotation_id is not None:
+                self._correction_selected_annotation_id = annotation_id
+                annotation = self._annotation_by_id(annotation_id)
+                pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y)
+                if annotation is not None and pdf_pos is not None:
+                    self._correction_drag_annotation_id = annotation_id
+                    self._correction_drag_offset_pdf = (annotation.x - pdf_pos[0], annotation.y - pdf_pos[1])
+                self._render_correction_annotations()
+                return "break"
+
+        lookup = self._marker_tool_lookup(self._correction_marker_tool_key)
+        if lookup is None:
+            return "break"
+        glyph, label = lookup
+        if self._place_annotation_from_canvas(
+            canvas_x=canvas_x,
+            canvas_y=canvas_y,
+            annotation_type="symbol",
+            content=glyph,
+        ):
+            self._status_var.set(f"Markierung gesetzt: {label}")
+        return "break"
+
+    def _on_correction_canvas_drag(self, event: ui.Event[ui.Misc]):
+        if not self._correction_mode_active or self._current_exam is None:
+            return None
+        if self._correction_drag_annotation_id is None or self._correction_drag_offset_pdf is None:
+            return None
+        annotation = self._annotation_by_id(self._correction_drag_annotation_id)
+        if annotation is None:
+            return "break"
+
+        canvas_x = float(self._correction_canvas.canvasx(event.x))
+        canvas_y = float(self._correction_canvas.canvasy(event.y))
+        pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y)
+        if pdf_pos is None:
+            return "break"
+        annotation.x = pdf_pos[0] + self._correction_drag_offset_pdf[0]
+        annotation.y = pdf_pos[1] + self._correction_drag_offset_pdf[1]
+        self._render_correction_annotations()
+        return "break"
+
+    def _on_correction_canvas_release(self, _event: ui.Event[ui.Misc]):
+        if not self._correction_mode_active:
+            return None
+        self._correction_drag_annotation_id = None
+        self._correction_drag_offset_pdf = None
+        return "break"
+
+    def _save_correction_annotations_to_pdfs(self) -> None:
+        if self._current_exam is None or self._controller is None:
+            return
+
+        self._save_current_correction_comment()
+
+        grouped: dict[str, list[PdfAnnotation]] = {}
+        for annotation in self._current_exam.pdf_annotations:
+            grouped.setdefault(annotation.student_pdf, []).append(annotation)
+
+        if not grouped:
+            messagebox.showinfo("Hinweis", "Keine Markierungen zum Speichern vorhanden.")
+            return
+
+        failures: list[str] = []
+        for student_pdf, annotations in grouped.items():
+            pdf_path = Path(self._current_exam.folder_path) / student_pdf
+            if not pdf_path.exists():
+                failures.append(f"Datei fehlt: {student_pdf}")
+                continue
+
+            temp_path = pdf_path.with_name(f"{pdf_path.stem}.korrektor.tmp.pdf")
+            document: fitz.Document | None = None
+            try:
+                document = fitz.open(pdf_path)
+                for page_index in range(document.page_count):
+                    page = document.load_page(page_index)
+                    existing = list(page.annots() or [])
+                    for existing_annot in existing:
+                        info = existing_annot.info or {}
+                        subject = str(info.get("subject", ""))
+                        if subject.startswith("KORREKTOR_MARKER:"):
+                            page.delete_annot(existing_annot)
+
+                for annotation in annotations:
+                    if annotation.page_number < 1 or annotation.page_number > document.page_count:
+                        continue
+                    page = document.load_page(annotation.page_number - 1)
+                    if annotation.annotation_type == "text":
+                        rect = fitz.Rect(annotation.x - 120, annotation.y - 18, annotation.x + 120, annotation.y + 18)
+                        fontsize = 11
+                    else:
+                        rect = fitz.Rect(annotation.x - 18, annotation.y - 18, annotation.x + 18, annotation.y + 18)
+                        fontsize = 20
+                    annot = page.add_freetext_annot(
+                        rect,
+                        annotation.content,
+                        fontsize=fontsize,
+                        text_color=self._hex_to_rgb_fraction(annotation.color_hex),
+                    )
+                    annot.set_info(
+                        title="Korrektor",
+                        subject=f"KORREKTOR_MARKER:{annotation.annotation_id}",
+                        content=annotation.content,
+                    )
+                    annot.update()
+
+                document.save(temp_path, garbage=4, deflate=True)
+                document.close()
+                document = None
+                os.replace(temp_path, pdf_path)
+                self._doc_cache.pop(student_pdf, None)
+            except Exception as exc:
+                failures.append(f"{student_pdf}: {exc}")
+                try:
+                    if temp_path.exists():
+                        temp_path.unlink()
+                except Exception:
+                    pass
+            finally:
+                if document is not None:
+                    try:
+                        document.close()
+                    except Exception:
+                        pass
+
+        if failures:
+            messagebox.showerror("PDF-Speichern fehlgeschlagen", "\n".join(failures))
+            return
+
+        self._current_exam = self._controller.save_exam_immediate(exam=self._current_exam)
+        self._apply_detail_labels(self._current_exam)
+        self._render_correction_preview()
+        self._status_var.set("Kommentare und Markierungen in PDF gespeichert")
+
     def _render_correction_preview(self) -> None:
         if self._current_exam is None:
             return
@@ -2919,12 +3356,14 @@ class MainWindow:
         template = self._correction_templates.get(area_code)
         if student is None or template is None:
             self._correction_canvas.delete("all")
+            self._correction_clip_box = None
             self._correction_info_var.set("Korrektur: keine Daten")
             return
 
         pdf_path = Path(self._current_exam.folder_path) / student.pdf_filename
         if not pdf_path.exists():
             self._correction_canvas.delete("all")
+            self._correction_clip_box = None
             self._correction_info_var.set(f"Datei fehlt: {student.pdf_filename}")
             return
 
@@ -2943,15 +3382,19 @@ class MainWindow:
             target_width = 560.0
             scale = (target_width / max(clip.width, 1.0)) * (self._correction_zoom_percent / 100.0)
             pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=clip, alpha=False)
+            self._correction_clip_box = (float(clip.x0), float(clip.y0), float(clip.x1), float(clip.y1))
+            self._correction_scale = scale
             self._correction_photo = ui.PhotoImage(data=pix.tobytes("ppm"), format="ppm")
             self._correction_canvas.delete("all")
             self._correction_canvas.create_image(0, 0, anchor=ui.NW, image=self._correction_photo)
             self._correction_canvas.configure(scrollregion=(0, 0, pix.width, pix.height))
+            self._render_correction_annotations()
             self._correction_info_var.set(
                 f"Bereich {area_code} | {student.display_name} ({self._correction_cursor + 1}/{len(self._correction_student_indices)}) | Seite {template.page_number}"
             )
         except Exception as exc:
             self._correction_canvas.delete("all")
+            self._correction_clip_box = None
             self._correction_info_var.set(f"Fehler beim Korrektur-Rendering: {exc}")
 
     def _change_correction_student(self, delta: int) -> None:
@@ -2961,6 +3404,7 @@ class MainWindow:
         self._save_current_correction_comment()
         self._correction_cursor = (self._correction_cursor + delta) % len(self._correction_student_indices)
         self._student_cursor = self._correction_student_indices[self._correction_cursor]
+        self._correction_selected_annotation_id = None
         self._refresh_active_student_label()
         self._refresh_correction_task_meta(load_saved_points=True)
         self._render_correction_preview()
@@ -3012,6 +3456,7 @@ class MainWindow:
     def _on_correction_area_changed(self, _event: ui.Event[ui.Misc]) -> None:
         if not self._correction_mode_active:
             return
+        self._correction_selected_annotation_id = None
         self._refresh_correction_task_choices(load_saved_points=True)
         self._refresh_correction_completion_controls()
         self._focus_first_input_field()
@@ -3019,6 +3464,7 @@ class MainWindow:
     def _on_correction_task_changed(self, _event: ui.Event[ui.Misc]) -> None:
         if not self._correction_mode_active:
             return
+        self._correction_selected_annotation_id = None
         self._refresh_correction_task_meta(load_saved_points=True)
         self._refresh_correction_completion_controls()
         self._focus_first_input_field()
@@ -3738,6 +4184,9 @@ class MainWindow:
         self._rerender_active_page()
 
     def _on_delete_region_key(self, _event: ui.Event[ui.Misc]) -> None:
+        if self._active_view == "correction" and self._correction_mode_active:
+            self._delete_selected_correction_annotation()
+            return
         self._delete_selected_region()
 
 

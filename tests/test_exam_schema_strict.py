@@ -58,6 +58,19 @@ def _base_raw_exam() -> dict[str, object]:
                 "A1": "Sauber gerechnet.",
             }
         },
+        "pdf_annotations": [
+            {
+                "annotation_id": "ann-1",
+                "student_pdf": "Alice.pdf",
+                "page_number": 1,
+                "annotation_type": "symbol",
+                "content": "✓",
+                "color_hex": "#d62828",
+                "x": 33.5,
+                "y": 72.25,
+                "task_code": "A1",
+            }
+        ],
         "is_reading_complete": False,
     }
 
@@ -69,6 +82,7 @@ def test_from_dict_accepts_forward_only_schema() -> None:
     assert len(exam.extra_page_assignments) == 1
     assert len(exam.person_area_completions) == 1
     assert exam.task_comments == {"alice": {"A1": "Sauber gerechnet."}}
+    assert len(exam.pdf_annotations) == 1
 
 
 def test_from_dict_defaults_task_comments_when_missing() -> None:
@@ -78,6 +92,15 @@ def test_from_dict_defaults_task_comments_when_missing() -> None:
     exam = ExamProject.from_dict(raw)
 
     assert exam.task_comments == {}
+
+
+def test_from_dict_defaults_pdf_annotations_when_missing() -> None:
+    raw = _base_raw_exam()
+    raw.pop("pdf_annotations")
+
+    exam = ExamProject.from_dict(raw)
+
+    assert exam.pdf_annotations == []
 
 
 def test_from_dict_rejects_missing_extra_assignment_field() -> None:

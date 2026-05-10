@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- In der Korrekturansicht koennen jetzt Markierungssymbole direkt in die Vorschau gesetzt, mit der Maus verschoben und mit `Entf` geloescht werden; die Symbolfarbe ist waehlbar.
+- Neuer Button `Einfuegen`: setzt den aktuellen Aufgabenkommentar als Text direkt in die Mitte der Korrekturvorschau.
+- Neuer Button `Kommentare speichern`: schreibt alle app-generierten Markierungen direkt in die Original-PDFs, sodass sie auch in externen PDF-Programmen sichtbar sind.
 - In der Korrekturansicht gibt es jetzt pro Aufgabe ein Kommentarfeld; Kommentare werden je Person+Aufgabe mitgespeichert.
 - Das Fertig-Toggle wurde von `Leertaste` auf `Strg+Leertaste` umgelegt.
 - Beim Start der Korrektur sowie beim Wechsel von Aufgabe/Bereich wird der Inhalt des Punktefelds jetzt automatisch markiert.

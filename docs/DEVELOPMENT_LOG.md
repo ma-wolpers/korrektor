@@ -1,6 +1,8 @@
 # Development Log
 
 ## [Unreleased]
+- Korrekturansicht erweitert: Symbol-Markierungen und Freitext-Einfuegen direkt im Vorschau-Canvas (Farbauswahl, Platzieren per Klick, Verschieben per Drag, Loeschen per Entf) mit persistenter Speicherung im Exam-JSON (`pdf_annotations`).
+- PDF-Writeback erweitert: `Kommentare speichern` schreibt die app-generierten Markierungen direkt in die Original-PDFs (sichtbar in externen PDF-Tools) und entfernt dabei zuvor app-generierte Marker bei erneutem Speichern.
 - Korrektur-Workflow erweitert: pro Person+Aufgabe koennen jetzt persistente Freitextkommentare erfasst werden (`task_comments` im Exam-JSON) inklusive Immediate-Save und Undo/Redo.
 - Korrektur-Shortcut angepasst: Fertig-Toggle liegt jetzt auf `Strg+Leertaste`, damit `Leertaste` in Eingabefeldern konfliktfrei bleibt.
 - Korrektur-Eingabefluss gehaertet: Punktefeld wird jetzt auch bei Korrekturstart sowie bei Aufgaben-/Bereichswechsel automatisch fokussiert und voll selektiert.

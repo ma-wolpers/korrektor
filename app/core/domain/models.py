@@ -157,6 +157,46 @@ class PersonAreaCompletion:
 
 
 @dataclass(slots=True)
+class PdfAnnotation:
+    annotation_id: str
+    student_pdf: str
+    page_number: int
+    annotation_type: str
+    content: str
+    color_hex: str
+    x: float
+    y: float
+    task_code: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "annotation_id": self.annotation_id,
+            "student_pdf": self.student_pdf,
+            "page_number": self.page_number,
+            "annotation_type": self.annotation_type,
+            "content": self.content,
+            "color_hex": self.color_hex,
+            "x": self.x,
+            "y": self.y,
+            "task_code": self.task_code,
+        }
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "PdfAnnotation":
+        return cls(
+            annotation_id=str(raw.get("annotation_id", "")).strip(),
+            student_pdf=str(raw.get("student_pdf", "")).strip(),
+            page_number=int(raw.get("page_number", 1)),
+            annotation_type=str(raw.get("annotation_type", "symbol")).strip().lower() or "symbol",
+            content=str(raw.get("content", "")).strip(),
+            color_hex=str(raw.get("color_hex", "#d62828")).strip() or "#d62828",
+            x=float(raw.get("x", 0.0)),
+            y=float(raw.get("y", 0.0)),
+            task_code=str(raw.get("task_code", "")).strip().upper(),
+        )
+
+
+@dataclass(slots=True)
 class StudentExam:
     student_id: str
     display_name: str
@@ -201,6 +241,8 @@ class ExamProject:
     person_area_completions: list[PersonAreaCompletion] = field(default_factory=list)
     # Freitextkommentare je Person+Aufgabe (student_id -> task_code -> comment).
     task_comments: dict[str, dict[str, str]] = field(default_factory=dict)
+    # Persistente Korrekturmarkierungen fuer PDF-Overlay und PDF-Writeback.
+    pdf_annotations: list[PdfAnnotation] = field(default_factory=list)
     is_reading_complete: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -229,6 +271,7 @@ class ExamProject:
             "extra_page_assignments": [assignment.to_dict() for assignment in self.extra_page_assignments],
             "person_area_completions": [item.to_dict() for item in self.person_area_completions],
             "task_comments": normalized_task_comments,
+            "pdf_annotations": [annotation.to_dict() for annotation in self.pdf_annotations],
             "is_reading_complete": self.is_reading_complete,
         }
 
@@ -246,6 +289,7 @@ class ExamProject:
 
         extra_assignments = [ExtraPageAssignment.from_dict(item) for item in raw.get("extra_page_assignments", [])]
         completions = [PersonAreaCompletion.from_dict(item) for item in raw.get("person_area_completions", [])]
+        annotations = [PdfAnnotation.from_dict(item) for item in raw.get("pdf_annotations", [])]
         task_comments_raw = raw.get("task_comments", {})
         task_comments: dict[str, dict[str, str]] = {}
         if isinstance(task_comments_raw, dict):
@@ -275,6 +319,7 @@ class ExamProject:
             extra_page_assignments=extra_assignments,
             person_area_completions=completions,
             task_comments=task_comments,
+            pdf_annotations=annotations,
             is_reading_complete=bool(raw.get("is_reading_complete", False)),
         )
 
