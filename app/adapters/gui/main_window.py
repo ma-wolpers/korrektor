@@ -131,11 +131,16 @@ class MainWindow:
         self._extra_popup_student_index: int | None = None
         self._extra_popup_cursor = 0
         self._canvas_image_id: int | None = None
+        self._redraw_target_region_kind: str | None = None
         self._redraw_target_region_id: str | None = None
         self._redraw_on_next_box: bool = False
         self._correction_templates: dict[str, CorrectionTemplate] = {}
         self._correction_task_items: list[tuple[str, float]] = []
         self._correction_photo: ui.PhotoImage | None = None
+        self._correction_finished_var = ui.BooleanVar(value=False)
+        self._correction_finished_hint_var = ui.StringVar(value="Fertigstatus nicht aktiv")
+        self._correction_finished_check: widgets.Checkbutton | None = None
+        self._save_correction_button: widgets.Button | None = None
         self._runtime_shortcuts = KeybindingRegistry()
         self._shortcut_debug_offline_var = ui.BooleanVar(value=False)
         self._shortcut_runtime_debug_window: ui.Toplevel | None = None
@@ -165,6 +170,10 @@ class MainWindow:
                 UiIntent.GLOBAL_REDO,
                 UiIntent.DETAIL_NAVIGATE_LEFT,
                 UiIntent.DETAIL_NAVIGATE_RIGHT,
+                UiIntent.DETAIL_NAVIGATE_UP,
+                UiIntent.DETAIL_NAVIGATE_DOWN,
+                UiIntent.DETAIL_NAVIGATE_CTRL_UP,
+                UiIntent.DETAIL_NAVIGATE_CTRL_DOWN,
                 UiIntent.DEBUG_RUNTIME_OVERLAY,
                 UiIntent.DEBUG_RUNTIME_OFFLINE,
             ]
@@ -320,14 +329,48 @@ class MainWindow:
             self._on_left_key,
             binding_id="detail.left",
             intent=UiIntent.DETAIL_NAVIGATE_LEFT,
-            modes=(UI_MODE_PREVIEW,),
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
         )
         self._bind_runtime_shortcut(
             "<Right>",
             self._on_right_key,
             binding_id="detail.right",
             intent=UiIntent.DETAIL_NAVIGATE_RIGHT,
-            modes=(UI_MODE_PREVIEW,),
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Up>",
+            self._on_up_key,
+            binding_id="detail.up",
+            intent=UiIntent.DETAIL_NAVIGATE_UP,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Down>",
+            self._on_down_key,
+            binding_id="detail.down",
+            intent=UiIntent.DETAIL_NAVIGATE_DOWN,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Control-Up>",
+            self._on_ctrl_up_key,
+            binding_id="detail.ctrl_up",
+            intent=UiIntent.DETAIL_NAVIGATE_CTRL_UP,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Control-Down>",
+            self._on_ctrl_down_key,
+            binding_id="detail.ctrl_down",
+            intent=UiIntent.DETAIL_NAVIGATE_CTRL_DOWN,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
         )
         self._bind_runtime_shortcut(
             "<Control-Shift-d>",
@@ -1335,17 +1378,35 @@ class MainWindow:
         self._correction_points_entry.bind("<Return>", self._on_correction_points_commit)
         self._correction_points_entry.bind("<Escape>", self._on_correction_points_escape)
 
+        self._correction_finished_check = widgets.Checkbutton(
+            correction_form,
+            text="Fertig korrigiert",
+            variable=self._correction_finished_var,
+            command=self._on_correction_finished_toggled,
+            state="disabled",
+        )
+        self._correction_finished_check.grid(row=1, column=0, columnspan=2, sticky=ui.W, pady=(4, 0))
+        widgets.Label(
+            correction_form,
+            textvariable=self._correction_finished_hint_var,
+            style="Muted.TLabel",
+        ).grid(row=2, column=0, columnspan=2, sticky=ui.W, pady=(2, 0))
+
         correction_buttons = widgets.Frame(correction_form_panel, style="Surface.TFrame")
         correction_buttons.pack(fill=ui.X, pady=(10, 0))
 
-        save_correction_button = widgets.Button(
+        self._save_correction_button = widgets.Button(
             correction_buttons,
             text="Punkte speichern",
             style="PrimaryAction.TButton",
             command=self._save_current_correction_score,
         )
-        save_correction_button.pack(side=ui.LEFT)
-        self._attach_hover_help(save_correction_button, label="Punkte fuer aktuelle Aufgabe speichern", shortcut="Enter")
+        self._save_correction_button.pack(side=ui.LEFT)
+        self._attach_hover_help(
+            self._save_correction_button,
+            label="Punkte fuer aktuelle Aufgabe speichern",
+            shortcut="Enter",
+        )
 
         prev_correction_student_button = widgets.Button(
             correction_buttons,
@@ -1471,7 +1532,9 @@ class MainWindow:
         self._detail_pages.set(f"Standardseiten: {exam.standard_page_count}")
         self._detail_students.set(f"Schüler:innen: {len(exam.students)}")
         self._detail_regions.set(
-            f"Bereiche: {progress.corrected_region_count}/{progress.region_count} korrigiert"
+            "Bereiche: "
+            f"{progress.corrected_region_count}/{progress.region_count} korrigiert"
+            f" | Fertig (alle Personen): {progress.fully_finished_area_count}/{progress.total_area_count}"
         )
         flags = []
         if progress.has_unassigned_extra_pages:
@@ -1590,6 +1653,10 @@ class MainWindow:
         self._focus_first_input_field()
 
     def _on_left_key(self, _event: ui.Event[ui.Misc]) -> None:
+        if self._is_editable_widget(self.root.focus_get()) and not (
+            self._active_view == "correction" and self._correction_mode_active
+        ):
+            return
         if self._active_view == "correction" and self._correction_mode_active:
             self._change_correction_student(-1)
             return
@@ -1602,6 +1669,10 @@ class MainWindow:
         self._move_student(-1)
 
     def _on_right_key(self, _event: ui.Event[ui.Misc]) -> None:
+        if self._is_editable_widget(self.root.focus_get()) and not (
+            self._active_view == "correction" and self._correction_mode_active
+        ):
+            return
         if self._active_view == "correction" and self._correction_mode_active:
             self._change_correction_student(1)
             return
@@ -1612,6 +1683,38 @@ class MainWindow:
             self._change_reading_page(1)
             return
         self._move_student(1)
+
+    def _on_up_key(self, _event: ui.Event[ui.Misc]) -> None:
+        if self._is_editable_widget(self.root.focus_get()) and not (
+            self._active_view == "correction" and self._correction_mode_active
+        ):
+            return
+        if self._active_view == "correction" and self._correction_mode_active:
+            self._cycle_correction_task(-1)
+
+    def _on_down_key(self, _event: ui.Event[ui.Misc]) -> None:
+        if self._is_editable_widget(self.root.focus_get()) and not (
+            self._active_view == "correction" and self._correction_mode_active
+        ):
+            return
+        if self._active_view == "correction" and self._correction_mode_active:
+            self._cycle_correction_task(1)
+
+    def _on_ctrl_up_key(self, _event: ui.Event[ui.Misc]) -> None:
+        if self._is_editable_widget(self.root.focus_get()) and not (
+            self._active_view == "correction" and self._correction_mode_active
+        ):
+            return
+        if self._active_view == "correction" and self._correction_mode_active:
+            self._cycle_correction_area(-1)
+
+    def _on_ctrl_down_key(self, _event: ui.Event[ui.Misc]) -> None:
+        if self._is_editable_widget(self.root.focus_get()) and not (
+            self._active_view == "correction" and self._correction_mode_active
+        ):
+            return
+        if self._active_view == "correction" and self._correction_mode_active:
+            self._cycle_correction_area(1)
 
     def _commit_points_if_possible(self) -> None:
         if self._correction_mode_active:
@@ -1963,7 +2066,7 @@ class MainWindow:
             max(y0, y1) * self._y_factor,
         )
 
-        if self._try_apply_pending_redraw(page_number=page_number, box=box):
+        if self._try_apply_pending_redraw(student_pdf=student.pdf_filename, page_number=page_number, box=box):
             self._reading_canvas.delete(self._drag_rect_id)
             self._drag_rect_id = None
             self._drag_start = None
@@ -1999,26 +2102,67 @@ class MainWindow:
             self._status_var.set("Bereich markiert. Jetzt Aufgaben eintragen und Speichern klicken.")
 
     def _arm_redraw_selected_region(self) -> None:
-        if self._extra_mode_active:
-            messagebox.showinfo("Hinweis", "Neuziehen ist hier nur fuer Standardbereiche im Einlesemodus verfuegbar.")
+        if self._selected_region_id is None or self._selected_region_kind not in {"region", "extra"}:
+            messagebox.showinfo("Hinweis", "Bitte zuerst einen bestehenden Bereich auswaehlen (kein Draft).")
             return
-        if self._selected_region_kind != "region" or self._selected_region_id is None:
-            messagebox.showinfo("Hinweis", "Bitte zuerst einen bestehenden Bereich auswaehlen.")
+        if self._extra_mode_active and self._selected_region_kind != "extra":
+            messagebox.showinfo("Hinweis", "Im Extraseitenmodus kann nur eine Extraseiten-Zuordnung neu gezogen werden.")
             return
+        if not self._extra_mode_active and self._selected_region_kind != "region":
+            messagebox.showinfo("Hinweis", "Im Einlesemodus kann nur ein Standardbereich neu gezogen werden.")
+            return
+        self._redraw_target_region_kind = self._selected_region_kind
         self._redraw_target_region_id = self._selected_region_id
         self._redraw_on_next_box = True
         self._status_var.set("Neuziehen aktiv: Die naechste gezogene Box ueberschreibt den ausgewaehlten Bereich.")
 
     def _clear_pending_redraw(self) -> None:
+        self._redraw_target_region_kind = None
         self._redraw_target_region_id = None
         self._redraw_on_next_box = False
 
-    def _try_apply_pending_redraw(self, *, page_number: int, box: tuple[float, float, float, float]) -> bool:
+    def _try_apply_pending_redraw(
+        self,
+        *,
+        student_pdf: str,
+        page_number: int,
+        box: tuple[float, float, float, float],
+    ) -> bool:
         if not self._redraw_on_next_box or self._redraw_target_region_id is None:
             return False
         if self._controller is None or self._current_exam is None:
             self._clear_pending_redraw()
             return False
+
+        if self._redraw_target_region_kind == "extra":
+            assignment = next(
+                (item for item in self._current_exam.extra_page_assignments if item.assignment_id == self._redraw_target_region_id),
+                None,
+            )
+            if assignment is None:
+                self._clear_pending_redraw()
+                messagebox.showerror("Bereich fehlt", "Die ausgewaehlte Extraseiten-Zuordnung konnte nicht gefunden werden.")
+                return False
+
+            updated = self._controller.assign_extra_page_immediate(
+                exam=self._current_exam,
+                student_pdf=student_pdf,
+                page_number=page_number,
+                box=box,
+                area_codes=assignment.assigned_area_codes,
+                assignment_id=assignment.assignment_id,
+            )
+            self._clear_pending_redraw()
+            if updated is None:
+                return True
+
+            self._current_exam = updated
+            self._refresh_region_tree()
+            self._select_region_by_id(assignment.assignment_id)
+            self._apply_detail_labels(updated)
+            area_text = assignment.assigned_area_codes[0] if assignment.assigned_area_codes else assignment.assignment_id
+            self._status_var.set(f"Extraseiten-Bereich {area_text} neu gezogen und ueberschrieben.")
+            return True
 
         region = next(
             (item for item in self._current_exam.regions if item.region_id == self._redraw_target_region_id),
@@ -2275,6 +2419,7 @@ class MainWindow:
         self._show_view("correction")
         self._refresh_active_student_label()
         self._refresh_correction_task_choices(load_saved_points=True)
+        self._refresh_correction_completion_controls()
         self._status_var.set(f"Korrekturmodus aktiv für Bereich {area}")
 
     def _stop_correction_mode(self, *, silent: bool = False) -> None:
@@ -2284,6 +2429,8 @@ class MainWindow:
         self._correction_task_items = []
         self._correction_student_indices = []
         self._correction_cursor = 0
+        self._correction_finished_var.set(False)
+        self._refresh_correction_completion_controls()
         self._close_extra_popup()
         self._refresh_active_student_label()
         self._show_detail_mode()
@@ -2332,6 +2479,7 @@ class MainWindow:
             self._correction_task_var.set("")
         self._refresh_correction_task_meta(load_saved_points=load_saved_points)
         self._render_correction_preview()
+        self._refresh_correction_completion_controls()
 
     def _refresh_correction_task_meta(self, *, load_saved_points: bool) -> None:
         task_code, max_points = self._selected_correction_task()
@@ -2339,6 +2487,7 @@ class MainWindow:
             self._correction_max_points_var.set("Max: -")
             if load_saved_points:
                 self._correction_points_var.set("")
+            self._refresh_correction_completion_controls()
             return
 
         self._correction_max_points_var.set(f"Max: {max_points:g}")
@@ -2353,6 +2502,112 @@ class MainWindow:
             task_code=task_code,
         )
         self._correction_points_var.set(existing_points if existing_points is not None else "")
+        self._refresh_correction_completion_controls()
+
+    def _cycle_combobox_value(self, combo: widgets.Combobox, value_var: ui.StringVar, delta: int) -> bool:
+        values = tuple(str(item) for item in combo.cget("values"))
+        if not values:
+            return False
+        current = value_var.get()
+        if current in values:
+            current_index = values.index(current)
+        else:
+            current_index = 0
+        value_var.set(values[(current_index + delta) % len(values)])
+        return True
+
+    def _cycle_correction_task(self, delta: int) -> None:
+        if not self._correction_mode_active:
+            return
+        if not self._cycle_combobox_value(self._correction_task_combo, self._correction_task_var, delta):
+            return
+        self._refresh_correction_task_meta(load_saved_points=True)
+
+    def _cycle_correction_area(self, delta: int) -> None:
+        if not self._correction_mode_active:
+            return
+        if not self._cycle_combobox_value(self._correction_area_combo_view, self._correction_area_var, delta):
+            return
+        self._refresh_correction_task_choices(load_saved_points=True)
+
+    def _all_tasks_scored_for_current_area(self) -> bool:
+        if self._controller is None or self._current_exam is None:
+            return False
+        student = self._current_correction_student()
+        if student is None:
+            return False
+        if not self._correction_task_items:
+            return False
+        return all(
+            self._controller.load_saved_points(
+                exam=self._current_exam,
+                student_id=student.student_id,
+                task_code=code,
+            )
+            is not None
+            for code, _max_points in self._correction_task_items
+        )
+
+    def _is_current_person_area_finished(self) -> bool:
+        if self._controller is None or self._current_exam is None:
+            return False
+        student = self._current_correction_student()
+        if student is None:
+            return False
+        return self._controller.is_person_area_finished(
+            exam=self._current_exam,
+            student_id=student.student_id,
+            area_code=self._correction_area_var.get(),
+        )
+
+    def _refresh_correction_completion_controls(self) -> None:
+        if self._correction_finished_check is None:
+            return
+
+        can_toggle = self._correction_mode_active and self._all_tasks_scored_for_current_area()
+        is_finished = self._is_current_person_area_finished() if self._correction_mode_active else False
+        self._correction_finished_var.set(is_finished)
+
+        self._correction_finished_check.configure(state="normal" if (can_toggle or is_finished) else "disabled")
+        if is_finished:
+            self._correction_finished_hint_var.set("Fertig markiert: Punkteingabe ist gesperrt")
+        elif can_toggle:
+            self._correction_finished_hint_var.set("Alle Aufgaben bewertet: Fertig kann gesetzt werden")
+        else:
+            self._correction_finished_hint_var.set("Fertig wird aktiv, sobald alle Aufgaben bewertet sind")
+
+        self._correction_points_entry.configure(state="disabled" if is_finished else "normal")
+        if self._save_correction_button is not None:
+            self._save_correction_button.configure(state="disabled" if is_finished else "normal")
+
+    def _on_correction_finished_toggled(self) -> None:
+        if not self._correction_mode_active or self._controller is None or self._current_exam is None:
+            return
+
+        student = self._current_correction_student()
+        if student is None:
+            return
+
+        requested = bool(self._correction_finished_var.get())
+        if requested and not self._all_tasks_scored_for_current_area():
+            self._correction_finished_var.set(False)
+            messagebox.showinfo("Hinweis", "Bitte zuerst alle Aufgaben im Bereich bewerten.")
+            self._refresh_correction_completion_controls()
+            return
+
+        updated = self._controller.set_person_area_finished_immediate(
+            exam=self._current_exam,
+            student_id=student.student_id,
+            area_code=self._correction_area_var.get(),
+            is_finished=requested,
+        )
+        if updated is None:
+            self._refresh_correction_completion_controls()
+            return
+
+        self._current_exam = updated
+        self._apply_detail_labels(updated)
+        self._refresh_correction_completion_controls()
 
     def _current_correction_student(self) -> StudentExam | None:
         if not self._current_exam or not self._correction_student_indices:
@@ -2420,10 +2675,13 @@ class MainWindow:
         self._refresh_active_student_label()
         self._refresh_correction_task_meta(load_saved_points=True)
         self._render_correction_preview()
+        self._refresh_correction_completion_controls()
         self._focus_first_input_field()
 
     def _save_current_correction_score(self) -> bool:
         if not self._correction_mode_active or self._controller is None or self._current_exam is None:
+            return False
+        if self._is_current_person_area_finished():
             return False
         student = self._current_correction_student()
         if student is None:
@@ -2431,23 +2689,27 @@ class MainWindow:
         task_code, max_points = self._selected_correction_task()
         if task_code is None:
             return False
-        return self._controller.save_score_immediate(
+        saved = self._controller.save_score_immediate(
             exam=self._current_exam,
             student_id=student.student_id,
             task_code=task_code,
             points_text=self._correction_points_var.get(),
             max_points_text=f"{max_points:g}",
         )
+        self._refresh_correction_completion_controls()
+        return saved
 
     def _on_correction_area_changed(self, _event: ui.Event[ui.Misc]) -> None:
         if not self._correction_mode_active:
             return
         self._refresh_correction_task_choices(load_saved_points=True)
+        self._refresh_correction_completion_controls()
 
     def _on_correction_task_changed(self, _event: ui.Event[ui.Misc]) -> None:
         if not self._correction_mode_active:
             return
         self._refresh_correction_task_meta(load_saved_points=True)
+        self._refresh_correction_completion_controls()
 
     def _on_correction_points_focus_out(self, _event: ui.Event[ui.Misc]) -> None:
         self._save_current_correction_score()
@@ -2612,6 +2874,10 @@ class MainWindow:
 
     def _focus_first_input_field(self) -> None:
         if self._correction_mode_active:
+            if str(self._correction_points_entry.cget("state")) == "disabled":
+                if self._correction_finished_check is not None:
+                    self._correction_finished_check.focus_set()
+                return
             self._correction_points_entry.focus_set()
             self._correction_points_entry.selection_range(0, ui.END)
             return
@@ -2677,6 +2943,8 @@ class MainWindow:
             self._correction_info_var.set("Korrektur: nicht aktiv")
         if hasattr(self, "_correction_points_var"):
             self._correction_points_var.set("")
+        if hasattr(self, "_correction_finished_var"):
+            self._correction_finished_var.set(False)
         self._close_extra_popup()
         self._reading_canvas.delete("all")
         if hasattr(self, "_correction_canvas"):
@@ -2904,6 +3172,7 @@ class MainWindow:
         self._quick_tasks_var.set(quick_text)
         self._form_tasks_text.delete("1.0", ui.END)
         self._form_tasks_text.insert("1.0", form_text)
+        self._rerender_active_page()
 
     def _save_selected_region(self) -> None:
         if self._current_exam is None or self._selected_region_id is None or self._controller is None:

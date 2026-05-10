@@ -11,6 +11,8 @@ class ExamProgress:
     correction_percent: float
     region_count: int
     corrected_region_count: int
+    fully_finished_area_count: int
+    total_area_count: int
     has_unassigned_extra_pages: bool
     has_missing_page_markings: bool
 
@@ -49,11 +51,31 @@ class ProgressCalculator:
         expected_standard_pages = set(range(1, exam.standard_page_count + 1))
         has_missing_page_markings = not expected_standard_pages.issubset(marked_standard_pages)
 
+        area_codes = {
+            code.strip().upper()
+            for region in exam.regions
+            for code in region.assigned_area_codes
+            if code.strip()
+        }
+        student_ids = {student.student_id for student in exam.students}
+        finished_pairs = {
+            (item.student_id, item.area_code.strip().upper())
+            for item in exam.person_area_completions
+            if item.is_finished and item.student_id.strip() and item.area_code.strip()
+        }
+        fully_finished_area_count = sum(
+            1
+            for area_code in area_codes
+            if student_ids and all((student_id, area_code) in finished_pairs for student_id in student_ids)
+        )
+
         return ExamProgress(
             reading_percent=reading_percent,
             correction_percent=correction_percent,
             region_count=region_count,
             corrected_region_count=corrected_region_count,
+            fully_finished_area_count=fully_finished_area_count,
+            total_area_count=len(area_codes),
             has_unassigned_extra_pages=has_unassigned_extra_pages,
             has_missing_page_markings=has_missing_page_markings,
         )

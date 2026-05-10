@@ -11,7 +11,14 @@ from app.adapters.bootstrap.wiring import GuiDependencies
 from app.adapters.gui.dialog_services import filedialog, messagebox, simpledialog
 from app.adapters.gui.view_models import ExamOverviewRow
 from app.adapters.undo import HistoryAction
-from app.core.domain.models import ExamProject, ExtraPageAssignment, RegionAssignment, RegionBox, TaskDefinition
+from app.core.domain.models import (
+    ExamProject,
+    ExtraPageAssignment,
+    PersonAreaCompletion,
+    RegionAssignment,
+    RegionBox,
+    TaskDefinition,
+)
 from app.infrastructure.repositories.file_utils import atomic_write_json
 
 if TYPE_CHECKING:
@@ -300,6 +307,68 @@ class UiIntentController:
             return None
         return None
 
+    def is_person_area_finished(self, *, exam: ExamProject, student_id: str, area_code: str) -> bool:
+        normalized_area = area_code.strip().upper()
+        if not normalized_area:
+            return False
+        return any(
+            item.student_id == student_id and item.area_code == normalized_area and item.is_finished
+            for item in exam.person_area_completions
+        )
+
+    def set_person_area_finished_immediate(
+        self,
+        *,
+        exam: ExamProject,
+        student_id: str,
+        area_code: str,
+        is_finished: bool,
+    ) -> ExamProject | None:
+        normalized_area = area_code.strip().upper()
+        if not normalized_area:
+            messagebox.showerror("Ungueltige Eingabe", "Bereichscode fehlt.")
+            return None
+
+        if student_id not in {student.student_id for student in exam.students}:
+            messagebox.showerror("Ungueltige Eingabe", "Unbekannte Person fuer Fertigstatus.")
+            return None
+
+        valid_areas = self._existing_standard_area_codes(exam)
+        if normalized_area not in valid_areas:
+            messagebox.showerror("Unbekannter Bereich", f"Bereich {normalized_area} existiert nicht.")
+            return None
+
+        before_payload = copy.deepcopy(exam.to_dict())
+        exam.person_area_completions = [
+            item
+            for item in exam.person_area_completions
+            if not (item.student_id == student_id and item.area_code == normalized_area)
+        ]
+        if is_finished:
+            exam.person_area_completions.append(
+                PersonAreaCompletion(student_id=student_id, area_code=normalized_area, is_finished=True)
+            )
+
+        exam_file = self._deps.exam_repository.save_exam(exam)
+        updated = self._deps.exam_repository.load_exam(exam_file)
+        self._record_exam_payload_action(
+            description=(
+                f"Bereich als fertig markiert: {normalized_area}"
+                if is_finished
+                else f"Bereich als offen markiert: {normalized_area}"
+            ),
+            exam_id=updated.exam_id,
+            before_payload=before_payload,
+            after_payload=updated.to_dict(),
+        )
+        self.refresh_exam_overview()
+        self._app.set_status(
+            f"Fertigstatus aktualisiert: {normalized_area}"
+            if is_finished
+            else f"Fertigstatus entfernt: {normalized_area}"
+        )
+        return updated
+
     @staticmethod
     def _existing_standard_area_codes(exam: ExamProject) -> set[str]:
         return {
@@ -451,6 +520,7 @@ class UiIntentController:
         page_number: int,
         box: tuple[float, float, float, float],
         area_codes: list[str],
+        assignment_id: str | None = None,
     ) -> ExamProject | None:
         before_payload = copy.deepcopy(exam.to_dict())
         normalized_areas = [code.strip().upper() for code in area_codes if code.strip()]
@@ -472,14 +542,21 @@ class UiIntentController:
             )
             return None
 
-        existing = next(
-            (
-                assignment
-                for assignment in exam.extra_page_assignments
-                if assignment.student_pdf == student_pdf and assignment.page_number == page_number
-            ),
-            None,
-        )
+        existing = None
+        if assignment_id is not None:
+            existing = next(
+                (item for item in exam.extra_page_assignments if item.assignment_id == assignment_id),
+                None,
+            )
+        if existing is None:
+            existing = next(
+                (
+                    assignment
+                    for assignment in exam.extra_page_assignments
+                    if assignment.student_pdf == student_pdf and assignment.page_number == page_number
+                ),
+                None,
+            )
 
         assignment_id = existing.assignment_id if existing else f"x-{uuid4().hex[:10]}"
         assignment = ExtraPageAssignment(

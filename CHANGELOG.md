@@ -1,6 +1,11 @@
 # Changelog
 
 ## Unreleased
+- Im Korrekturmodus funktionieren Tastaturwege jetzt wie im Arbeitsfluss: links/rechts wechselt Person, hoch/runter wechselt Aufgabe, Strg+hoch/runter wechselt Bereich.
+- Neues Feld `Fertig korrigiert` pro Person+Bereich: es wird erst aktiv, wenn alle Aufgaben Punkte haben, und sperrt bei Aktivierung die Punkteingabe in diesem Bereich.
+- Die Detailzeile `Bereiche` zeigt jetzt zusaetzlich, wie viele Bereiche bei allen Personen als fertig markiert sind.
+- `Bereich neu ziehen` funktioniert jetzt auch fuer Extraseiten-Zuordnungen und ueberschreibt dabei die ausgewaehlte Zuordnung.
+- Bei Bereichsauswahl in der Tabelle wird die zugehoerige Markierung links im Canvas sofort sichtbar hervorgehoben.
 - Im Einlesemodus gibt es jetzt `Bereich neu ziehen`: Nach Aktivierung wird genau die naechste gezogene Box dem ausgewaehlten Bereich zugeordnet und ueberschreibt dessen bisherige Koordinaten (auch seitenuebergreifend).
 - Neuer Schalter `Superseite` im Einlesemodus: die aktuelle Seite wird als Dunkel-Superposition aller verfuegbaren PDFs angezeigt (dunkle Pixel setzen sich gegen helle durch).
 - Das Klausur-JSON nutzt jetzt ein zukunftsorientiertes Trennschema: Standardbereiche liegen als wiederverwendbare Templates in `regions`, Extraseiten-Zuordnungen separat in `extra_page_assignments`.

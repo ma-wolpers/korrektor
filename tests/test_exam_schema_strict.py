@@ -46,6 +46,13 @@ def _base_raw_exam() -> dict[str, object]:
                 "is_corrected": False,
             }
         ],
+        "person_area_completions": [
+            {
+                "student_id": "alice",
+                "area_code": "A",
+                "is_finished": True,
+            }
+        ],
         "is_reading_complete": False,
     }
 
@@ -55,6 +62,7 @@ def test_from_dict_accepts_forward_only_schema() -> None:
 
     assert len(exam.regions) == 1
     assert len(exam.extra_page_assignments) == 1
+    assert len(exam.person_area_completions) == 1
 
 
 def test_from_dict_rejects_missing_extra_assignment_field() -> None:

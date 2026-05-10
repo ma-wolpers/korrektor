@@ -54,6 +54,7 @@ class CreateExamUseCase:
             students=students,
             regions=[],
             extra_page_assignments=[],
+            person_area_completions=[],
             is_reading_complete=False,
         )
         exam_file = self._exam_repo.save_exam(exam)

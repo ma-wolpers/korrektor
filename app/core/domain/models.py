@@ -135,6 +135,28 @@ class ExtraPageAssignment:
 
 
 @dataclass(slots=True)
+class PersonAreaCompletion:
+    student_id: str
+    area_code: str
+    is_finished: bool = True
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "student_id": self.student_id,
+            "area_code": self.area_code,
+            "is_finished": self.is_finished,
+        }
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "PersonAreaCompletion":
+        return cls(
+            student_id=str(raw.get("student_id", "")).strip(),
+            area_code=str(raw.get("area_code", "")).strip().upper(),
+            is_finished=bool(raw.get("is_finished", True)),
+        )
+
+
+@dataclass(slots=True)
 class StudentExam:
     student_id: str
     display_name: str
@@ -175,6 +197,8 @@ class ExamProject:
     regions: list[RegionAssignment] = field(default_factory=list)
     # Extraseiten-Zuordnungen bleiben student- und seitenbezogen.
     extra_page_assignments: list[ExtraPageAssignment] = field(default_factory=list)
+    # Korrekturabschluss je Person+Bereich.
+    person_area_completions: list[PersonAreaCompletion] = field(default_factory=list)
     is_reading_complete: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -188,6 +212,7 @@ class ExamProject:
             "students": [student.to_dict() for student in self.students],
             "regions": [region.to_dict() for region in self.regions],
             "extra_page_assignments": [assignment.to_dict() for assignment in self.extra_page_assignments],
+            "person_area_completions": [item.to_dict() for item in self.person_area_completions],
             "is_reading_complete": self.is_reading_complete,
         }
 
@@ -204,6 +229,7 @@ class ExamProject:
                 raise ValueError("Unsupported exam schema: standard templates must not carry student_pdf")
 
         extra_assignments = [ExtraPageAssignment.from_dict(item) for item in raw.get("extra_page_assignments", [])]
+        completions = [PersonAreaCompletion.from_dict(item) for item in raw.get("person_area_completions", [])]
 
         return cls(
             exam_id=str(raw.get("exam_id", "")).strip(),
@@ -215,6 +241,7 @@ class ExamProject:
             students=[StudentExam.from_dict(item) for item in raw.get("students", [])],
             regions=standard_templates,
             extra_page_assignments=extra_assignments,
+            person_area_completions=completions,
             is_reading_complete=bool(raw.get("is_reading_complete", False)),
         )
 

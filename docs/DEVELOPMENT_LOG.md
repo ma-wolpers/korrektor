@@ -1,6 +1,11 @@
 # Development Log
 
 ## [Unreleased]
+- Korrektur-Navigation per Tastatur erweitert: links/rechts wechselt Person, hoch/runter wechselt Aufgabe, Strg+hoch/runter wechselt Bereich.
+- Korrektur-Workflow um person+bereichsbezogenen Fertigstatus erweitert: `Fertig korrigiert` wird erst bei vollstaendig bewerteten Aufgaben aktiv und sperrt danach die Punkteingabe fuer diese Kombination.
+- Detailanzeige `Bereiche` erweitert: zusaetzlich zur Korrekturquote wird jetzt angezeigt, wie viele Bereiche bei allen Personen als fertig markiert sind.
+- Bereichs-Neuziehen erweitert: der One-Shot-Overwrite-Flow funktioniert jetzt auch fuer Extraseiten-Zuordnungen.
+- Bereichslisten-Selektion im Einlese-/Extraseiteneditor haertet den Canvas-Highlight-Flow: ausgewaehlte Bereiche werden links sofort sichtbar hervorgehoben.
 - Einlese-Editor erweitert: neuer One-Shot-Flow `Bereich neu ziehen` erlaubt das gezielte Ueberschreiben eines ausgewaehlten Standardbereichs mit der naechsten gezogenen Box (inkl. Seitenwechsel).
 - Einlese-Rendering erweitert: optionaler Superseitenmodus ueberlagert alle verfuegbaren PDFs einer Seite als pixelweise Dunkel-Superposition (dunkel gewinnt), um bereichsuebergreifende Markierungen robuster auszurichten.
 - Datenmodell auf zukunftsorientiertes Trennschema umgestellt: `regions` enthaelt nur noch Standard-Templatebereiche (nicht studentgebunden), Extraseiten-Zuordnungen werden separat in `extra_page_assignments` gepflegt.
