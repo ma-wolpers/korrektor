@@ -9,6 +9,7 @@
 - Exportierte Kommentar-/Symbol-Positionen wurden stabilisiert: PDF-FreeText wird jetzt mit expliziter Zentrierung geschrieben, um Links/Rechts-Versatz gegenueber der Vorschau zu reduzieren.
 - Die FreeText-Rechteckberechnung fuer `PDF ueberschreiben` wurde weiter kalibriert (text-/symbolspezifisch mit Fontmetrik), damit Vorschau- und PDF-Positionen deutlich naeher beieinander liegen.
 - Rotationsfaelle wurden im FreeText-Writeback weiter gehaertet: die Rechteckposition beruecksichtigt jetzt den Rotationswinkel (90/180/270) und reduziert damit Marker-Drift bei gedrehten Kommentaren/Symbolen.
+- Das FreeText-Writeback wurde auf Realdaten weiter feinjustiert: gedrehte Textmarker (insb. 90/270 bei groesseren Markern) liegen beim `PDF ueberschreiben` sichtbar naeher an der Vorschauposition.
 - PDF-Annotationen speichern optional den Bereichscode (`area_code`), damit Overlay und Export sauber auf den zugehoerigen Korrekturbereich begrenzt bleiben.
 - Rotations-Buttons in der Korrekturansicht drehen jetzt in die erwartete Richtung (links/rechts) und arbeiten in stabilen 90-Grad-Schritten.
 - Die Korrekturvorschau blendet eingebrannte PDF-Anmerkungen jetzt aus, damit nach `PDF ueberschreiben` keine doppelte Markeranzeige mehr entsteht.
