@@ -36,8 +36,10 @@ ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
 
 try:
+    from bw_gui.shortcuts import compose_hover_text as compose_shared_hover_text
     from bw_gui.widgets import HoverTooltip as SharedHoverTooltip
 except ModuleNotFoundError:
+    compose_shared_hover_text = None
     SharedHoverTooltip = None
 
 if TYPE_CHECKING:
@@ -114,6 +116,7 @@ class MainWindow:
             )
         )
         self._tracked_popup_ids: set[str] = set()
+        self._shared_tooltip_theme_key = "sand_terracotta"
         self._hover_tooltips: list[object] = []
         self._hsm_contract = build_ui_hsm_contract(
             intents=[
@@ -136,8 +139,11 @@ class MainWindow:
             return
 
         shortcut_text = (shortcut or "").strip()
-        text = f"{label}\nShortcut: {shortcut_text}" if shortcut_text else label
-        tooltip = SharedHoverTooltip(widget, text)
+        if compose_shared_hover_text is not None:
+            text = compose_shared_hover_text(label, shortcut_text)
+        else:
+            text = f"{label}\nShortcut: {shortcut_text}" if shortcut_text else label
+        tooltip = SharedHoverTooltip(widget, text, theme_key=self._shared_tooltip_theme_key)
         self._hover_tooltips.append(tooltip)
 
     def set_controller(self, controller: "UiIntentController") -> None:

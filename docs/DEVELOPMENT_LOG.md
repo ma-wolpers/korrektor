@@ -3,6 +3,7 @@
 ## [Unreleased]
 - Shared-Tooltip-Polish uebernommen: `bw_gui.widgets.HoverTooltip` zeigt Hinweise jetzt verzoegert, ermittelt den aktiven Theme-Kontext aus dem Host-Fenster und haelt Tooltip-Positionen per Bildschirm-Clamping sichtbar.
 - Shared-Theme-Feinschliff uebernommen: Settings-/Sidebar-Stile und verfeinerte Scrollbar-Kontraste stammen jetzt aus dem aktualisierten `bw-gui`-Submodule-Stand.
+- Hover-Overlay-Formatierung harmonisiert: `app/adapters/gui/main_window.py` nutzt jetzt `bw_gui.shortcuts.compose_hover_text(...)` und setzt einen konsistenten Shared-Tooltip-Theme-Key fuer Aktionshinweise.
 - Tk-Runtime-Pilotmigration erweitert: `app/app.py` initialisiert das Root-Window jetzt ueber `bw_gui.runtime.ui` statt direktem `tkinter`-Import.
 - Tk/ttk-Runtime-Pilotmigration gestartet: `app/adapters/gui/main_window.py` nutzt jetzt zentrale Runtime-Aliases aus `bw_gui.runtime` (`ui`/`widgets`) statt direkter `tkinter`-/`ttk`-Imports.
 - Tk-Runtime-Pilotmigration erweitert: `bw_libs/app_shell.py` nutzt jetzt `bw_gui.runtime.ui` statt direktem `tkinter`-Import.
