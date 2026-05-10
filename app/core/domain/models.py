@@ -167,6 +167,8 @@ class PdfAnnotation:
     x: float
     y: float
     task_code: str = ""
+    font_size: float = 20.0
+    rotation_deg: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -179,6 +181,8 @@ class PdfAnnotation:
             "x": self.x,
             "y": self.y,
             "task_code": self.task_code,
+            "font_size": self.font_size,
+            "rotation_deg": self.rotation_deg,
         }
 
     @classmethod
@@ -193,6 +197,8 @@ class PdfAnnotation:
             x=float(raw.get("x", 0.0)),
             y=float(raw.get("y", 0.0)),
             task_code=str(raw.get("task_code", "")).strip().upper(),
+            font_size=float(raw.get("font_size", 20.0)),
+            rotation_deg=float(raw.get("rotation_deg", 0.0)),
         )
 
 

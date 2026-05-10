@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- Die Marker-Farbauswahl in der Korrekturansicht enthaelt jetzt auch `Pink`.
+- Ausgewaehlte Markierungen/Kommentare koennen jetzt direkt in der Korrekturansicht vergroessert, verkleinert und rotiert werden (`A-`, `A+`, `↺`, `↻`).
+- Das Speichern in die Original-PDFs wurde auf Windows stabilisiert: offene Vorschau-Dateihandles blockieren das Ueberschreiben nicht mehr.
 - In der Korrekturansicht koennen jetzt Markierungssymbole direkt in die Vorschau gesetzt, mit der Maus verschoben und mit `Entf` geloescht werden; die Symbolfarbe ist waehlbar.
 - Neuer Button `Einfuegen`: setzt den aktuellen Aufgabenkommentar als Text direkt in die Mitte der Korrekturvorschau.
 - Neuer Button `Kommentare speichern`: schreibt alle app-generierten Markierungen direkt in die Original-PDFs, sodass sie auch in externen PDF-Programmen sichtbar sind.

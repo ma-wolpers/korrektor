@@ -1,6 +1,8 @@
 # Development Log
 
 ## [Unreleased]
+- PDF-Writeback stabilisiert (Windows): vor dem Ersetzen der Originaldatei werden offene Preview-Handles aus dem Dokument-Cache explizit geschlossen, damit `os.replace(...)` nicht mehr an geoeffneten Dateien scheitert.
+- Marker-Tools erweitert: zusaetzliche Farbe `Pink` sowie Transformationsaktionen fuer ausgewaehlte Markierungen (Groesse +/- und Rotation links/rechts) inkl. persistenter Speicherung (`font_size`, `rotation_deg`) und PDF-Writeback.
 - Korrekturansicht erweitert: Symbol-Markierungen und Freitext-Einfuegen direkt im Vorschau-Canvas (Farbauswahl, Platzieren per Klick, Verschieben per Drag, Loeschen per Entf) mit persistenter Speicherung im Exam-JSON (`pdf_annotations`).
 - PDF-Writeback erweitert: `Kommentare speichern` schreibt die app-generierten Markierungen direkt in die Original-PDFs (sichtbar in externen PDF-Tools) und entfernt dabei zuvor app-generierte Marker bei erneutem Speichern.
 - Korrektur-Workflow erweitert: pro Person+Aufgabe koennen jetzt persistente Freitextkommentare erfasst werden (`task_comments` im Exam-JSON) inklusive Immediate-Save und Undo/Redo.

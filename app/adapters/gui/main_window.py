@@ -91,6 +91,7 @@ CORRECTION_MARKER_TOOLS: tuple[tuple[str, str, str], ...] = (
 
 CORRECTION_MARKER_COLORS: dict[str, str] = {
     "Rot": "#d62828",
+    "Pink": "#ff4fa3",
     "Blau": "#1d4ed8",
     "Gruen": "#2a9d8f",
     "Orange": "#f77f00",
@@ -1623,6 +1624,49 @@ class MainWindow:
             marker_button.pack(side=ui.LEFT, padx=(0, 4))
             self._attach_hover_help(marker_button, label=f"Markierung: {label}")
 
+        transform_row = widgets.Frame(marker_controls, style="Surface.TFrame")
+        transform_row.pack(fill=ui.X, pady=(6, 0))
+
+        shrink_button = widgets.Button(
+            transform_row,
+            text="A-",
+            style="SecondaryAction.TButton",
+            width=4,
+            command=lambda: self._resize_selected_correction_annotation(-2.0),
+        )
+        shrink_button.pack(side=ui.LEFT, padx=(0, 4))
+        self._attach_hover_help(shrink_button, label="Ausgewaehlte Markierung verkleinern")
+
+        grow_button = widgets.Button(
+            transform_row,
+            text="A+",
+            style="SecondaryAction.TButton",
+            width=4,
+            command=lambda: self._resize_selected_correction_annotation(2.0),
+        )
+        grow_button.pack(side=ui.LEFT, padx=(0, 4))
+        self._attach_hover_help(grow_button, label="Ausgewaehlte Markierung vergroessern")
+
+        rotate_left_button = widgets.Button(
+            transform_row,
+            text="↺",
+            style="SecondaryAction.TButton",
+            width=4,
+            command=lambda: self._rotate_selected_correction_annotation(-15.0),
+        )
+        rotate_left_button.pack(side=ui.LEFT, padx=(8, 4))
+        self._attach_hover_help(rotate_left_button, label="Ausgewaehlte Markierung nach links drehen")
+
+        rotate_right_button = widgets.Button(
+            transform_row,
+            text="↻",
+            style="SecondaryAction.TButton",
+            width=4,
+            command=lambda: self._rotate_selected_correction_annotation(15.0),
+        )
+        rotate_right_button.pack(side=ui.LEFT, padx=(0, 4))
+        self._attach_hover_help(rotate_right_button, label="Ausgewaehlte Markierung nach rechts drehen")
+
         widgets.Label(
             marker_controls,
             textvariable=self._correction_marker_info_var,
@@ -3105,6 +3149,31 @@ class MainWindow:
         self._status_var.set("Markierung geloescht")
         return True
 
+    def _resize_selected_correction_annotation(self, delta: float) -> None:
+        annotation_id = self._correction_selected_annotation_id
+        if annotation_id is None:
+            messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswaehlen.")
+            return
+        annotation = self._annotation_by_id(annotation_id)
+        if annotation is None:
+            return
+        next_size = max(8.0, min(96.0, float(annotation.font_size) + delta))
+        annotation.font_size = next_size
+        self._render_correction_annotations()
+        self._status_var.set(f"Markierungsgroesse: {next_size:.0f}pt")
+
+    def _rotate_selected_correction_annotation(self, delta_deg: float) -> None:
+        annotation_id = self._correction_selected_annotation_id
+        if annotation_id is None:
+            messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswaehlen.")
+            return
+        annotation = self._annotation_by_id(annotation_id)
+        if annotation is None:
+            return
+        annotation.rotation_deg = (float(annotation.rotation_deg) + delta_deg) % 360.0
+        self._render_correction_annotations()
+        self._status_var.set(f"Markierungswinkel: {annotation.rotation_deg:.0f}°")
+
     def _render_correction_annotations(self) -> None:
         if self._correction_canvas is None:
             return
@@ -3114,19 +3183,20 @@ class MainWindow:
         if not annotations:
             return
 
-        base_font = max(12, int(18 * (self._correction_zoom_percent / 100.0)))
         for annotation in annotations:
             canvas_pos = self._pdf_to_canvas_coords(annotation.x, annotation.y)
             if canvas_pos is None:
                 continue
             canvas_x, canvas_y = canvas_pos
+            font_size = max(8, int(float(annotation.font_size) * (self._correction_zoom_percent / 100.0)))
             item_id = self._correction_canvas.create_text(
                 canvas_x,
                 canvas_y,
                 text=annotation.content,
                 fill=annotation.color_hex,
-                font=("Segoe UI", base_font, "bold"),
+                font=("Segoe UI", font_size, "bold"),
                 anchor=ui.CENTER,
+                angle=float(annotation.rotation_deg),
                 tags=("correction_annotation", f"annotation:{annotation.annotation_id}"),
             )
             self._correction_annotation_items[annotation.annotation_id] = item_id
@@ -3184,6 +3254,7 @@ class MainWindow:
             return False
 
         task_code, _max_points = self._selected_correction_task()
+        default_font_size = 24.0 if annotation_type == "symbol" else 14.0
         annotation = PdfAnnotation(
             annotation_id=f"ann-{uuid4().hex[:12]}",
             student_pdf=student.pdf_filename,
@@ -3194,6 +3265,8 @@ class MainWindow:
             x=pdf_pos[0],
             y=pdf_pos[1],
             task_code=task_code or "",
+            font_size=default_font_size,
+            rotation_deg=0.0,
         )
         self._upsert_annotation(annotation)
         self._correction_selected_annotation_id = annotation.annotation_id
@@ -3284,6 +3357,13 @@ class MainWindow:
                 failures.append(f"Datei fehlt: {student_pdf}")
                 continue
 
+            cached_document = self._doc_cache.pop(student_pdf, None)
+            if cached_document is not None:
+                try:
+                    cached_document.close()
+                except Exception:
+                    pass
+
             temp_path = pdf_path.with_name(f"{pdf_path.stem}.korrektor.tmp.pdf")
             document: fitz.Document | None = None
             try:
@@ -3301,18 +3381,25 @@ class MainWindow:
                     if annotation.page_number < 1 or annotation.page_number > document.page_count:
                         continue
                     page = document.load_page(annotation.page_number - 1)
-                    if annotation.annotation_type == "text":
-                        rect = fitz.Rect(annotation.x - 120, annotation.y - 18, annotation.x + 120, annotation.y + 18)
-                        fontsize = 11
-                    else:
-                        rect = fitz.Rect(annotation.x - 18, annotation.y - 18, annotation.x + 18, annotation.y + 18)
-                        fontsize = 20
+                    fontsize = max(8, int(round(float(annotation.font_size))))
+                    width = max(24.0, fontsize * max(1.2, len(annotation.content) * 0.62))
+                    height = max(18.0, fontsize * 1.8)
+                    rect = fitz.Rect(
+                        annotation.x - (width / 2.0),
+                        annotation.y - (height / 2.0),
+                        annotation.x + (width / 2.0),
+                        annotation.y + (height / 2.0),
+                    )
                     annot = page.add_freetext_annot(
                         rect,
                         annotation.content,
                         fontsize=fontsize,
                         text_color=self._hex_to_rgb_fraction(annotation.color_hex),
                     )
+                    try:
+                        annot.set_rotation(int(round(float(annotation.rotation_deg))) % 360)
+                    except Exception:
+                        pass
                     annot.set_info(
                         title="Korrektor",
                         subject=f"KORREKTOR_MARKER:{annotation.annotation_id}",
@@ -3324,7 +3411,6 @@ class MainWindow:
                 document.close()
                 document = None
                 os.replace(temp_path, pdf_path)
-                self._doc_cache.pop(student_pdf, None)
             except Exception as exc:
                 failures.append(f"{student_pdf}: {exc}")
                 try:
