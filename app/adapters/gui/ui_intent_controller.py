@@ -11,7 +11,7 @@ from app.adapters.bootstrap.wiring import GuiDependencies
 from app.adapters.gui.dialog_services import filedialog, messagebox, simpledialog
 from app.adapters.gui.view_models import ExamOverviewRow
 from app.adapters.undo import HistoryAction
-from app.core.domain.models import ExamProject, RegionAssignment, RegionBox, TaskDefinition
+from app.core.domain.models import ExamProject, ExtraPageAssignment, RegionAssignment, RegionBox, TaskDefinition
 from app.infrastructure.repositories.file_utils import atomic_write_json
 
 if TYPE_CHECKING:
@@ -305,7 +305,6 @@ class UiIntentController:
         return {
             code.strip().upper()
             for region in exam.regions
-            if not region.is_extra_page
             for code in region.assigned_area_codes
             if code.strip()
         }
@@ -344,14 +343,14 @@ class UiIntentController:
 
         region = RegionAssignment(
             region_id=region_id or f"r-{uuid4().hex[:12]}",
-            student_pdf=student_pdf,
+            student_pdf="",
             page_number=page_number,
             box=RegionBox(x0=box[0], y0=box[1], x1=box[2], y1=box[3]),
             tasks=tasks,
             assigned_area_codes=area_codes,
             is_read_complete=True,
             is_corrected=False,
-            is_extra_page=page_number > exam.standard_page_count,
+            is_extra_page=False,
         )
         updated = self._deps.upsert_region_usecase.execute(exam=exam, region=region)
         self._record_exam_payload_action(
@@ -381,7 +380,7 @@ class UiIntentController:
     def delete_region_immediate(self, *, exam: ExamProject, region_id: str) -> ExamProject:
         before_payload = copy.deepcopy(exam.to_dict())
         exam.regions = [region for region in exam.regions if region.region_id != region_id]
-        ordered = [region for region in exam.regions if not region.is_extra_page]
+        ordered = list(exam.regions)
         for idx, region in enumerate(ordered):
             code = self._index_to_area_label(idx)
             region.assigned_area_codes = [code]
@@ -397,13 +396,30 @@ class UiIntentController:
         self._app.set_status("Bereich geloescht")
         return updated
 
+    def delete_extra_page_assignment_immediate(self, *, exam: ExamProject, assignment_id: str) -> ExamProject:
+        before_payload = copy.deepcopy(exam.to_dict())
+        exam.extra_page_assignments = [
+            assignment for assignment in exam.extra_page_assignments if assignment.assignment_id != assignment_id
+        ]
+        exam_file = self._deps.exam_repository.save_exam(exam)
+        updated = self._deps.exam_repository.load_exam(exam_file)
+        self._record_exam_payload_action(
+            description="Extraseiten-Zuordnung geloescht",
+            exam_id=updated.exam_id,
+            before_payload=before_payload,
+            after_payload=updated.to_dict(),
+        )
+        self.refresh_exam_overview()
+        self._app.set_status("Extraseiten-Zuordnung geloescht")
+        return updated
+
     def finish_reading_mode(self, *, exam: ExamProject) -> ExamProject:
         before_payload = copy.deepcopy(exam.to_dict())
         expected = set(range(1, exam.standard_page_count + 1))
         marked = {
             region.page_number
             for region in exam.regions
-            if not region.is_extra_page and 1 <= region.page_number <= exam.standard_page_count
+            if 1 <= region.page_number <= exam.standard_page_count
         }
         missing_pages = sorted(expected - marked)
 
@@ -458,27 +474,35 @@ class UiIntentController:
 
         existing = next(
             (
-                region
-                for region in exam.regions
-                if region.is_extra_page and region.student_pdf == student_pdf and region.page_number == page_number
+                assignment
+                for assignment in exam.extra_page_assignments
+                if assignment.student_pdf == student_pdf and assignment.page_number == page_number
             ),
             None,
         )
 
-        region_id = existing.region_id if existing else f"r-extra-{uuid4().hex[:10]}"
-        region = RegionAssignment(
-            region_id=region_id,
+        assignment_id = existing.assignment_id if existing else f"x-{uuid4().hex[:10]}"
+        assignment = ExtraPageAssignment(
+            assignment_id=assignment_id,
             student_pdf=student_pdf,
             page_number=page_number,
             box=RegionBox(x0=box[0], y0=box[1], x1=box[2], y1=box[3]),
-            tasks=[],
             assigned_area_codes=normalized_areas,
             is_read_complete=True,
             is_corrected=existing.is_corrected if existing else False,
-            is_extra_page=True,
         )
 
-        updated = self._deps.upsert_region_usecase.execute(exam=exam, region=region)
+        replaced = False
+        for index, item in enumerate(exam.extra_page_assignments):
+            if item.assignment_id == assignment.assignment_id:
+                exam.extra_page_assignments[index] = assignment
+                replaced = True
+                break
+        if not replaced:
+            exam.extra_page_assignments.append(assignment)
+
+        exam_file = self._deps.exam_repository.save_exam(exam)
+        updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
             description="Extraseite zugeordnet",
             exam_id=updated.exam_id,

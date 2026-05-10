@@ -27,7 +27,10 @@ class JsonExamRepository(ExamRepository):
     def load_exam(self, exam_file: Path) -> ExamProject:
         with exam_file.open("r", encoding="utf-8") as handle:
             raw = json.load(handle)
-        return ExamProject.from_dict(raw)
+        try:
+            return ExamProject.from_dict(raw)
+        except ValueError as exc:
+            raise ValueError(f"{exam_file.name}: {exc}") from exc
 
     def save_exam(self, exam: ExamProject) -> Path:
         exam.updated_at = utc_now_iso()

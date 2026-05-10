@@ -96,7 +96,8 @@ class MainWindow:
         self._in_detail_mode = False
         self._active_view = "overview"
         self._selected_region_id: str | None = None
-        self._region_tree_rows: dict[str, str] = {}
+        self._selected_region_kind: str | None = None
+        self._region_tree_rows: dict[str, tuple[str, str]] = {}
         self._draft_regions: dict[str, DraftRegion] = {}
 
         self._status_var = ui.StringVar(value="Bereit")
@@ -1405,6 +1406,7 @@ class MainWindow:
         self._hide_correction_controls()
         self._close_extra_popup()
         self._selected_region_id = None
+        self._selected_region_kind = None
         self._refresh_region_tree()
         self._show_detail_mode()
 
@@ -1674,33 +1676,65 @@ class MainWindow:
         if not self._current_exam:
             return
 
-        for region in self._current_exam.regions:
-            if region.student_pdf != student_pdf or region.page_number != page_number:
-                continue
-            x0 = region.box.x0 / self._x_factor
-            y0 = region.box.y0 / self._y_factor
-            x1 = region.box.x1 / self._x_factor
-            y1 = region.box.y1 / self._y_factor
-            is_selected = region.region_id == self._selected_region_id
-            rect_id = self._reading_canvas.create_rectangle(
-                x0,
-                y0,
-                x1,
-                y1,
-                outline="#d17a00" if is_selected else "#0b8f59",
-                width=3 if is_selected else 2,
-                tags=("region", f"region:{region.region_id}"),
-            )
-            self._reading_canvas.tag_bind(rect_id, "<Button-1>", self._on_canvas_region_click)
+        if self._extra_mode_active:
+            for assignment in self._current_exam.extra_page_assignments:
+                if assignment.student_pdf != student_pdf or assignment.page_number != page_number:
+                    continue
+                x0 = assignment.box.x0 / self._x_factor
+                y0 = assignment.box.y0 / self._y_factor
+                x1 = assignment.box.x1 / self._x_factor
+                y1 = assignment.box.y1 / self._y_factor
+                is_selected = (
+                    self._selected_region_kind == "extra"
+                    and assignment.assignment_id == self._selected_region_id
+                )
+                rect_id = self._reading_canvas.create_rectangle(
+                    x0,
+                    y0,
+                    x1,
+                    y1,
+                    outline="#d17a00" if is_selected else "#0b8f59",
+                    width=3 if is_selected else 2,
+                    tags=("region", f"extra:{assignment.assignment_id}"),
+                )
+                self._reading_canvas.tag_bind(rect_id, "<Button-1>", self._on_canvas_region_click)
+        else:
+            for region in self._current_exam.regions:
+                if region.page_number != page_number:
+                    continue
+                x0 = region.box.x0 / self._x_factor
+                y0 = region.box.y0 / self._y_factor
+                x1 = region.box.x1 / self._x_factor
+                y1 = region.box.y1 / self._y_factor
+                is_selected = (
+                    self._selected_region_kind == "region"
+                    and region.region_id == self._selected_region_id
+                )
+                rect_id = self._reading_canvas.create_rectangle(
+                    x0,
+                    y0,
+                    x1,
+                    y1,
+                    outline="#d17a00" if is_selected else "#0b8f59",
+                    width=3 if is_selected else 2,
+                    tags=("region", f"region:{region.region_id}"),
+                )
+                self._reading_canvas.tag_bind(rect_id, "<Button-1>", self._on_canvas_region_click)
 
         for draft in self._draft_regions.values():
-            if draft.student_pdf != student_pdf or draft.page_number != page_number:
-                continue
+            if self._extra_mode_active:
+                if draft.student_pdf != student_pdf or draft.page_number != page_number:
+                    continue
+            else:
+                if draft.student_pdf:
+                    continue
+                if draft.page_number != page_number:
+                    continue
             x0 = draft.box[0] / self._x_factor
             y0 = draft.box[1] / self._y_factor
             x1 = draft.box[2] / self._x_factor
             y1 = draft.box[3] / self._y_factor
-            is_selected = draft.draft_id == self._selected_region_id
+            is_selected = self._selected_region_kind == "draft" and draft.draft_id == self._selected_region_id
             rect_id = self._reading_canvas.create_rectangle(
                 x0,
                 y0,
@@ -1709,7 +1743,7 @@ class MainWindow:
                 outline="#d17a00" if is_selected else "#1f6feb",
                 dash=(4, 2),
                 width=3 if is_selected else 2,
-                tags=("region", f"region:{draft.draft_id}"),
+                tags=("region", f"draft:{draft.draft_id}"),
             )
             self._reading_canvas.tag_bind(rect_id, "<Button-1>", self._on_canvas_region_click)
 
@@ -1718,7 +1752,10 @@ class MainWindow:
         if not current:
             return
         tags = self._reading_canvas.gettags(current[0])
-        region_tag = next((tag for tag in tags if tag.startswith("region:")), None)
+        region_tag = next(
+            (tag for tag in tags if tag.startswith("region:") or tag.startswith("extra:") or tag.startswith("draft:")),
+            None,
+        )
         if region_tag is None:
             return
         region_id = region_tag.split(":", 1)[1]
@@ -1782,9 +1819,10 @@ class MainWindow:
         )
 
         draft_id = f"draft-{uuid4().hex[:10]}"
+        draft_student_pdf = student.pdf_filename if self._extra_mode_active else ""
         draft = DraftRegion(
             draft_id=draft_id,
-            student_pdf=student.pdf_filename,
+            student_pdf=draft_student_pdf,
             page_number=page_number,
             box=box,
             area_codes=[self._next_area_label()],
@@ -1793,6 +1831,7 @@ class MainWindow:
         self._draft_regions[draft_id] = draft
 
         self._selected_region_id = draft_id
+        self._selected_region_kind = "draft"
         self._active_region_var.set("Draft")
         self._quick_tasks_var.set("")
         self._form_tasks_text.delete("1.0", ui.END)
@@ -1842,18 +1881,13 @@ class MainWindow:
         if self._current_exam is None:
             return "A"
         if self._extra_mode_active:
-            extra_region_count = sum(1 for region in self._current_exam.regions if region.is_extra_page)
-            extra_draft_count = sum(
-                1
-                for draft in self._draft_regions.values()
-                if self._current_exam is not None and draft.page_number > self._current_exam.standard_page_count
-            )
-            return f"E{extra_region_count + extra_draft_count + 1}"
-        standard_region_count = sum(1 for region in self._current_exam.regions if not region.is_extra_page)
+            existing = self._existing_standard_areas()
+            return existing[0] if existing else "A"
+        standard_region_count = len(self._current_exam.regions)
         standard_draft_count = sum(
             1
             for draft in self._draft_regions.values()
-            if self._current_exam is not None and draft.page_number <= self._current_exam.standard_page_count
+            if self._current_exam is not None and draft.student_pdf == ""
         )
         return self._index_to_area_label(standard_region_count + standard_draft_count)
 
@@ -1891,9 +1925,9 @@ class MainWindow:
         if not self._current_exam:
             return []
         result: list[str] = []
-        for region in self._current_exam.regions:
-            if region.is_extra_page and region.student_pdf == student_pdf and region.page_number == page_number:
-                for code in region.assigned_area_codes:
+        for assignment in self._current_exam.extra_page_assignments:
+            if assignment.student_pdf == student_pdf and assignment.page_number == page_number:
+                for code in assignment.assigned_area_codes:
                     if code not in result:
                         result.append(code)
         return result
@@ -1981,7 +2015,6 @@ class MainWindow:
                 code.strip().upper()
                 for region in exam.regions
                 for code in region.assigned_area_codes
-                if not region.is_extra_page
                 if code.strip()
             }
         )
@@ -2001,7 +2034,6 @@ class MainWindow:
             {
                 code.strip().upper()
                 for region in self._current_exam.regions
-                if not region.is_extra_page
                 for code in region.assigned_area_codes
                 if code.strip()
             }
@@ -2057,7 +2089,7 @@ class MainWindow:
     def _build_correction_templates(exam: ExamProject) -> dict[str, CorrectionTemplate]:
         templates: dict[str, CorrectionTemplate] = {}
         ordered_regions = sorted(
-            (region for region in exam.regions if not region.is_extra_page and region.assigned_area_codes),
+            (region for region in exam.regions if region.assigned_area_codes),
             key=lambda item: (item.assigned_area_codes[0], item.page_number, item.region_id),
         )
         for region in ordered_regions:
@@ -2423,6 +2455,7 @@ class MainWindow:
         self._extra_mode_active = False
         self._correction_mode_active = False
         self._selected_region_id = None
+        self._selected_region_kind = None
         self._draft_regions.clear()
         self._detail_name.set("-")
         self._detail_pages.set("Standardseiten: -")
@@ -2547,27 +2580,48 @@ class MainWindow:
         if self._current_exam is None:
             return
 
-        for region in self._current_exam.regions:
-            area = region.assigned_area_codes[0] if region.assigned_area_codes else "-"
-            row_id = self._regions_tree.insert(
-                "",
-                ui.END,
-                values=(area, region.student_pdf, region.page_number),
-            )
-            self._region_tree_rows[row_id] = region.region_id
+        if self._extra_mode_active and self._extra_sequence:
+            student_index, page_number = self._extra_sequence[self._extra_cursor]
+            student_pdf = self._current_exam.students[student_index].pdf_filename
+            for assignment in self._current_exam.extra_page_assignments:
+                if assignment.student_pdf != student_pdf or assignment.page_number != page_number:
+                    continue
+                area = assignment.assigned_area_codes[0] if assignment.assigned_area_codes else "-"
+                row_id = self._regions_tree.insert(
+                    "",
+                    ui.END,
+                    values=(area, assignment.student_pdf, assignment.page_number),
+                )
+                self._region_tree_rows[row_id] = ("extra", assignment.assignment_id)
+        else:
+            for region in self._current_exam.regions:
+                area = region.assigned_area_codes[0] if region.assigned_area_codes else "-"
+                row_id = self._regions_tree.insert(
+                    "",
+                    ui.END,
+                    values=(area, "Template", region.page_number),
+                )
+                self._region_tree_rows[row_id] = ("region", region.region_id)
 
         for draft in self._draft_regions.values():
+            if self._extra_mode_active and self._extra_sequence:
+                student_index, page_number = self._extra_sequence[self._extra_cursor]
+                student_pdf = self._current_exam.students[student_index].pdf_filename
+                if draft.student_pdf != student_pdf or draft.page_number != page_number:
+                    continue
+            elif draft.student_pdf:
+                continue
             area = draft.area_codes[0] if draft.area_codes else "-"
             row_id = self._regions_tree.insert(
                 "",
                 ui.END,
-                values=(f"{area}*", draft.student_pdf, draft.page_number),
+                values=(f"{area}*", draft.student_pdf or "Template", draft.page_number),
             )
-            self._region_tree_rows[row_id] = draft.draft_id
+            self._region_tree_rows[row_id] = ("draft", draft.draft_id)
 
     def _select_region_by_id(self, region_id: str) -> None:
         for row_id, candidate in self._region_tree_rows.items():
-            if candidate == region_id:
+            if candidate[1] == region_id:
                 self._regions_tree.selection_set(row_id)
                 self._regions_tree.focus(row_id)
                 self._on_region_selected(None)
@@ -2579,15 +2633,20 @@ class MainWindow:
         selection = self._regions_tree.selection()
         if not selection:
             self._selected_region_id = None
+            self._selected_region_kind = None
             self._active_region_var.set("-")
             return
 
-        region_id = self._region_tree_rows.get(selection[0])
-        if region_id is None:
+        row_value = self._region_tree_rows.get(selection[0])
+        if row_value is None:
             return
+        kind, region_id = row_value
+        self._selected_region_kind = kind
 
-        draft = self._draft_regions.get(region_id)
-        if draft is not None:
+        if kind == "draft":
+            draft = self._draft_regions.get(region_id)
+            if draft is None:
+                return
             self._selected_region_id = draft.draft_id
             area = draft.area_codes[0] if draft.area_codes else "-"
             self._active_region_var.set(f"{area} (Draft)")
@@ -2600,6 +2659,20 @@ class MainWindow:
             self._quick_tasks_var.set(quick_text)
             self._form_tasks_text.delete("1.0", ui.END)
             self._form_tasks_text.insert("1.0", form_text)
+            self._rerender_active_page()
+            return
+
+        if kind == "extra":
+            assignment = next(
+                (item for item in self._current_exam.extra_page_assignments if item.assignment_id == region_id),
+                None,
+            )
+            if assignment is None:
+                return
+            self._selected_region_id = assignment.assignment_id
+            area = assignment.assigned_area_codes[0] if assignment.assigned_area_codes else "-"
+            self._active_region_var.set(area)
+            self._extra_area_codes_var.set(",".join(code.strip().upper() for code in assignment.assigned_area_codes if code.strip()))
             self._rerender_active_page()
             return
 
@@ -2637,7 +2710,7 @@ class MainWindow:
         if region is not None:
             updated = self._controller.upsert_region_immediate(
                 exam=self._current_exam,
-                student_pdf=region.student_pdf,
+                student_pdf="",
                 page_number=region.page_number,
                 box=(region.box.x0, region.box.y0, region.box.x1, region.box.y1),
                 task_specs=task_specs,
@@ -2661,9 +2734,11 @@ class MainWindow:
             messagebox.showerror("Ungültige Eingabe", "Bitte mindestens eine Aufgabe mit Code und Punkten angeben.")
             return
 
+        before_ids = {region.region_id for region in self._current_exam.regions}
+
         updated = self._controller.upsert_region_immediate(
             exam=self._current_exam,
-            student_pdf=draft.student_pdf,
+            student_pdf="",
             page_number=draft.page_number,
             box=draft.box,
             task_specs=task_specs,
@@ -2675,7 +2750,7 @@ class MainWindow:
             (
                 region.region_id
                 for region in reversed(updated.regions)
-                if region.student_pdf == draft.student_pdf and region.page_number == draft.page_number
+                if region.region_id not in before_ids
             ),
             None,
         )
@@ -2699,6 +2774,7 @@ class MainWindow:
 
         draft = self._draft_regions.get(self._selected_region_id)
         if draft is not None:
+            before_ids = {assignment.assignment_id for assignment in self._current_exam.extra_page_assignments}
             updated = self._controller.assign_extra_page_immediate(
                 exam=self._current_exam,
                 student_pdf=draft.student_pdf,
@@ -2710,9 +2786,9 @@ class MainWindow:
                 return
             persisted_id = next(
                 (
-                    region.region_id
-                    for region in reversed(updated.regions)
-                    if region.student_pdf == draft.student_pdf and region.page_number == draft.page_number and region.is_extra_page
+                    assignment.assignment_id
+                    for assignment in reversed(updated.extra_page_assignments)
+                    if assignment.assignment_id not in before_ids
                 ),
                 None,
             )
@@ -2725,21 +2801,24 @@ class MainWindow:
             self._rerender_active_page()
             return
 
-        region = next((item for item in self._current_exam.regions if item.region_id == self._selected_region_id), None)
-        if region is None:
+        assignment = next(
+            (item for item in self._current_exam.extra_page_assignments if item.assignment_id == self._selected_region_id),
+            None,
+        )
+        if assignment is None:
             return
         updated = self._controller.assign_extra_page_immediate(
             exam=self._current_exam,
-            student_pdf=region.student_pdf,
-            page_number=region.page_number,
-            box=(region.box.x0, region.box.y0, region.box.x1, region.box.y1),
+            student_pdf=assignment.student_pdf,
+            page_number=assignment.page_number,
+            box=(assignment.box.x0, assignment.box.y0, assignment.box.x1, assignment.box.y1),
             area_codes=area_codes,
         )
         if updated is None:
             return
         self._current_exam = updated
         self._refresh_region_tree()
-        self._select_region_by_id(region.region_id)
+        self._select_region_by_id(assignment.assignment_id)
         self._apply_detail_labels(updated)
         self._rerender_active_page()
 
@@ -2750,6 +2829,7 @@ class MainWindow:
         if self._selected_region_id in self._draft_regions:
             del self._draft_regions[self._selected_region_id]
             self._selected_region_id = None
+            self._selected_region_kind = None
             self._active_region_var.set("-")
             self._quick_tasks_var.set("")
             self._form_tasks_text.delete("1.0", ui.END)
@@ -2760,10 +2840,17 @@ class MainWindow:
         if self._controller is None:
             return
 
-        updated = self._controller.delete_region_immediate(exam=self._current_exam, region_id=self._selected_region_id)
+        if self._selected_region_kind == "extra":
+            updated = self._controller.delete_extra_page_assignment_immediate(
+                exam=self._current_exam,
+                assignment_id=self._selected_region_id,
+            )
+        else:
+            updated = self._controller.delete_region_immediate(exam=self._current_exam, region_id=self._selected_region_id)
         self._current_exam = updated
 
         self._selected_region_id = None
+        self._selected_region_kind = None
         self._active_region_var.set("-")
         self._quick_tasks_var.set("")
         self._form_tasks_text.delete("1.0", ui.END)

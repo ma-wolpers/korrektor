@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Das Klausur-JSON nutzt jetzt ein zukunftsorientiertes Trennschema: Standardbereiche liegen als wiederverwendbare Templates in `regions`, Extraseiten-Zuordnungen separat in `extra_page_assignments`.
+- Legacy-JSON ohne `extra_page_assignments` wird nicht mehr geladen (bewusst ohne Rueckwaertskompatibilitaet).
 - Der Korrekturmodus wird auf eine eigene Ansicht umgestellt (nicht mehr als gequetschter Teilbereich unter den Klausurdetails); Bereich, Aufgabe und Punkte laufen jetzt in einer separaten Korrektur-Arbeitsflaeche mit Vorschauausschnitt.
 - Extraseiten sind fachlich eingeschraenkt: dort koennen keine neuen Aufgaben oder Max-Punkte mehr gepflegt werden, sondern nur Zuordnungen zu bereits existierenden Standard-Bereichen.
 - Neues `Bearbeiten`-Menue mit `Rueckgaengig`/`Wiederholen` sowie Shortcuts `Strg+Z` und `Strg+Y`: Inhaltsaenderungen (u. a. Bereiche, Extraseitenzuordnung, Punkte, Klausur anlegen/loeschen, JSON-Ablagepfad) sind jetzt in der laufenden Sitzung undo/redo-faehig.

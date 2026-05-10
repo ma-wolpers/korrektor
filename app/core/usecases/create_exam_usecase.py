@@ -53,6 +53,7 @@ class CreateExamUseCase:
             standard_page_count=standard_page_count,
             students=students,
             regions=[],
+            extra_page_assignments=[],
             is_reading_complete=False,
         )
         exam_file = self._exam_repo.save_exam(exam)

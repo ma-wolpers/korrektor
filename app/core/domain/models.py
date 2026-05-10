@@ -101,6 +101,40 @@ class RegionAssignment:
 
 
 @dataclass(slots=True)
+class ExtraPageAssignment:
+    assignment_id: str
+    student_pdf: str
+    page_number: int
+    box: RegionBox
+    assigned_area_codes: list[str] = field(default_factory=list)
+    is_read_complete: bool = True
+    is_corrected: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "assignment_id": self.assignment_id,
+            "student_pdf": self.student_pdf,
+            "page_number": self.page_number,
+            "box": self.box.to_dict(),
+            "assigned_area_codes": list(self.assigned_area_codes),
+            "is_read_complete": self.is_read_complete,
+            "is_corrected": self.is_corrected,
+        }
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "ExtraPageAssignment":
+        return cls(
+            assignment_id=str(raw.get("assignment_id", raw.get("region_id", ""))).strip(),
+            student_pdf=str(raw.get("student_pdf", "")).strip(),
+            page_number=int(raw.get("page_number", 1)),
+            box=RegionBox.from_dict(raw.get("box", {})),
+            assigned_area_codes=[str(code).strip() for code in raw.get("assigned_area_codes", [])],
+            is_read_complete=bool(raw.get("is_read_complete", True)),
+            is_corrected=bool(raw.get("is_corrected", False)),
+        )
+
+
+@dataclass(slots=True)
 class StudentExam:
     student_id: str
     display_name: str
@@ -137,7 +171,10 @@ class ExamProject:
     updated_at: str
     standard_page_count: int
     students: list[StudentExam] = field(default_factory=list)
+    # Standardbereich-Templates (seiten-/koordinatenbasiert, nicht studentgebunden).
     regions: list[RegionAssignment] = field(default_factory=list)
+    # Extraseiten-Zuordnungen bleiben student- und seitenbezogen.
+    extra_page_assignments: list[ExtraPageAssignment] = field(default_factory=list)
     is_reading_complete: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -150,11 +187,24 @@ class ExamProject:
             "standard_page_count": self.standard_page_count,
             "students": [student.to_dict() for student in self.students],
             "regions": [region.to_dict() for region in self.regions],
+            "extra_page_assignments": [assignment.to_dict() for assignment in self.extra_page_assignments],
             "is_reading_complete": self.is_reading_complete,
         }
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "ExamProject":
+        if "extra_page_assignments" not in raw:
+            raise ValueError("Unsupported exam schema: missing 'extra_page_assignments'")
+
+        standard_templates = [RegionAssignment.from_dict(item) for item in raw.get("regions", [])]
+        for region in standard_templates:
+            if region.is_extra_page:
+                raise ValueError("Unsupported exam schema: standard templates must not set is_extra_page=true")
+            if region.student_pdf:
+                raise ValueError("Unsupported exam schema: standard templates must not carry student_pdf")
+
+        extra_assignments = [ExtraPageAssignment.from_dict(item) for item in raw.get("extra_page_assignments", [])]
+
         return cls(
             exam_id=str(raw.get("exam_id", "")).strip(),
             exam_name=str(raw.get("exam_name", "")).strip(),
@@ -163,7 +213,8 @@ class ExamProject:
             updated_at=str(raw.get("updated_at", utc_now_iso())),
             standard_page_count=int(raw.get("standard_page_count", 0)),
             students=[StudentExam.from_dict(item) for item in raw.get("students", [])],
-            regions=[RegionAssignment.from_dict(item) for item in raw.get("regions", [])],
+            regions=standard_templates,
+            extra_page_assignments=extra_assignments,
             is_reading_complete=bool(raw.get("is_reading_complete", False)),
         )
 

@@ -25,6 +25,10 @@
 - Korrekturdaten: `korrektor_scores.csv` im Klausurordner
 - App-Einstellungen: `%APPDATA%/<app_name>/settings.json` (mindestens `exam_index_dir`)
 - Schreibvorgaenge sind atomar (temp + replace)
+- Zukunfts-Schema (ohne Legacy-Fallback):
+	- `regions` enthalten nur Standardbereich-Templates (seiten-/koordinatenbasiert, nicht studentgebunden).
+	- Extraseiten-Zuordnungen liegen separat in `extra_page_assignments` (student-/seitenbezogen).
+	- JSON ohne `extra_page_assignments` wird als nicht unterstuetztes Altschema abgewiesen.
 
 ## Undo/Redo
 
@@ -36,6 +40,7 @@
 
 - Bereichsrahmen koennen direkt auf Extraseiten gezogen, gespeichert und wieder geloescht werden.
 - Extraseiten erhalten keine eigene Aufgabenpflege; sie werden nur vorhandenen Standard-Bereichen zugeordnet.
+- Standardbereiche dienen als wiederverwendbare Koordinatenvorlagen fuer alle Schueler:innen; Extraseiten referenzieren diese Bereiche nur per Zuordnung.
 
 ## Aktueller Umbau (Modi)
 

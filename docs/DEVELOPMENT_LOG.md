@@ -1,6 +1,9 @@
 # Development Log
 
 ## [Unreleased]
+- Datenmodell auf zukunftsorientiertes Trennschema umgestellt: `regions` enthaelt nur noch Standard-Templatebereiche (nicht studentgebunden), Extraseiten-Zuordnungen werden separat in `extra_page_assignments` gepflegt.
+- Legacy-Kompatibilitaet bewusst entfernt: JSON-Dateien ohne `extra_page_assignments` werden als nicht unterstuetztes Altschema abgewiesen.
+- Repository-/Domain-Tests erweitert fuer das neue Vorwaerts-Schema (Akzeptanzfall + harte Ablehnung von Legacy-Strukturen).
 - Korrekturmodus begonnen umzubauen: eigene Korrekturansicht mit getrennter Arbeitsflaeche (statt eingebettetem Schnellkorrektur-Block in der Detailansicht).
 - Korrekturansicht nutzt bereichsbasierte Vorschau-Ausschnitte je Schueler:in (Koordinaten aus dem eingelesenen Standardbereich werden auf das aktuelle PDF angewandt).
 - Extraseitenfluss gehaertet: Aufgabenpflege fuer Extraseiten wird unterbunden; Extraseiten duerfen nur bestehenden Standard-Bereichen zugeordnet werden.

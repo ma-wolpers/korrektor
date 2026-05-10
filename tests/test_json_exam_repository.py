@@ -69,3 +69,31 @@ def test_set_index_root_switches_storage_location(tmp_path: Path) -> None:
 
     assert second_file.parent == second_index.resolve()
     assert second_file.exists()
+
+
+def test_load_exam_rejects_legacy_schema_without_extra_assignments(tmp_path: Path) -> None:
+    index_root = tmp_path / "index"
+    index_root.mkdir(parents=True)
+
+    exam_file = index_root / "legacy.exam.json"
+    exam_file.write_text(
+        """
+{
+  "exam_id": "exam-legacy",
+  "exam_name": "Mathe",
+  "folder_path": "A:/tmp/exam",
+  "created_at": "2025-01-01T00:00:00.000000Z",
+  "updated_at": "2025-01-01T00:00:00.000000Z",
+  "standard_page_count": 2,
+  "students": [],
+  "regions": [],
+  "is_reading_complete": false
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    repo = JsonExamRepository(index_root=index_root)
+
+    with pytest.raises(ValueError, match="legacy\\.exam\\.json"):
+        repo.load_exam(exam_file)
