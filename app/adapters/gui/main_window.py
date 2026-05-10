@@ -106,8 +106,13 @@ CORRECTION_ALT_MODIFIER_MASKS: tuple[int, ...] = (0x0008, 0x20000)
 CORRECTION_EXPORT_TEXT_WIDTH_PADDING_EM = 0.4
 CORRECTION_EXPORT_TEXT_HEIGHT_EM = 1.4
 CORRECTION_EXPORT_TEXT_Y_SHIFT_EM = 0.4
+CORRECTION_EXPORT_TEXT_ROT_X_SHIFT_FACTOR = 0.37
+CORRECTION_EXPORT_TEXT_ROT90_Y_CORRECTION_EM = 0.25
+CORRECTION_EXPORT_TEXT_ROT180_Y_CORRECTION_EM = 0.5
 CORRECTION_EXPORT_SYMBOL_HEIGHT_EM = 1.3
 CORRECTION_EXPORT_SYMBOL_Y_SHIFT_EM = 0.1
+CORRECTION_EXPORT_SYMBOL_ROT90_X_SHIFT_EM = 0.08
+CORRECTION_EXPORT_SYMBOL_ROT180_Y_CORRECTION_EM = 0.15
 
 
 class MainWindow:
@@ -3534,19 +3539,35 @@ class MainWindow:
         lines = annotation.content.splitlines() or [annotation.content or " "]
         longest_line = max(lines, key=len)
         text_width = fitz.get_text_length(longest_line, fontname="helv", fontsize=fontsize_f)
+        rotation_deg = int(MainWindow._normalize_rotation_deg(annotation.rotation_deg))
 
         width = max(24.0, text_width + (fontsize_f * CORRECTION_EXPORT_TEXT_WIDTH_PADDING_EM))
+        center_x = annotation.x
         if annotation.annotation_type == "symbol":
             height = max(12.0, fontsize_f * CORRECTION_EXPORT_SYMBOL_HEIGHT_EM)
             center_y = annotation.y + (fontsize_f * CORRECTION_EXPORT_SYMBOL_Y_SHIFT_EM)
+            if rotation_deg == 90:
+                center_x += fontsize_f * CORRECTION_EXPORT_SYMBOL_ROT90_X_SHIFT_EM
+            elif rotation_deg == 270:
+                center_x -= fontsize_f * CORRECTION_EXPORT_SYMBOL_ROT90_X_SHIFT_EM
+            elif rotation_deg == 180:
+                center_y -= fontsize_f * CORRECTION_EXPORT_SYMBOL_ROT180_Y_CORRECTION_EM
         else:
             line_count = max(1, len(lines))
             height = max(12.0, fontsize_f * CORRECTION_EXPORT_TEXT_HEIGHT_EM * line_count)
             center_y = annotation.y + (fontsize_f * CORRECTION_EXPORT_TEXT_Y_SHIFT_EM)
+            if rotation_deg == 90:
+                center_x += width * CORRECTION_EXPORT_TEXT_ROT_X_SHIFT_FACTOR
+                center_y -= fontsize_f * CORRECTION_EXPORT_TEXT_ROT90_Y_CORRECTION_EM
+            elif rotation_deg == 270:
+                center_x -= width * CORRECTION_EXPORT_TEXT_ROT_X_SHIFT_FACTOR
+                center_y -= fontsize_f * CORRECTION_EXPORT_TEXT_ROT90_Y_CORRECTION_EM
+            elif rotation_deg == 180:
+                center_y -= fontsize_f * CORRECTION_EXPORT_TEXT_ROT180_Y_CORRECTION_EM
         return fitz.Rect(
-            annotation.x - (width / 2.0),
+            center_x - (width / 2.0),
             center_y - (height / 2.0),
-            annotation.x + (width / 2.0),
+            center_x + (width / 2.0),
             center_y + (height / 2.0),
         )
 
