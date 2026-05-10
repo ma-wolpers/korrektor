@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Main widget styling now applies the shared `bw_gui.theming` baseline tokens, and changing the tooltip/theme setting re-applies window and ttk styles immediately for closer cross-app visual parity.
 - Shared hover overlays now also cover correction/reading workflow actions and extra-page popup navigation, aligning button guidance beyond the top action row.
 - Main window now uses the shared `bw_gui.menu.CustomMenuBar` as top-level menu (`Datei`/`Modus`/`Debug`) with centralized commands for create/open/settings, mode switching, and runtime diagnostics.
 - Main action and mode-switch buttons now provide expanded shared hover help overlays (including runtime debug/open actions) for more consistent shortcut/action guidance.

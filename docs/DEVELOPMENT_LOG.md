@@ -1,6 +1,8 @@
 # Development Log
 
 ## [Unreleased]
+- Welle-13-Pilot gestartet: `app/adapters/gui/main_window.py` nutzt fuer die Haupt-Widgetstyles jetzt die Shared-Theme-Basis aus `bw_gui.theming` (`apply_window_theme`, `configure_ttk_theme`, `get_theme`) statt fixer Hex-Farben.
+- Theme-Reapply verdrahtet: beim Commit aus dem Shared-Settings-Dialog wird `_build_styles()` erneut ausgefuehrt, sodass Tooltip-/Menu- und Widget-Theme im selben Schritt aktualisiert werden.
 - Hover-Contract weiter ausgebaut: zusaetzliche Buttons in Korrektur-/Einlese-Workflows, Bereichsaktionen und Extraseiten-Popup-Navigation nutzen jetzt `SharedHoverTooltip` mit konsistenten Action-/Shortcut-Hinweisen.
 - Shared-Menueleiste integriert: `app/adapters/gui/main_window.py` nutzt jetzt primaer `bw_gui.menu.CustomMenuBar` mit provider-basierten Menues (`Datei`/`Modus`/`Debug`) fuer zentrale Datei-, Modus- und Runtime-Debug-Aktionen.
 - Menu-Theme-Sync verdrahtet: bei Settings-Commit aktualisiert `_apply_settings_dialog_payload` jetzt auch das Theme der Shared-Menueleiste, sodass Tooltip- und Menu-Theme konsistent wechseln.
