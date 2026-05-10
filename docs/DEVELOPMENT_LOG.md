@@ -1,6 +1,9 @@
 # Development Log
 
 ## [Unreleased]
+- PDF-Annotation-Writeback praezisiert: FreeText-Writeback nutzt jetzt explizite Zentrierung (`align=center`) und stabile Fontvorgaben (`helv`), um Vorschau-/Export-Versatz bei Symbolen und Kommentaren zu reduzieren.
+- Export-Filter gehaertet: Markierungen ausserhalb des aktiven Bereich-Clip werden beim `PDF ueberschreiben` gezielt ignoriert und als Warnliste gemeldet statt ungeprueft mitzuschreiben.
+- Annotationsmodell erweitert: `pdf_annotations` speichert jetzt optional `area_code`, damit Korrektur-Overlay und Exportbereich robust auf denselben Bereich begrenzt werden koennen.
 - Korrektur-UX verfeinert: Rotations-Buttons drehen jetzt semantisch korrekt (links/rechts) in stabilen 90-Grad-Schritten; PDF-Writeback nutzt denselben 90-Grad-Pfad fuer verlaessliche Darstellung in externen Viewern.
 - Korrektur-Preview entkoppelt vom PDF-Annotation-Layer: Basisrendering blendet PDF-Anmerkungen aus, sodass nur das editierbare Korrektor-Overlay sichtbar bleibt (keine Doppelanzeige nach PDF-Ueberschreiben).
 - Korrektur-Layout bereinigt: Export-Button aus der Korrekturansicht in die Klausur-Details verschoben; manueller `Punkte speichern`-Button entfernt; `Kommentare speichern` in `PDF ueberschreiben` umbenannt.

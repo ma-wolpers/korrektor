@@ -69,6 +69,7 @@ def _base_raw_exam() -> dict[str, object]:
                 "x": 33.5,
                 "y": 72.25,
                 "task_code": "A1",
+                "area_code": "A",
                 "font_size": 26.0,
                 "rotation_deg": 15.0,
             }
@@ -85,6 +86,7 @@ def test_from_dict_accepts_forward_only_schema() -> None:
     assert len(exam.person_area_completions) == 1
     assert exam.task_comments == {"alice": {"A1": "Sauber gerechnet."}}
     assert len(exam.pdf_annotations) == 1
+    assert exam.pdf_annotations[0].area_code == "A"
     assert exam.pdf_annotations[0].font_size == 26.0
     assert exam.pdf_annotations[0].rotation_deg == 15.0
 
@@ -116,6 +118,15 @@ def test_from_dict_defaults_annotation_size_and_rotation_when_missing() -> None:
 
     assert exam.pdf_annotations[0].font_size == 20.0
     assert exam.pdf_annotations[0].rotation_deg == 0.0
+
+
+def test_from_dict_defaults_annotation_area_code_when_missing() -> None:
+    raw = _base_raw_exam()
+    raw["pdf_annotations"][0].pop("area_code")
+
+    exam = ExamProject.from_dict(raw)
+
+    assert exam.pdf_annotations[0].area_code == ""
 
 
 def test_from_dict_rejects_missing_extra_assignment_field() -> None:

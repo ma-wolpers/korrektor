@@ -167,6 +167,7 @@ class PdfAnnotation:
     x: float
     y: float
     task_code: str = ""
+    area_code: str = ""
     font_size: float = 20.0
     rotation_deg: float = 0.0
 
@@ -181,6 +182,7 @@ class PdfAnnotation:
             "x": self.x,
             "y": self.y,
             "task_code": self.task_code,
+            "area_code": self.area_code,
             "font_size": self.font_size,
             "rotation_deg": self.rotation_deg,
         }
@@ -197,6 +199,7 @@ class PdfAnnotation:
             x=float(raw.get("x", 0.0)),
             y=float(raw.get("y", 0.0)),
             task_code=str(raw.get("task_code", "")).strip().upper(),
+            area_code=str(raw.get("area_code", "")).strip().upper(),
             font_size=float(raw.get("font_size", 20.0)),
             rotation_deg=float(raw.get("rotation_deg", 0.0)),
         )

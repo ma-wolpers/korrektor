@@ -3093,6 +3093,7 @@ class MainWindow:
             item
             for item in self._current_exam.pdf_annotations
             if item.student_pdf == student.pdf_filename and item.page_number == template.page_number
+            and (not item.area_code or item.area_code == area_code)
         ]
 
     def _annotation_by_id(self, annotation_id: str) -> PdfAnnotation | None:
@@ -3120,6 +3121,47 @@ class MainWindow:
                 self._current_exam.pdf_annotations[index] = annotation
                 return
         self._current_exam.pdf_annotations.append(annotation)
+
+    @staticmethod
+    def _point_in_box(x: float, y: float, box: tuple[float, float, float, float]) -> bool:
+        x0, y0, x1, y1 = box
+        return x0 <= x <= x1 and y0 <= y <= y1
+
+    def _resolve_annotation_clip_box(
+        self,
+        annotation: PdfAnnotation,
+        templates: dict[str, CorrectionTemplate],
+    ) -> tuple[float, float, float, float] | None:
+        if annotation.area_code:
+            template = templates.get(annotation.area_code)
+            if template is None or template.page_number != annotation.page_number:
+                return None
+            return template.box
+
+        for template in templates.values():
+            if template.page_number != annotation.page_number:
+                continue
+            if self._point_in_box(annotation.x, annotation.y, template.box):
+                return template.box
+        return None
+
+    @staticmethod
+    def _estimate_annotation_rect(annotation: PdfAnnotation, fontsize: int) -> fitz.Rect:
+        if annotation.annotation_type == "symbol":
+            width = max(24.0, fontsize * 2.2)
+            height = max(18.0, fontsize * 2.2)
+        else:
+            lines = annotation.content.splitlines() or [annotation.content]
+            max_chars = max((len(line) for line in lines), default=1)
+            line_count = max(1, len(lines))
+            width = max(48.0, fontsize * max(2.0, max_chars * 0.72))
+            height = max(20.0, fontsize * (1.8 + 0.9 * (line_count - 1)))
+        return fitz.Rect(
+            annotation.x - (width / 2.0),
+            annotation.y - (height / 2.0),
+            annotation.x + (width / 2.0),
+            annotation.y + (height / 2.0),
+        )
 
     def _delete_selected_correction_annotation(self) -> bool:
         if self._current_exam is None or self._correction_selected_annotation_id is None:
@@ -3260,6 +3302,7 @@ class MainWindow:
             x=pdf_pos[0],
             y=pdf_pos[1],
             task_code=task_code or "",
+            area_code=area_code,
             font_size=default_font_size,
             rotation_deg=0.0,
         )
@@ -3341,16 +3384,29 @@ class MainWindow:
         for annotation in self._current_exam.pdf_annotations:
             grouped.setdefault(annotation.student_pdf, []).append(annotation)
 
+        templates = self._build_correction_templates(self._current_exam)
+
         if not grouped:
             messagebox.showinfo("Hinweis", "Keine Markierungen zum Speichern vorhanden.")
             return
 
         failures: list[str] = []
+        skipped_annotations: list[str] = []
         for student_pdf, annotations in grouped.items():
             pdf_path = Path(self._current_exam.folder_path) / student_pdf
             if not pdf_path.exists():
                 failures.append(f"Datei fehlt: {student_pdf}")
                 continue
+
+            exportable_annotations: list[PdfAnnotation] = []
+            for annotation in annotations:
+                clip_box = self._resolve_annotation_clip_box(annotation, templates)
+                if clip_box is None or not self._point_in_box(annotation.x, annotation.y, clip_box):
+                    skipped_annotations.append(
+                        f"{student_pdf} S{annotation.page_number}: {annotation.content} ({annotation.annotation_id})"
+                    )
+                    continue
+                exportable_annotations.append(annotation)
 
             cached_document = self._doc_cache.pop(student_pdf, None)
             if cached_document is not None:
@@ -3372,25 +3428,20 @@ class MainWindow:
                         if subject.startswith("KORREKTOR_MARKER:"):
                             page.delete_annot(existing_annot)
 
-                for annotation in annotations:
+                for annotation in exportable_annotations:
                     if annotation.page_number < 1 or annotation.page_number > document.page_count:
                         continue
                     page = document.load_page(annotation.page_number - 1)
                     fontsize = max(8, int(round(float(annotation.font_size))))
-                    width = max(24.0, fontsize * max(1.2, len(annotation.content) * 0.62))
-                    height = max(18.0, fontsize * 1.8)
-                    rect = fitz.Rect(
-                        annotation.x - (width / 2.0),
-                        annotation.y - (height / 2.0),
-                        annotation.x + (width / 2.0),
-                        annotation.y + (height / 2.0),
-                    )
+                    rect = self._estimate_annotation_rect(annotation, fontsize)
                     annot = page.add_freetext_annot(
                         rect,
                         annotation.content,
                         fontsize=fontsize,
+                        fontname="helv",
                         text_color=self._hex_to_rgb_fraction(annotation.color_hex),
                         rotate=int(self._normalize_rotation_deg(annotation.rotation_deg)),
+                        align=1,
                     )
                     annot.set_info(
                         title="Korrektor",
@@ -3424,6 +3475,16 @@ class MainWindow:
         self._current_exam = self._controller.save_exam_immediate(exam=self._current_exam)
         self._apply_detail_labels(self._current_exam)
         self._render_correction_preview()
+        if skipped_annotations:
+            preview = "\n".join(skipped_annotations[:8])
+            remaining = len(skipped_annotations) - 8
+            suffix = f"\n... und {remaining} weitere" if remaining > 0 else ""
+            messagebox.showwarning(
+                "Exporthinweis",
+                "Markierungen ausserhalb des aktiven Vorschau-Bereichs wurden beim PDF-Ueberschreiben ignoriert:\n"
+                + preview
+                + suffix,
+            )
         self._status_var.set("Original-PDF mit Markierungen ueberschrieben")
 
     def _render_correction_preview(self) -> None:
