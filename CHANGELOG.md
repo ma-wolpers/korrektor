@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Die Korrekturvorschau hat jetzt Zoom-Buttons (`-`/`+`), Reset auf `100%` sowie Zoom-Shortcuts wie in Blattwerk: `Strg+Mausrad`, `Strg++`, `Strg+-` und `Strg+0`.
 - In der Korrekturansicht toggelt `Leertaste` jetzt verlaesslich `Fertig korrigiert` (auch wenn der Fokus noch im Punktefeld liegt).
 - Die Detailzeile wurde vereinfacht auf `Fertig korrigiert X/Y`; die Anzeige `Aktive Person` erscheint dort nicht mehr, sondern nur in den Arbeitsansichten.
 - Im Extraseitenmodus zeigt die Bereichstabelle jetzt `Bereich | Aufgaben | Seite` (statt PDF), startet pro aktueller Extraseite ohne Altzeilen und hat eine kompakte Bereich/Aufgaben-Uebersicht ueber der Tabelle.

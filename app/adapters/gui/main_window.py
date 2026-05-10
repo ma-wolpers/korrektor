@@ -74,6 +74,10 @@ class CorrectionTemplate:
     tasks: list[TaskDefinition]
 
 
+CORRECTION_ZOOM_MIN_PERCENT = 10
+CORRECTION_ZOOM_MAX_PERCENT = 240
+
+
 class MainWindow:
     def __init__(self, root: ui.Tk, deps: GuiDependencies) -> None:
         self.root = root
@@ -140,6 +144,8 @@ class MainWindow:
         self._correction_templates: dict[str, CorrectionTemplate] = {}
         self._correction_task_items: list[tuple[str, float]] = []
         self._correction_photo: ui.PhotoImage | None = None
+        self._correction_zoom_percent = 100
+        self._correction_zoom_info_var = ui.StringVar(value="Zoom: 100%")
         self._correction_finished_var = ui.BooleanVar(value=False)
         self._correction_finished_hint_var = ui.StringVar(value="Fertigstatus nicht aktiv")
         self._correction_finished_check: widgets.Checkbutton | None = None
@@ -178,6 +184,9 @@ class MainWindow:
                 UiIntent.DETAIL_NAVIGATE_CTRL_UP,
                 UiIntent.DETAIL_NAVIGATE_CTRL_DOWN,
                 UiIntent.CORRECTION_TOGGLE_FINISHED,
+                UiIntent.CORRECTION_ZOOM_IN,
+                UiIntent.CORRECTION_ZOOM_OUT,
+                UiIntent.CORRECTION_ZOOM_RESET,
                 UiIntent.DEBUG_RUNTIME_OVERLAY,
                 UiIntent.DEBUG_RUNTIME_OFFLINE,
             ]
@@ -293,7 +302,7 @@ class MainWindow:
             SharedMenuItem(type="command", label="Korrekturmodus starten", command=self._start_correction_mode),
             SharedMenuItem(type="command", label="Extraseiten-Modus starten", command=self._start_extra_mode),
             SharedMenuItem(type="separator"),
-            SharedMenuItem(type="command", label="Zur Uebersicht", command=self._return_to_overview),
+            SharedMenuItem(type="command", label="Zur Übersicht", command=self._return_to_overview),
         )
 
     def _menu_items_debug(self):
@@ -381,6 +390,54 @@ class MainWindow:
             self._on_space_key,
             binding_id="correction.toggle_finished",
             intent=UiIntent.CORRECTION_TOGGLE_FINISHED,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Control-plus>",
+            self._on_ctrl_plus_key,
+            binding_id="correction.zoom_in",
+            intent=UiIntent.CORRECTION_ZOOM_IN,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Control-equal>",
+            self._on_ctrl_plus_key,
+            binding_id="correction.zoom_in_equal",
+            intent=UiIntent.CORRECTION_ZOOM_IN,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Control-KP_Add>",
+            self._on_ctrl_plus_key,
+            binding_id="correction.zoom_in_numpad",
+            intent=UiIntent.CORRECTION_ZOOM_IN,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Control-minus>",
+            self._on_ctrl_minus_key,
+            binding_id="correction.zoom_out",
+            intent=UiIntent.CORRECTION_ZOOM_OUT,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Control-KP_Subtract>",
+            self._on_ctrl_minus_key,
+            binding_id="correction.zoom_out_numpad",
+            intent=UiIntent.CORRECTION_ZOOM_OUT,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Control-Key-0>",
+            self._on_ctrl_zero_key,
+            binding_id="correction.zoom_reset",
+            intent=UiIntent.CORRECTION_ZOOM_RESET,
             modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
             allow_when_text_input=True,
         )
@@ -917,12 +974,12 @@ class MainWindow:
 
         back_button = widgets.Button(
             detail_actions,
-            text="Zur Uebersicht",
+            text="Zur Übersicht",
             style="SecondaryAction.TButton",
             command=self._return_to_overview,
         )
         back_button.pack(side=ui.LEFT)
-        self._attach_hover_help(back_button, label="Zur Gesamtuebersicht wechseln", shortcut="Esc")
+        self._attach_hover_help(back_button, label="Zur Gesamtübersicht wechseln", shortcut="Esc")
 
         mode_reading_button = widgets.Button(
             detail_actions,
@@ -1360,6 +1417,38 @@ class MainWindow:
         self._correction_max_points_var = ui.StringVar(value="Max: -")
         widgets.Label(correction_actions, textvariable=self._correction_max_points_var, style="Status.TLabel").pack(side=ui.LEFT, padx=(12, 0))
 
+        correction_zoom_actions = widgets.Frame(correction_actions, style="Surface.TFrame")
+        correction_zoom_actions.pack(side=ui.RIGHT)
+        widgets.Label(correction_zoom_actions, textvariable=self._correction_zoom_info_var, style="Muted.TLabel").pack(side=ui.RIGHT, padx=(8, 0))
+        reset_correction_zoom_button = widgets.Button(
+            correction_zoom_actions,
+            text="100%",
+            style="SecondaryAction.TButton",
+            command=self._reset_correction_zoom,
+        )
+        reset_correction_zoom_button.pack(side=ui.RIGHT)
+        self._attach_hover_help(reset_correction_zoom_button, label="Korrektur-Zoom auf 100% setzen", shortcut="Strg+0")
+
+        zoom_in_correction_button = widgets.Button(
+            correction_zoom_actions,
+            text="+",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_correction_zoom(10),
+            width=3,
+        )
+        zoom_in_correction_button.pack(side=ui.RIGHT, padx=(8, 0))
+        self._attach_hover_help(zoom_in_correction_button, label="Korrektur-Zoom vergroessern", shortcut="Strg++")
+
+        zoom_out_correction_button = widgets.Button(
+            correction_zoom_actions,
+            text="-",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_correction_zoom(-10),
+            width=3,
+        )
+        zoom_out_correction_button.pack(side=ui.RIGHT, padx=(8, 0))
+        self._attach_hover_help(zoom_out_correction_button, label="Korrektur-Zoom verkleinern", shortcut="Strg+-")
+
         correction_split = widgets.PanedWindow(self._correction_view, orient=ui.HORIZONTAL)
         correction_split.pack(fill=ui.BOTH, expand=True)
 
@@ -1378,6 +1467,15 @@ class MainWindow:
             highlightbackground=correction_canvas_border,
         )
         self._correction_canvas.pack(fill=ui.BOTH, expand=True)
+        self._correction_canvas.bind("<MouseWheel>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Shift-MouseWheel>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Control-MouseWheel>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Button-4>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Button-5>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Shift-Button-4>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Shift-Button-5>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Control-Button-4>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Control-Button-5>", self._on_correction_mousewheel)
 
         correction_form = widgets.Frame(correction_form_panel, style="Surface.TFrame")
         correction_form.pack(fill=ui.X, pady=(8, 0))
@@ -1758,6 +1856,42 @@ class MainWindow:
         self._correction_finished_var.set(not bool(self._correction_finished_var.get()))
         self._on_correction_finished_toggled()
         return "break"
+
+    def _on_ctrl_plus_key(self, _event: ui.Event[ui.Misc]):
+        if self._active_view != "correction" or not self._correction_mode_active:
+            return None
+        self._change_correction_zoom(10)
+        return "break"
+
+    def _on_ctrl_minus_key(self, _event: ui.Event[ui.Misc]):
+        if self._active_view != "correction" or not self._correction_mode_active:
+            return None
+        self._change_correction_zoom(-10)
+        return "break"
+
+    def _on_ctrl_zero_key(self, _event: ui.Event[ui.Misc]):
+        if self._active_view != "correction" or not self._correction_mode_active:
+            return None
+        self._reset_correction_zoom()
+        return "break"
+
+    def _refresh_correction_zoom_label(self) -> None:
+        self._correction_zoom_info_var.set(f"Zoom: {self._correction_zoom_percent}%")
+
+    def _change_correction_zoom(self, delta: int) -> None:
+        target = max(CORRECTION_ZOOM_MIN_PERCENT, min(CORRECTION_ZOOM_MAX_PERCENT, self._correction_zoom_percent + delta))
+        if target == self._correction_zoom_percent:
+            return
+        self._correction_zoom_percent = target
+        self._refresh_correction_zoom_label()
+        self._render_correction_preview()
+
+    def _reset_correction_zoom(self) -> None:
+        if self._correction_zoom_percent == 100:
+            return
+        self._correction_zoom_percent = 100
+        self._refresh_correction_zoom_label()
+        self._render_correction_preview()
 
     def _commit_points_if_possible(self) -> None:
         if self._correction_mode_active:
@@ -2258,6 +2392,41 @@ class MainWindow:
         if step:
             self._reading_canvas.xview_scroll(step, "units")
 
+    @staticmethod
+    def _wheel_direction(event: ui.Event[ui.Misc]) -> int:
+        if getattr(event, "num", None) == 4:
+            return 1
+        if getattr(event, "num", None) == 5:
+            return -1
+        delta = getattr(event, "delta", 0)
+        if delta > 0:
+            return 1
+        if delta < 0:
+            return -1
+        return 0
+
+    def _on_correction_mousewheel(self, event: ui.Event[ui.Misc]):
+        if self._active_view != "correction" or not self._correction_mode_active:
+            return None
+
+        direction = self._wheel_direction(event)
+        if direction == 0:
+            return "break"
+
+        state = getattr(event, "state", 0)
+        shift_pressed = bool(state & 0x0001)
+        control_pressed = bool(state & 0x0004)
+        if control_pressed:
+            self._change_correction_zoom(10 if direction > 0 else -10)
+            return "break"
+
+        scroll_units = -direction
+        if shift_pressed:
+            self._correction_canvas.xview_scroll(scroll_units, "units")
+        else:
+            self._correction_canvas.yview_scroll(scroll_units, "units")
+        return "break"
+
     def _current_canvas_context(self) -> tuple[StudentExam, int] | None:
         if self._current_exam is None:
             return None
@@ -2461,6 +2630,8 @@ class MainWindow:
         self._extra_sequence = []
         self._close_extra_popup()
         self._correction_mode_active = True
+        self._correction_zoom_percent = 100
+        self._refresh_correction_zoom_label()
         self._correction_templates = templates
         self._correction_student_indices = indices
         self._correction_cursor = 0
@@ -2701,10 +2872,9 @@ class MainWindow:
             if clip.is_empty:
                 clip = page_rect
             target_width = 560.0
-            scale = target_width / max(clip.width, 1.0)
+            scale = (target_width / max(clip.width, 1.0)) * (self._correction_zoom_percent / 100.0)
             pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=clip, alpha=False)
             self._correction_photo = ui.PhotoImage(data=pix.tobytes("ppm"), format="ppm")
-            self._correction_canvas.configure(width=pix.width, height=pix.height)
             self._correction_canvas.delete("all")
             self._correction_canvas.create_image(0, 0, anchor=ui.NW, image=self._correction_photo)
             self._correction_canvas.configure(scrollregion=(0, 0, pix.width, pix.height))
@@ -2989,6 +3159,8 @@ class MainWindow:
         self._detail_regions.set("Fertig korrigiert -")
         self._detail_status.set("Status: -")
         self._active_student.set("Aktive Person: -")
+        self._correction_zoom_percent = 100
+        self._refresh_correction_zoom_label()
         self._reading_mode_title_var.set("Einlesen")
         self._reading_info_var.set("Einlesemodus: nicht aktiv")
         if hasattr(self, "_correction_info_var"):
@@ -3009,7 +3181,7 @@ class MainWindow:
         self._refresh_region_tree()
         self._show_view("overview")
         self._in_detail_mode = False
-        self._status_var.set("Zur Uebersicht zurueckgekehrt")
+        self._status_var.set("Zur Übersicht zurueckgekehrt")
 
     def _show_correction_controls(self) -> None:
         if self._correction_controls_frame is None:

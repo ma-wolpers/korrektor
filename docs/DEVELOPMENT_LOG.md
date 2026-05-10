@@ -1,6 +1,7 @@
 # Development Log
 
 ## [Unreleased]
+- Korrekturansicht um Vorschau-Zoom erweitert (10%-Schritte, Grenzen 10-240): Zoom-Buttons `-`/`+`, Reset auf `100%`, Shortcuts `Strg+Mausrad`, `Strg++`, `Strg+-` und `Strg+0` analog zum Blattwerk-Preview-Verhalten.
 - Korrekturmodus-Shortcut ergaenzt: `Leertaste` toggelt jetzt robust `Fertig korrigiert` (auch bei Fokus im Punktefeld) und nutzt dafuer einen eigenen zentralen Runtime-Intent.
 - Detail-Hub semantisch bereinigt: die Bereichszeile zeigt jetzt eindeutig `Fertig korrigiert X/Y`; `Aktive Person` wird in der Detailansicht nicht mehr angezeigt, sondern nur in Arbeitsansichten (Einlesen/Korrektur).
 - Extraseiten-Editor ueberarbeitet: die Tabelle zeigt jetzt `Bereich | Aufgaben | Seite` statt PDF-Spalte und startet seitenlokal leer, wenn fuer die aktuelle Extraseite noch keine Zuordnung existiert.
@@ -29,7 +30,7 @@
 - Klausur-JSON-Ablagepfad als persistente App-Einstellung erweitert: neuer Settings-Flow speichert `exam_index_dir` in `%APPDATA%/<app_name>/settings.json` und schaltet das aktive JSON-Repository zur Laufzeit auf den konfigurierten Ordner um.
 - Klausurverwaltung erweitert: eigener Delete-UseCase/Repository-Flow fuer das Loeschen ausgewaehlter Klausur-JSON-Dateien aus dem aktiven Indexordner.
 - UI-Flow umgebaut: bisherige SplitView/PanedWindow-Detailkopplung entfernt; Start zeigt nur die Uebersicht und wechselt explizit zwischen Uebersicht, Klausur-Detail und Einleseansicht.
-- Detailansicht entschlackt: eigene Detail-Buttonzeile (`Zur Uebersicht`, `Einlesen`, `Extraseiten`, `Korrektur`) ohne integrierte PDF-Vorschau.
+- Detailansicht entschlackt: eigene Detail-Buttonzeile (`Zur Übersicht`, `Einlesen`, `Extraseiten`, `Korrektur`) ohne integrierte PDF-Vorschau.
 - Einleseansicht als eigene Arbeitsflaeche entkoppelt (inkl. `Zurueck zur Klausur`-Aktion mit Esc-aequivalenter Rueckkehr).
 - Canvas-Interaktion im Einlesen gehaertet: Mauskoordinaten werden scrolloffset-korrekt ueber `canvasx/canvasy` verarbeitet, sodass Rahmen trotz Scrollposition korrekt verfolgt werden.
 - Regionen-Workflow geaendert: Markierungen erzeugen zunaechst Draft-Regionen (ohne Sofort-Validierungsfehler); Validierung auf Pflicht-Aufgaben erfolgt erst bei explizitem Speichern.
@@ -70,34 +71,34 @@
 - HSM-Contract-Modul `app/adapters/gui/hsm_contract.py` eingefuehrt (Intent-/Payload-Validierung, Transition-Regeln, Escape-Resolver).
 - Zentralen Intent-Katalog fuer Runtime-Shortcuts in `app/adapters/gui/ui_intents.py` eingefuehrt.
 - `app/adapters/gui/main_window.py` validiert Runtime-Shortcut-Intents jetzt gegen den HSM-Contract und blockiert unbekannte Intents frueh.
-- Escape-Verhalten folgt jetzt zentraler Prioritaet: erst aktives Popup schliessen, dann Inline-/Submodus verlassen, danach Rueckkehr zur Uebersicht.
-- Tests `tests/test_hsm_contract.py` fuer Intent-Contract, Transition-Gates und Escape-Prioritaetskette hinzugefuegt.
-- Runtime-Debug-Popup ist jetzt als nicht mode-blockierendes Parallel-Popup (`dialog.non_blocking`) registriert; Dialog-Prioritaet in der Runtime-Aufloesung basiert nur noch auf mode-blockierenden Popups.
+- Escape-Verhalten folgt jetzt zentraler Priorität: erst aktives Popup schliessen, dann Inline-/Submodus verlassen, danach Rückkehr zur Übersicht.
+- Tests `tests/test_hsm_contract.py` fuer Intent-Contract, Transition-Gates und Escape-Prioritätskette hinzugefuegt.
+- Runtime-Debug-Popup ist jetzt als nicht mode-blockierendes Parallel-Popup (`dialog.non_blocking`) registriert; Dialog-Priorität in der Runtime-Aufloesung basiert nur noch auf mode-blockierenden Popups.
 - Wave-1-Hardening: Popup-Lifecycle wurde in `app/adapters/gui/main_window.py` explizit ueber die zentrale `PopupPolicyRegistry` verdrahtet (Shortcut-Debug und Extraseiten-Popup inklusive direkter open/close-Registrierung).
 - Guardrails erweitert: `tools/ci/check_ai_guardrails.py` prueft jetzt die Runtime-Integration (`evaluate_runtime`) und PopupPolicy-Lifecycle-Hooks im Hauptfenster.
-- Tests fuer zentrale Runtime-Module ergaenzt: `tests/test_keybinding_registry_runtime.py` und `tests/test_popup_policy_registry.py`.
+- Tests fuer zentrale Runtime-Module ergänzt: `tests/test_keybinding_registry_runtime.py` und `tests/test_popup_policy_registry.py`.
 - Guardrail-Basis eingefuehrt: `AGENTS.md`, `.github/copilot-instructions.md`, PR-Template sowie `tools/ci/check_ai_guardrails.py` plus CI-Workflow.
 - Zentrale UI-Basis fuer Tastatur- und Popup-Steuerung eingefuehrt: `app/adapters/gui/keybinding_registry.py` und `app/adapters/gui/popup_policy.py`.
 - Governance erweitert: Feature-Arbeit wird als eigener Commit-Block gefuehrt, Push bleibt explizit manuell.
-- Guardrails praezisiert: `CHANGELOG.md` wird nur bei nutzer- oder coentwicklerrelevanten Aenderungen erzwungen; Prozesswarnungen (Commit-/Push-Guidance) erscheinen nur lokal und nicht in CI.
-- Wave-1-Start fuer den Hybrid-Resolver: `app/adapters/gui/keybinding_registry.py` enthaelt jetzt einen zentralen Runtime-Kontextvertrag (`KeybindingRuntimeContext`) und eine einheitliche `evaluate_runtime`-API fuer mode-/offline-/textfokus-/dialogbasierte Aktivierungspruefung.
+- Guardrails präzisiert: `CHANGELOG.md` wird nur bei nutzer- oder coentwicklerrelevanten Aenderungen erzwungen; Prozesswarnungen (Commit-/Push-Guidance) erscheinen nur lokal und nicht in CI.
+- Wave-1-Start fuer den Hybrid-Resolver: `app/adapters/gui/keybinding_registry.py` enthält jetzt einen zentralen Runtime-Kontextvertrag (`KeybindingRuntimeContext`) und eine einheitliche `evaluate_runtime`-API fuer mode-/offline-/textfokus-/dialogbasierte Aktivierungspruefung.
 - Wave-1 konkret verdrahtet: globale Shortcuts in `app/adapters/gui/main_window.py` laufen jetzt ueber den zentralen Runtime-Resolver statt direkter Bind-Dispatches.
-- Tabellarische Runtime-Debug-Ansicht fuer Shortcuts im Hauptfenster ergaenzt (`Shortcut Debug`, `Strg+Shift+D`) inkl. Offline-Simulation (`Strg+Shift+O`) und Aktiv/Disabled-Gruenden pro Modus.
+- Tabellarische Runtime-Debug-Ansicht fuer Shortcuts im Hauptfenster ergänzt (`Shortcut Debug`, `Strg+Shift+D`) inkl. Offline-Simulation (`Strg+Shift+O`) und Aktiv/Disabled-Gruenden pro Modus.
 
 ## 2026-04-26
 - Initiales Projekt `Korrektor` erstellt.
 - Grundarchitektur mit Adapter/Core/Infrastructure umgesetzt.
 - Klausur-Import aus PDF-Ordner mit PyMuPDF implementiert.
-- JSON-Indexpersistenz und atomare Schreibvorgaenge eingefuehrt.
+- JSON-Indexpersistenz und atomare Schreibvorgänge eingefuehrt.
 - Erste Korrektur-Schnellansicht mit Sofortspeicherung in CSV integriert.
 - Einlesemodus mit PDF-Seitenanzeige, Rechteck-Markierung per Maus und Bereichs-/Aufgabenzuordnung umgesetzt.
 - Sofortige JSON-Speicherung jeder neu markierten Region beim Abschluss der Zuordnung eingebaut.
-- Seitennavigation und Schueler:innen-Navigation im Einlesemodus ergaenzt (Buttons + Pfeiltasten links/rechts im aktiven Einlesemodus).
+- Seitennavigation und Schueler:innen-Navigation im Einlesemodus ergänzt (Buttons + Pfeiltasten links/rechts im aktiven Einlesemodus).
 - Abschlusslogik fuer Einlesemodus mit Warnhinweis bei unmarkierten Standardseiten hinzugefuegt.
 - Separater Extraseiten-Modus hinzugefuegt: sequenzielle Navigation ueber alle Extraseiten inkl. Anzeige Person + Index + Gesamtzahl.
 - Extraseiten koennen direkt einem oder mehreren Bereichen (A,B,...) zugeordnet werden; Zuordnung wird sofort in JSON persistiert.
 - Vorhandene Extraseiten-Zuordnung derselben Person/Seite wird aktualisiert statt dupliziert.
-- Bereichsbasierter Korrekturmodus hinzugefuegt: Navigation nur ueber Schueler:innen mit Zuordnung im gewaehlten Bereich.
+- Bereichsbasierter Korrekturmodus hinzugefuegt: Navigation nur ueber Schueler:innen mit Zuordnung im gewählten Bereich.
 - Extraseiten-Quick-View pro aktueller Person als Popup integriert.
 - Escape-Navigation auf Ebenenmodell angepasst: Feldfokus -> Modus verlassen -> Detail verlassen -> Gesamtuebersicht.
 - Extraseiten-Popup-Verhalten verfeinert: beim Fallwechsel im Korrekturmodus automatische Aktualisierung/Oeffnung, bei Modusende sauberes Schliessen.
@@ -112,6 +113,6 @@
 - Bereichslogik begonnen: neue Bereiche erhalten automatische Labels (A, B, ..., Z, AA, ...); Loeschen triggert kompakte Neuvergabe.
 - Bereichsbearbeitung begonnen: Bereich per Klick aus Liste laden, Aufgaben/Punkte direkt inline speichern oder loeschen (inkl. JSON-Sofortspeicherung).
 - Detailmodus weiter aufgesplittet: Einlesen/Korrektur/Extraseiten als explizite Submodi mit eigener Sichtbarkeitslogik im selben Detailfenster.
-- Bereichsauswahl erweitert: Bereiche koennen nun direkt im Canvas per Klick auf das Rechteck ausgewaehlt und sofort inline bearbeitet werden.
-- Inline-Speicherfluss gehaertet: Bereichsaenderungen werden vor Seiten-/Personwechsel automatisch gespeichert.
+- Bereichsauswahl erweitert: Bereiche koennen nun direkt im Canvas per Klick auf das Rechteck ausgewählt und sofort inline bearbeitet werden.
+- Inline-Speicherfluss gehärtet: Bereichsänderungen werden vor Seiten-/Personwechsel automatisch gespeichert.
 - Reindex-Verhalten praezisiert: Beim Loeschen werden nur Standardbereiche neu benannt, Extraseiten-Zuordnungen bleiben erhalten.
