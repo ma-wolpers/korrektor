@@ -4,8 +4,8 @@
 - Die Korrekturvorschau hat jetzt Zoom-Buttons (`-`/`+`), Reset auf `100%` sowie Zoom-Shortcuts wie in Blattwerk: `Strg+Mausrad`, `Strg++`, `Strg+-` und `Strg+0`.
 - In der Korrekturansicht toggelt `Leertaste` jetzt verlaesslich `Fertig korrigiert` (auch wenn der Fokus noch im Punktefeld liegt).
 - Die Detailzeile wurde vereinfacht auf `Fertig korrigiert X/Y`; die Anzeige `Aktive Person` erscheint dort nicht mehr, sondern nur in den Arbeitsansichten.
-- Im Extraseitenmodus zeigt die Bereichstabelle jetzt `Bereich | Aufgaben | Seite` (statt PDF), startet pro aktueller Extraseite ohne Altzeilen und hat eine kompakte Bereich/Aufgaben-Uebersicht ueber der Tabelle.
-- Die globale Kopfzeile wurde entfernt; stattdessen haben alle Ansichten konsistente, eigene Ueberschriften.
+- Im Extraseitenmodus zeigt die Bereichstabelle jetzt `Bereich | Aufgaben | Seite` (statt PDF), startet pro aktueller Extraseite ohne Altzeilen und hat eine kompakte Bereich/Aufgaben-Übersicht ueber der Tabelle.
+- Die globale Kopfzeile wurde entfernt; stattdessen haben alle Ansichten konsistente, eigene Überschriften.
 - Im Korrekturmodus funktionieren Tastaturwege jetzt wie im Arbeitsfluss: links/rechts wechselt Person, hoch/runter wechselt Aufgabe, Strg+hoch/runter wechselt Bereich.
 - Neues Feld `Fertig korrigiert` pro Person+Bereich: es wird erst aktiv, wenn alle Aufgaben Punkte haben, und sperrt bei Aktivierung die Punkteingabe in diesem Bereich.
 - Die Detailzeile `Bereiche` zeigt jetzt zusaetzlich, wie viele Bereiche bei allen Personen als fertig markiert sind.
@@ -24,9 +24,9 @@
 - AI guardrails no longer keep a future-entrypoint baseline exemption for `app/adapters/gui/main_window.py`; Korrektor now runs this entrypoint under the strict shared-GUI contract checks.
 - AI guardrails now require an explicit GUI migration backlog (`docs/GUI_MIGRATION_BACKLOG.md`) for active GUI baselines/exemptions, including time-bound `remove_by` tracking.
 - Klausur-JSONs koennen jetzt ueber die Einstellungen in einen frei waehlbaren zentralen Ablageordner geschrieben werden (`exam_index_dir` wird persistent gespeichert).
-- Die SplitView wurde entfernt: Beim Start erscheint nur die Uebersicht, und der Ablauf wechselt klar zwischen Uebersicht, Klausurdetail und Einlesen.
-- Die Uebersicht zeigt jetzt nur noch die Kernaktionen `Neue Klausur`, `Klausur oeffnen` und `Klausur loeschen`.
-- In der Klausurdetailansicht wurde die integrierte PDF-Vorschau entfernt; stattdessen gibt es eine eigene Modusleiste mit `Zur Uebersicht`, `Einlesen`, `Extraseiten` und `Korrektur`.
+- Die SplitView wurde entfernt: Beim Start erscheint nur die Übersicht, und der Ablauf wechselt klar zwischen Übersicht, Klausurdetail und Einlesen.
+- Die Übersicht zeigt jetzt nur noch die Kernaktionen `Neue Klausur`, `Klausur oeffnen` und `Klausur loeschen`.
+- In der Klausurdetailansicht wurde die integrierte PDF-Vorschau entfernt; stattdessen gibt es eine eigene Modusleiste mit `Zur Übersicht`, `Einlesen`, `Extraseiten` und `Korrektur`.
 - Der Einlesemodus ist jetzt eine eigene Ansicht mit `Zurueck zur Klausur`-Aktion (gleiches Verhalten wie Esc).
 - Rahmenauswahl im Einlesen bleibt nun auch nach Scrollen positionsgenau (scrolloffset-korrigierte Mauskoordinaten).
 - Neu markierte Bereiche werden zuerst als Draft gefuehrt; Pflichtvalidierung (`Ungueltige Eingabe`) passiert erst beim expliziten Speichern.
@@ -86,7 +86,7 @@
 - Schnellkorrektur-Block wird nur noch im aktiven Korrekturmodus angezeigt.
 - Klausur kann nun auch per Enter oder Doppelklick aus der Liste geoeffnet werden.
 - `.gitignore` fuer lokale Entwicklungsartefakte (venvs, caches, lokale Indexdaten, Konfigurationsreste) hinzugefuegt.
-- Beginn des Modus-Umbaus: Beim Oeffnen einer Klausur wechselt die Ansicht in einen separaten Detailmodus; Rueckkehr per "Zur Uebersicht".
+- Beginn des Modus-Umbaus: Beim Oeffnen einer Klausur wechselt die Ansicht in einen separaten Detailmodus; Rueckkehr per "Zur Übersicht".
 - Einlesemodus zeigt nun ein scrollbares PDF-Viewport mit Inline-Bereichsliste und Inline-Bereichseditor statt Aufgaben-Popup.
 - Bereiche werden automatisch benannt (A, B, ..., Z, AA, ...); nach Loeschen werden Bereichsnamen kompakt neu vergeben.
 - Detailmodus bietet jetzt explizite Submodi fuer Einlesen, Korrektur und Extraseiten mit passender UI pro Modus.
