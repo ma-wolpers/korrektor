@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 - LaufKern-Runtime-Auswertung in den produktiven Shortcut-Debug-Flow integriert: `app/adapters/gui/main_window.py` baut jetzt ein Manifest aus der Runtime-Shortcut-Registry, validiert es zentral und zeigt die aktuelle Intent-Reachability im Debug-Summary.
+- LaufKern-Manifestaufbau aus dem Main-Window in einen dedizierten Provider ausgelagert: `app/adapters/gui/laufkern_manifest_provider.py` erzeugt jetzt den deklarativen Runtime-Manifestzustand aus der Shortcut-Registry.
 - LaufKern-Bridge eingefuehrt: neues zentrales Modul `bw_libs/ui_contract/laufkern.py` (Shared-`bw_gui.laufkern`-Bridge mit lokalem Fallback) und Export ueber `bw_libs/ui_contract/__init__.py`; zusaetzlicher Regressionstest `tests/test_laufkern_bridge.py` fuer Manifestaufbau und Shortcut-basierte Reachability.
 - Step-5-Rollout gestartet: GUI-Bootstrap in `app/app.py` initialisiert das Root-Window jetzt ueber den zentralen Runtime-Host `bw_gui.runtime.TkRootHost` statt direkter `ui.Tk()`-Erzeugung.
 - Step-6-Guardrail-Hardening umgesetzt: `tools/ci/check_ai_guardrails.py` blockiert jetzt zusaetzlich repo-weit lokale Neudefinitionen der reservierten Shared-Primitives `TkRootHost`, `ScrollablePopupWindow` und `WrappedTextField`.
