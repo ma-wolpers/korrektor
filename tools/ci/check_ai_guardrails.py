@@ -496,6 +496,30 @@ def _check_laufkern_fallback_sunset(errors: list[str]) -> None:
             )
 
 
+def _check_ui_contract_bridge_decommission(errors: list[str]) -> None:
+    """Phase-I decommission gate: ui_contract bridges stay thin shared re-export shims."""
+
+    required_imports = {
+        "bw_libs/ui_contract/keybinding.py": "from bw_gui.contracts.keybinding import",
+        "bw_libs/ui_contract/popup.py": "from bw_gui.contracts.popup import",
+        "bw_libs/ui_contract/hsm.py": "from bw_gui.contracts.hsm import",
+        "bw_libs/ui_contract/laufkern.py": "from bw_gui.laufkern import",
+    }
+    forbidden_local_markers = {
+        "bw_libs/ui_contract/keybinding.py": ("class KeyBindingDefinition", "class KeybindingRegistry"),
+        "bw_libs/ui_contract/popup.py": ("class PopupPolicy", "class PopupPolicyRegistry"),
+        "bw_libs/ui_contract/hsm.py": ("class HsmContract", "def build_ui_hsm_contract"),
+        "bw_libs/ui_contract/laufkern.py": ("class LaufKernManifest", "def aggregate_completion("),
+    }
+
+    for rel_path, import_marker in required_imports.items():
+        source = _read(rel_path).lstrip("\ufeff")
+        _require_substring(source, "ensure_bw_gui_on_path", rel_path, errors)
+        _require_substring(source, import_marker, rel_path, errors)
+        for forbidden in forbidden_local_markers[rel_path]:
+            _forbid_substring(source, forbidden, rel_path, errors)
+
+
 def main() -> int:
     repo_root = _repo_root()
     staged = _staged_files(repo_root)
@@ -527,6 +551,7 @@ def main() -> int:
     _check_undo_redo_contracts(errors)
     _check_shared_ui_contracts(errors)
     _check_laufkern_fallback_sunset(errors)
+    _check_ui_contract_bridge_decommission(errors)
     _check_future_gui_entry_contracts(errors)
     _check_repo_wide_gui_contracts(errors)
     _check_gui_migration_backlog(errors)
