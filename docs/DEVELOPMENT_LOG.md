@@ -1,6 +1,7 @@
 # Development Log
 
 ## [Unreleased]
+- LaufKern-Bridge eingefuehrt: neues zentrales Modul `bw_libs/ui_contract/laufkern.py` (Shared-`bw_gui.laufkern`-Bridge mit lokalem Fallback) und Export ueber `bw_libs/ui_contract/__init__.py`; zusaetzlicher Regressionstest `tests/test_laufkern_bridge.py` fuer Manifestaufbau und Shortcut-basierte Reachability.
 - Step-5-Rollout gestartet: GUI-Bootstrap in `app/app.py` initialisiert das Root-Window jetzt ueber den zentralen Runtime-Host `bw_gui.runtime.TkRootHost` statt direkter `ui.Tk()`-Erzeugung.
 - Step-6-Guardrail-Hardening umgesetzt: `tools/ci/check_ai_guardrails.py` blockiert jetzt zusaetzlich repo-weit lokale Neudefinitionen der reservierten Shared-Primitives `TkRootHost`, `ScrollablePopupWindow` und `WrappedTextField`.
 - Korrektur-Annotationen erweitert: neue Durchdruecken-Funktion erzeugt bereichs-/aufgabenbezogene Sync-Gruppen ueber alle Personen; beim Deaktivieren werden Fremdkopien entfernt und nur die aktuelle Personen-Markierung lokal behalten.

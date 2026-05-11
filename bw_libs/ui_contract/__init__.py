@@ -27,6 +27,20 @@ from .popup import (
     PopupPolicyRegistry,
     PopupSession,
 )
+from .laufkern import (
+    CompletionSummary,
+    LaufKernManifest,
+    LaufKernRoute,
+    ReachabilityResult,
+    TrackingArtifact,
+    aggregate_completion,
+    build_manifest,
+    build_runtime_context,
+    emit_tracking_artifact,
+    evaluate_intent_routes,
+    verify_manifest,
+    verify_reachability,
+)
 
 __all__ = [
     "ESCAPE_CLOSE_POPUP",
@@ -50,4 +64,16 @@ __all__ = [
     "PopupPolicy",
     "PopupPolicyRegistry",
     "PopupSession",
+    "CompletionSummary",
+    "LaufKernManifest",
+    "LaufKernRoute",
+    "ReachabilityResult",
+    "TrackingArtifact",
+    "aggregate_completion",
+    "build_manifest",
+    "build_runtime_context",
+    "emit_tracking_artifact",
+    "evaluate_intent_routes",
+    "verify_manifest",
+    "verify_reachability",
 ]
