@@ -51,12 +51,6 @@ CHANGELOG_CODEV_RELEVANT_PATHS = {
 }
 LAUFKERN_BRIDGE_PATH = "bw_libs/ui_contract/laufkern.py"
 LAUFKERN_FALLBACK_SCAN_ROOTS = ("app", "bw_libs")
-ALLOWED_MODULE_NOT_FOUND_FALLBACK_PATHS = {
-    "bw_libs/ui_contract/keybinding.py",
-    "bw_libs/ui_contract/popup.py",
-    "bw_libs/ui_contract/hsm.py",
-    LAUFKERN_BRIDGE_PATH,
-}
 FUTURE_GUI_SEARCH_ROOTS = (
     "app/adapters/gui",
     "app/ui",
@@ -492,41 +486,13 @@ def _check_gui_migration_backlog(errors: list[str]) -> None:
         _require_substring(backlog, f"- {marker}", GUI_MIGRATION_BACKLOG_PATH, errors)
 
 
-def _is_module_not_found_except(handler: ast.ExceptHandler) -> bool:
-    handler_type = handler.type
-    if isinstance(handler_type, ast.Name):
-        return handler_type.id == "ModuleNotFoundError"
-    if isinstance(handler_type, ast.Tuple):
-        return any(isinstance(item, ast.Name) and item.id == "ModuleNotFoundError" for item in handler_type.elts)
-    return False
-
-
 def _check_laufkern_fallback_sunset(errors: list[str]) -> None:
-    """Wave-2 sunset gate: fallback handling must stay localized to the LaufKern bridge."""
-
-    bridge_source = _read(LAUFKERN_BRIDGE_PATH).lstrip("\ufeff")
-    _require_substring(bridge_source, "except ModuleNotFoundError", LAUFKERN_BRIDGE_PATH, errors)
-
-    try:
-        bridge_module = ast.parse(bridge_source, filename=LAUFKERN_BRIDGE_PATH)
-    except Exception as exc:
-        errors.append(f"{LAUFKERN_BRIDGE_PATH}: failed to parse Python AST -> {exc}")
-        return
-
-    fallback_handler_count = sum(
-        1 for node in ast.walk(bridge_module) if isinstance(node, ast.ExceptHandler) and _is_module_not_found_except(node)
-    )
-    if fallback_handler_count != 1:
-        errors.append(
-            f"{LAUFKERN_BRIDGE_PATH}: expected exactly one ModuleNotFoundError fallback handler, found {fallback_handler_count}"
-        )
+    """Wave-3 sunset gate: no ModuleNotFoundError fallback branches remain."""
 
     for rel_path in _iter_python_files_under(LAUFKERN_FALLBACK_SCAN_ROOTS):
-        if rel_path == LAUFKERN_BRIDGE_PATH:
-            continue
-        if "except ModuleNotFoundError" in _read(rel_path) and rel_path not in ALLOWED_MODULE_NOT_FOUND_FALLBACK_PATHS:
+        if "except ModuleNotFoundError" in _read(rel_path):
             errors.append(
-                f"{rel_path}: ModuleNotFoundError fallback is forbidden in Wave-2; keep fallback localized to {LAUFKERN_BRIDGE_PATH}"
+                f"{rel_path}: ModuleNotFoundError fallback is forbidden in Wave-3; require shared imports without local fallback branches"
             )
 
 

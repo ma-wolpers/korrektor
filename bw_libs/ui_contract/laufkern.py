@@ -369,40 +369,27 @@ def aggregate_completion(
     )
 
 
-# Pilot bridge: resolve shared bw-gui LaufKern API while preserving local import paths.
-try:
-    from bw_libs.shared_gui_core import ensure_bw_gui_on_path as _ensure_bw_gui_on_path
+# Bridge target is mandatory in Wave-3; no local fallback branch remains.
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path as _ensure_bw_gui_on_path
 
-    _ensure_bw_gui_on_path()
+_ensure_bw_gui_on_path()
 
-    from bw_gui.laufkern import (  # type: ignore[assignment]
-        CompletionSummary,
-        LaufKernManifest,
-        LaufKernRoute,
-        ReachabilityResult,
-        TrackingArtifact,
-        aggregate_completion,
-        build_manifest,
-        build_runtime_context,
-        emit_tracking_artifact,
-        evaluate_intent_routes,
-        is_known_reason_code,
-        validate_step_id,
-        verify_manifest,
-        verify_reachability,
-    )
-except ModuleNotFoundError:
-    # Keep local fallback contracts usable when shared core is unavailable.
-    def build_runtime_context(*, active_mode: str, offline: bool = False, text_input_focused: bool = False):
-        return KeybindingRuntimeContext(
-            active_mode=active_mode,
-            offline=offline,
-            text_input_focused=text_input_focused,
-            dialog_open=False,
-        )
-
-    def is_known_reason_code(reason_code: str) -> bool:
-        return reason_code in REASON_CODE_CATALOG
+from bw_gui.laufkern import (  # type: ignore[assignment]
+    CompletionSummary,
+    LaufKernManifest,
+    LaufKernRoute,
+    ReachabilityResult,
+    TrackingArtifact,
+    aggregate_completion,
+    build_manifest,
+    build_runtime_context,
+    emit_tracking_artifact,
+    evaluate_intent_routes,
+    is_known_reason_code,
+    validate_step_id,
+    verify_manifest,
+    verify_reachability,
+)
 
 
 __all__ = [
