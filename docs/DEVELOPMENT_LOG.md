@@ -1,6 +1,7 @@
 # Development Log
 
 ## [Unreleased]
+- Wave-2-Sunset-Gate aktiviert: `tools/ci/check_ai_guardrails.py` erlaubt `except ModuleNotFoundError` nur noch in den zentralen UI-Contract-Bridges (`bw_libs/ui_contract/keybinding.py`, `bw_libs/ui_contract/popup.py`, `bw_libs/ui_contract/hsm.py`, `bw_libs/ui_contract/laufkern.py`) und blockiert neue lokale Fallback-Zweige ausserhalb dieser Baseline.
 - LaufKern-Runtime-Auswertung in den produktiven Shortcut-Debug-Flow integriert: `app/adapters/gui/main_window.py` baut jetzt ein Manifest aus der Runtime-Shortcut-Registry, validiert es zentral und zeigt die aktuelle Intent-Reachability im Debug-Summary.
 - LaufKern-Manifestaufbau aus dem Main-Window in einen dedizierten Provider ausgelagert: `app/adapters/gui/laufkern_manifest_provider.py` erzeugt jetzt den deklarativen Runtime-Manifestzustand aus der Shortcut-Registry.
 - LaufKern-Tracking an produktiven Shortcut-Dispatch angebunden: `app/adapters/gui/main_window.py` protokolliert ausgefuehrte Runtime-Intents jetzt als LaufKern-Tracking-Artefakte (done/failed) und zeigt den Completion-Status aus der Artefaktaggregation im Runtime-Debug.
