@@ -2,6 +2,7 @@
 
 ## Unreleased
 - Korrektor bindet jetzt eine zentrale LaufKern-Bridge (`bw_libs.ui_contract.laufkern`) fuer Manifest-, Reachability- und Tracking-Vertraege ein und bereitet damit die Trennung "Programm = Was" und "LaufKern = Wie" technisch vor.
+- Die Shortcut-Runtime-Debug-Ansicht zeigt jetzt zusaetzlich eine LaufKern-Zusammenfassung zur aktuellen Intent-Erreichbarkeit (erreichbare Intents pro Runtime-Kontext und Manifest-Validierungsstatus).
 - GUI startup now composes the root via `bw_gui.runtime.TkRootHost` in `app/app.py`, aligning host initialization with the shared runtime baseline.
 - AI guardrails now also block local redefinitions of reserved shared primitives (`TkRootHost`, `ScrollablePopupWindow`, `WrappedTextField`) so these foundations must be consumed from `bw-gui`.
 - Neue Durchdruecken-Funktion fuer Markierungen/Kommentare: eine ausgewaehlte Annotation kann auf alle Personen im gleichen Bereich/Aufgabenkontext gespiegelt werden; beim Deaktivieren verschwinden die synchronisierten Kopien bei anderen Personen wieder.

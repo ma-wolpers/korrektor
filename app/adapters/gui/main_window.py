@@ -30,6 +30,7 @@ from bw_libs.ui_contract.hsm import (
     build_ui_hsm_contract,
 )
 from bw_libs.ui_contract.popup import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry
+from bw_libs.ui_contract.laufkern import LaufKernRoute, build_manifest, verify_manifest, verify_reachability
 from app.adapters.gui.ui_intents import UiIntent
 from app.adapters.gui.view_models import ExamOverviewRow
 from app.core.domain.models import ExamProject, PdfAnnotation, StudentExam, TaskDefinition
@@ -715,6 +716,43 @@ class MainWindow:
 
         self.root.bind_all(sequence, _wrapped)
 
+    def _build_laufkern_manifest(self):
+        """Build one declarative LaufKern manifest from registered runtime shortcuts."""
+
+        definitions = self._runtime_shortcuts.all()
+        intents = tuple(sorted({definition.intent for definition in definitions}))
+        routes = tuple(
+            LaufKernRoute(
+                route_id=f"shortcut.{definition.binding_id}",
+                intent=definition.intent,
+                route_type="shortcut",
+                modes=tuple(definition.modes),
+                binding_id=definition.binding_id,
+                metadata={"sequence": definition.sequence},
+            )
+            for definition in definitions
+        )
+        return build_manifest(
+            manifest_id="korrektor.shortcuts.runtime",
+            repo_name="korrektor",
+            intents=intents,
+            routes=routes,
+            keybinding_registry=self._runtime_shortcuts,
+            metadata={"provider": "korrektor.app.adapters.gui.main_window"},
+        )
+
+    def _summarize_laufkern_reachability(self, *, context: KeybindingRuntimeContext) -> str:
+        """Return compact LaufKern reachability summary for current runtime state."""
+
+        manifest = self._build_laufkern_manifest()
+        manifest_ok, manifest_errors = verify_manifest(manifest)
+        if not manifest_ok:
+            return f"LaufKern manifest-errors={len(manifest_errors)}"
+
+        results = verify_reachability(manifest=manifest, context=context)
+        reachable = sum(1 for result in results if result.reachable)
+        return f"LaufKern intents {reachable}/{len(results)} erreichbar"
+
     def _toggle_runtime_offline(self) -> None:
         """Toggle offline simulation for runtime shortcut diagnostics."""
 
@@ -838,7 +876,14 @@ class MainWindow:
 
         total = active_count + disabled_count
         self._shortcut_runtime_debug_summary_var.set(
-            f"Bindings: {total} total | {active_count} active | {disabled_count} disabled"
+            " | ".join(
+                [
+                    f"Bindings: {total} total",
+                    f"{active_count} active",
+                    f"{disabled_count} disabled",
+                    self._summarize_laufkern_reachability(context=context),
+                ]
+            )
         )
 
     def _build_settings_dialog_spec(self):
