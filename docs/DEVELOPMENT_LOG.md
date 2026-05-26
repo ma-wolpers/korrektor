@@ -1,6 +1,7 @@
 # Development Log
 
 ## [Unreleased]
+- Menueleisten-Standardisierung gestartet: `app/adapters/gui/main_window.py` baut die Top-Level-Menues jetzt ueber den neuen zentralen `bw_gui.menu.standard_menu`-Baukasten auf (Core-Reihenfolge Datei/Bearbeiten/Ansicht/Hilfe + app-spezifisches `Debug` als Erweiterungssektion).
 - Allgemeiner Soft-Guardrail fuer Shortcut-Abdeckung ergaenzt: `tools/ci/check_ai_guardrails.py` meldet lokal (non-blocking) Warnungen, wenn konfigurierte Kern-Intents (u. a. Create/Export/Escape/Undo/Redo/Copy/Cut/Paste/Debug) ohne passenden Keyboard-Binding-Marker gefunden werden.
 - Phase-I-Decommission abgeschlossen: die zentralen UI-Contract-Bridges (`bw_libs/ui_contract/keybinding.py`, `bw_libs/ui_contract/popup.py`, `bw_libs/ui_contract/hsm.py`, `bw_libs/ui_contract/laufkern.py`) wurden auf schlanke Shared-Re-Exports reduziert; tote lokale Duplikat-Implementierungen sind entfernt.
 - Guardrail-Decommission-Gate aktiviert: `tools/ci/check_ai_guardrails.py` erzwingt jetzt in allen vier Bridge-Modulen `ensure_bw_gui_on_path` + Shared-Import und blockiert lokale Re-Implementierungsmarker der Contract-Klassen/Funktionen.

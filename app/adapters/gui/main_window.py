@@ -45,8 +45,9 @@ from bw_gui.dialogs import SettingsFieldSpec as SharedSettingsFieldSpec
 from bw_gui.dialogs import SettingsSectionSpec as SharedSettingsSectionSpec
 from bw_gui.dialogs import open_tabbed_settings_dialog
 from bw_gui.menu import CustomMenuBar as SharedCustomMenuBar
-from bw_gui.menu import MenuDefinition as SharedMenuDefinition
 from bw_gui.menu import MenuItem as SharedMenuItem
+from bw_gui.menu import build_standard_menu_definitions as build_shared_standard_menu_definitions
+from bw_gui.menu import section_spec as shared_menu_section_spec
 from bw_gui.shortcuts import compose_hover_text
 from bw_gui.widgets import HoverTooltip as SharedHoverTooltip
 
@@ -270,35 +271,43 @@ class MainWindow:
         self._hover_tooltips.append(tooltip)
 
     def _build_menu_bar(self) -> None:
-        """Build shared top-level menu for core file/mode/debug actions."""
+        """Build shared top-level menu via standardized core sections."""
 
         if self._menu_bar is not None:
             self._menu_bar.destroy()
 
-        definitions = (
-            SharedMenuDefinition(
-                key="file",
+        definitions = build_shared_standard_menu_definitions(
+            file_section=shared_menu_section_spec(
+                "file",
+                self._menu_items_file,
                 label="Datei",
                 alt="d",
-                items_provider=self._menu_items_file,
             ),
-            SharedMenuDefinition(
-                key="edit",
+            edit_section=shared_menu_section_spec(
+                "edit",
+                self._menu_items_edit,
                 label="Bearbeiten",
                 alt="e",
-                items_provider=self._menu_items_edit,
             ),
-            SharedMenuDefinition(
-                key="mode",
-                label="Modus",
-                alt="m",
-                items_provider=self._menu_items_mode,
+            view_section=shared_menu_section_spec(
+                "view",
+                self._menu_items_mode,
+                label="Ansicht",
+                alt="a",
             ),
-            SharedMenuDefinition(
-                key="debug",
-                label="Debug",
-                alt="b",
-                items_provider=self._menu_items_debug,
+            extra_sections=(
+                shared_menu_section_spec(
+                    "debug",
+                    self._menu_items_debug,
+                    label="Debug",
+                    alt="b",
+                ),
+            ),
+            help_section=shared_menu_section_spec(
+                "help",
+                self._menu_items_help,
+                label="Hilfe",
+                alt="h",
             ),
         )
 
@@ -399,6 +408,18 @@ class MainWindow:
                 label="Offline simulieren umschalten (Strg+Shift+O)",
                 command=self._toggle_runtime_offline,
             ),
+        )
+
+    def _menu_items_help(self):
+        return (
+            SharedMenuItem(type="command", label="Ueber Korrektor", command=self._menu_show_about),
+        )
+
+    def _menu_show_about(self) -> None:
+        messagebox.showinfo(
+            "Ueber Korrektor",
+            f"{APP_INFO.name}\nVersion: {APP_INFO.version}",
+            parent=self.root,
         )
 
     def set_controller(self, controller: "UiIntentController") -> None:

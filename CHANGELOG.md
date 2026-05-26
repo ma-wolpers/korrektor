@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Menueleiste auf den neuen zentralen bw-gui-Standardbaukasten umgestellt: Kernrubriken laufen jetzt konsistent ueber `Datei`, `Bearbeiten`, `Ansicht`, `Hilfe`; `Debug` bleibt als app-spezifische Erweiterung erhalten.
 - AI guardrails now emit non-blocking local warnings when configured core keyboard intents (for example create/export/escape/undo/redo/copy/cut/paste/debug) are present but matching shortcut binding markers are missing.
 - UI contract bridges are now fully decommissioned to thin shared re-export shims (`bw_libs/ui_contract/keybinding.py`, `bw_libs/ui_contract/popup.py`, `bw_libs/ui_contract/hsm.py`, `bw_libs/ui_contract/laufkern.py`); dead local duplicate implementations were removed.
 - AI guardrails now enforce a Phase-I decommission gate for UI contract bridges: each bridge must keep `ensure_bw_gui_on_path` plus shared `bw_gui` imports and may not reintroduce local contract class/function implementations.
