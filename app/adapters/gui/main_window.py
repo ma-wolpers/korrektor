@@ -12,8 +12,7 @@ from app.adapters.bootstrap.wiring import GuiDependencies
 from app.adapters.gui.dialog_services import messagebox, simpledialog
 from app.app_info import APP_INFO
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-from bw_libs.app_shell import AppShellConfig, TkinterAppShell
-from bw_libs.ui_contract.keybinding import (
+from bw_gui.contracts.keybinding import (
     UI_MODE_DIALOG,
     UI_MODE_EDITOR,
     UI_MODE_GLOBAL,
@@ -23,14 +22,14 @@ from bw_libs.ui_contract.keybinding import (
     KeybindingRegistry,
     KeybindingRuntimeContext,
 )
-from bw_libs.ui_contract.hsm import (
+from bw_gui.contracts.hsm import (
     ESCAPE_CLOSE_POPUP,
     ESCAPE_EXIT_INLINE_EDITOR,
     ESCAPE_POP_PARENT,
     build_ui_hsm_contract,
 )
-from bw_libs.ui_contract.popup import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry
-from bw_libs.ui_contract.laufkern import aggregate_completion, emit_tracking_artifact, verify_manifest, verify_reachability
+from bw_gui.contracts.popup import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry
+from bw_gui.laufkern import aggregate_completion, emit_tracking_artifact, verify_manifest, verify_reachability
 from app.adapters.gui.ui_intents import UiIntent
 from app.adapters.gui.laufkern_manifest_provider import build_runtime_shortcut_manifest
 from app.adapters.gui.view_models import ExamOverviewRow
@@ -39,19 +38,16 @@ from app.core.domain.progress import ProgressCalculator
 from app.infrastructure.repositories.json_app_settings_repository import AppRuntimeSettings
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import BwBaseWindow, ui, widgets
 from bw_gui.dialogs import SettingsDialogSpec as SharedSettingsDialogSpec
 from bw_gui.dialogs import SettingsFieldSpec as SharedSettingsFieldSpec
 from bw_gui.dialogs import SettingsSectionSpec as SharedSettingsSectionSpec
 from bw_gui.dialogs import open_tabbed_settings_dialog
-from bw_gui.menu import CustomMenuBar as SharedCustomMenuBar
 from bw_gui.menu import MenuItem as SharedMenuItem
-from bw_gui.menu import build_standard_menu_definitions as build_shared_standard_menu_definitions
-from bw_gui.menu import section_spec as shared_menu_section_spec
+from bw_gui.menu import section_spec
 from bw_gui.shortcuts import compose_hover_text
 from bw_gui.widgets import HoverTooltip as SharedHoverTooltip
 
-from bw_gui.theming import THEME_ORDER
 from bw_gui.theming import apply_window_theme
 from bw_gui.theming import configure_ttk_theme
 from bw_gui.theming import get_theme
@@ -118,21 +114,19 @@ CORRECTION_EXPORT_SYMBOL_ROT90_X_SHIFT_EM = 0.08
 CORRECTION_EXPORT_SYMBOL_ROT180_Y_CORRECTION_EM = 0.15
 
 
-class MainWindow:
-    def __init__(self, root: ui.Tk, deps: GuiDependencies) -> None:
-        self.root = root
+class MainWindow(BwBaseWindow):
+    def __init__(self, deps: GuiDependencies) -> None:
         self.deps = deps
-        shell_config = getattr(
+        _cfg = getattr(
             deps,
             "shell_config",
-            AppShellConfig(
-                title=APP_INFO.window_title,
-                geometry="1180x740",
-                min_width=980,
-                min_height=640,
-            ),
+            None,
         )
-        self.app_shell = TkinterAppShell(self.root, shell_config)
+        _title = _cfg.title if _cfg else APP_INFO.window_title
+        _geometry = _cfg.geometry if _cfg else "1180x740"
+        _min_width = _cfg.min_width if _cfg else 980
+        _min_height = _cfg.min_height if _cfg else 640
+        self._tooltip_theme_key = "sand_terracotta"
 
         self._rows_by_tree_id: dict[str, ExamOverviewRow] = {}
         self._controller = None
@@ -144,7 +138,6 @@ class MainWindow:
         self._region_tree_rows: dict[str, tuple[str, str]] = {}
         self._draft_regions: dict[str, DraftRegion] = {}
 
-        self._status_var = ui.StringVar(value="Bereit")
         self._detail_exam_file: Path | None = None
         self._current_exam: ExamProject | None = None
         self._student_cursor = 0
@@ -156,11 +149,6 @@ class MainWindow:
         self._reading_active = False
         self._reading_student_cursor = 0
         self._reading_page = 1
-        self._reading_mode_title_var = ui.StringVar(value="Einlesen")
-        self._reading_info_var = ui.StringVar(value="Einlesemodus: nicht aktiv")
-        self._assignment_mode_var = ui.StringVar(value="quick")
-        self._superpage_var = ui.BooleanVar(value=False)
-        self._extra_overview_var = ui.StringVar(value="")
         self._extra_overview_frame: widgets.Frame | None = None
         self._extra_mode_active = False
         self._extra_sequence: list[tuple[int, int]] = []
@@ -185,17 +173,11 @@ class MainWindow:
         self._correction_task_items: list[tuple[str, float]] = []
         self._correction_photo: ui.PhotoImage | None = None
         self._correction_zoom_percent = 100
-        self._correction_zoom_info_var = ui.StringVar(value="Zoom: 100%")
-        self._correction_comment_var = ui.StringVar(value="")
         self._correction_comment_entry: widgets.Entry | None = None
         self._correction_marker_tool_key = "check"
         settings = self.deps.runtime_settings
-        default_color_hex = self._normalize_marker_color_hex(settings.default_annotation_color)
-        self._default_annotation_color_hex = default_color_hex
+        self._default_annotation_color_hex = self._normalize_marker_color_hex(settings.default_annotation_color)
         self._default_annotation_font_size = self._normalize_marker_font_size(settings.default_annotation_pdf_font_size)
-        self._correction_marker_color_name_var = ui.StringVar(value=self._marker_color_name_for_hex(default_color_hex))
-        self._correction_marker_info_var = ui.StringVar(value="Markierung: Richtig")
-        self._correction_sync_info_var = ui.StringVar(value="Sync: keine Auswahl")
         self._correction_selected_annotation_id: str | None = None
         self._correction_drag_annotation_id: str | None = None
         self._correction_drag_offset_pdf: tuple[float, float] | None = None
@@ -204,16 +186,11 @@ class MainWindow:
         self._correction_clip_box: tuple[float, float, float, float] | None = None
         self._correction_scale = 1.0
         self._annotation_clipboard: dict[str, object] | None = None
-        self._correction_finished_var = ui.BooleanVar(value=False)
-        self._correction_finished_hint_var = ui.StringVar(value="Fertigstatus nicht aktiv")
         self._correction_finished_check: widgets.Checkbutton | None = None
         self._save_correction_button: widgets.Button | None = None
         self._runtime_shortcuts = KeybindingRegistry()
-        self._shortcut_debug_offline_var = ui.BooleanVar(value=False)
         self._shortcut_runtime_debug_window: ui.Toplevel | None = None
         self._shortcut_runtime_debug_table: widgets.Treeview | None = None
-        self._shortcut_runtime_debug_context_var = ui.StringVar(value="")
-        self._shortcut_runtime_debug_summary_var = ui.StringVar(value="")
         self._laufkern_tracking_run_id = "runtime-shortcuts"
         self._laufkern_tracking_sequence = 0
         self._laufkern_tracking_step_ids: dict[str, str] = {}
@@ -229,7 +206,6 @@ class MainWindow:
             )
         )
         self._tracked_popup_ids: set[str] = set()
-        self._tooltip_theme_key = "sand_terracotta"
         self._menu_bar = None
         self._hover_tooltips: list[object] = []
         self._exam_index_dir_value = str(self.deps.exam_repository.index_root)
@@ -258,9 +234,58 @@ class MainWindow:
             ]
         )
 
+        super().__init__(
+            title=_title,
+            geometry=_geometry,
+            theme_key=self._tooltip_theme_key,
+            min_width=_min_width,
+            min_height=_min_height,
+        )
+
+    def build_menu(self) -> list:
+        return [
+            section_spec("file", self._menu_items_file, label="Datei", alt="d"),
+            section_spec("edit", self._menu_items_edit, label="Bearbeiten", alt="e"),
+            section_spec("view", self._menu_items_mode, label="Ansicht", alt="a"),
+            section_spec("debug", self._menu_items_debug, label="Debug", alt="b"),
+            section_spec("help", self._menu_items_help, label="Hilfe", alt="h"),
+        ]
+
+    def build_content(self, frame) -> None:
+        self.root = self
+        self._status_var = ui.StringVar(value="Bereit")
+        self._reading_mode_title_var = ui.StringVar(value="Einlesen")
+        self._reading_info_var = ui.StringVar(value="Einlesemodus: nicht aktiv")
+        self._assignment_mode_var = ui.StringVar(value="quick")
+        self._superpage_var = ui.BooleanVar(value=False)
+        self._extra_overview_var = ui.StringVar(value="")
+        self._correction_zoom_info_var = ui.StringVar(value="Zoom: 100%")
+        self._correction_comment_var = ui.StringVar(value="")
+        self._correction_marker_color_name_var = ui.StringVar(
+            value=self._marker_color_name_for_hex(self._default_annotation_color_hex)
+        )
+        self._correction_marker_info_var = ui.StringVar(value="Markierung: Richtig")
+        self._correction_sync_info_var = ui.StringVar(value="Sync: keine Auswahl")
+        self._correction_finished_var = ui.BooleanVar(value=False)
+        self._correction_finished_hint_var = ui.StringVar(value="Fertigstatus nicht aktiv")
+        self._shortcut_debug_offline_var = ui.BooleanVar(value=False)
+        self._shortcut_runtime_debug_context_var = ui.StringVar(value="")
+        self._shortcut_runtime_debug_summary_var = ui.StringVar(value="")
         self._build_styles()
-        self._build_layout()
-        self._build_menu_bar()
+        self._build_layout(frame)
+        self.after_idle(self._initial_load)
+
+    def open_settings(self) -> None:
+        self._open_settings_dialog()
+
+    def apply_theme(self, theme_key: str) -> None:
+        super().apply_theme(theme_key)
+        self._tooltip_theme_key = normalize_theme_key(theme_key)
+        self._build_styles()
+
+    def _initial_load(self) -> None:
+        if self._controller:
+            self._controller.refresh_exam_overview()
 
     def _attach_hover_help(self, widget: ui.Widget, *, label: str, shortcut: str | None = None) -> None:
         """Attach hover help; shortcut details are shown here, not in button labels."""
@@ -269,55 +294,6 @@ class MainWindow:
         text = compose_hover_text(label, shortcut_text)
         tooltip = SharedHoverTooltip(widget, text, theme_key=self._tooltip_theme_key)
         self._hover_tooltips.append(tooltip)
-
-    def _build_menu_bar(self) -> None:
-        """Build shared top-level menu via standardized core sections."""
-
-        if self._menu_bar is not None:
-            self._menu_bar.destroy()
-
-        definitions = build_shared_standard_menu_definitions(
-            file_section=shared_menu_section_spec(
-                "file",
-                self._menu_items_file,
-                label="Datei",
-                alt="d",
-            ),
-            edit_section=shared_menu_section_spec(
-                "edit",
-                self._menu_items_edit,
-                label="Bearbeiten",
-                alt="e",
-            ),
-            view_section=shared_menu_section_spec(
-                "view",
-                self._menu_items_mode,
-                label="Ansicht",
-                alt="a",
-            ),
-            extra_sections=(
-                shared_menu_section_spec(
-                    "debug",
-                    self._menu_items_debug,
-                    label="Debug",
-                    alt="b",
-                ),
-            ),
-            help_section=shared_menu_section_spec(
-                "help",
-                self._menu_items_help,
-                label="Hilfe",
-                alt="h",
-            ),
-        )
-
-        self._menu_bar = SharedCustomMenuBar(
-            self.root,
-            definitions,
-            theme_key=self._tooltip_theme_key,
-        )
-        self._menu_bar.build()
-        self.root.config(menu="")
 
     def _menu_create_exam(self) -> None:
         if self._controller is not None:
@@ -357,9 +333,7 @@ class MainWindow:
             SharedMenuItem(type="command", label="Ausgewaehlte Klausur oeffnen", command=self._menu_open_selected_exam),
             SharedMenuItem(type="command", label="Punkte exportieren (Strg+E)", command=self._menu_export_scores),
             SharedMenuItem(type="separator"),
-            SharedMenuItem(type="command", label="Einstellungen", command=self._open_settings_dialog),
-            SharedMenuItem(type="separator"),
-            SharedMenuItem(type="command", label="Beenden", command=self.root.destroy),
+            SharedMenuItem(type="command", label="Beenden", command=self.destroy),
         )
 
     def _menu_items_edit(self):
@@ -608,7 +582,6 @@ class MainWindow:
     def start(self) -> None:
         if self._controller:
             self._controller.refresh_exam_overview()
-        self.root.mainloop()
 
     def _register_runtime_shortcut(
         self,
@@ -951,13 +924,6 @@ class MainWindow:
                     label="UI",
                     fields=(
                         SharedSettingsFieldSpec(
-                            key="tooltip_theme_key",
-                            label="Tooltip-Theme",
-                            field_type="enum",
-                            enum_values=tuple(THEME_ORDER),
-                            default=self._tooltip_theme_key,
-                        ),
-                        SharedSettingsFieldSpec(
                             key="assignment_mode",
                             label="Zuordnungsmodus (Detailansicht)",
                             field_type="enum",
@@ -1006,7 +972,6 @@ class MainWindow:
         """Collect current runtime values for shared settings dialog defaults."""
 
         return {
-            "tooltip_theme_key": self._tooltip_theme_key,
             "assignment_mode": self._assignment_mode_var.get(),
             "exam_index_dir": self._exam_index_dir_value,
             "default_annotation_color": self._marker_color_name_for_hex(self._default_annotation_color_hex),
@@ -1019,19 +984,6 @@ class MainWindow:
 
         if not isinstance(payload, dict):
             return
-
-        theme_value = str(payload.get("tooltip_theme_key", self._tooltip_theme_key) or self._tooltip_theme_key)
-        theme_value = normalize_theme_key(theme_value)
-        self._tooltip_theme_key = theme_value
-
-        if self._menu_bar is not None:
-            self._menu_bar.refresh_theme(self._tooltip_theme_key)
-
-        for tooltip in self._hover_tooltips:
-            try:
-                setattr(tooltip, "theme_key", self._tooltip_theme_key)
-            except Exception:
-                continue
 
         self._build_styles()
 
@@ -1152,8 +1104,8 @@ class MainWindow:
             except Exception:
                 pass
 
-    def _build_layout(self) -> None:
-        shell = widgets.Frame(self.root, style="App.TFrame", padding=16)
+    def _build_layout(self, frame=None) -> None:
+        shell = widgets.Frame(frame if frame is not None else self, style="App.TFrame", padding=16)
         shell.pack(fill=ui.BOTH, expand=True)
 
         self._view_stack = widgets.Frame(shell, style="App.TFrame")

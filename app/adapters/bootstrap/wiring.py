@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.app_info import APP_INFO, AppInfo
-from bw_libs.app_shell import AppShellConfig
+from bw_gui.runtime import AppShellConfig
 from app.adapters.undo import UndoHistory
 from app.core.domain.progress import ProgressCalculator
 from app.core.usecases.create_exam_usecase import CreateExamUseCase

@@ -1,10 +1,10 @@
-from bw_libs.ui_contract import (
+from bw_gui.laufkern import (
     LaufKernManifest,
     LaufKernRoute,
     build_manifest,
     evaluate_intent_routes,
 )
-from bw_libs.ui_contract.keybinding import KeyBindingDefinition, KeybindingRuntimeContext
+from bw_gui.contracts.keybinding import KeyBindingDefinition, KeybindingRuntimeContext
 
 
 def test_laufkern_bridge_manifest_and_reachability():

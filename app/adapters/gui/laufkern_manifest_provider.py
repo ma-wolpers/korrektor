@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from bw_libs.ui_contract.keybinding import KeybindingRegistry
-from bw_libs.ui_contract.laufkern import LaufKernRoute, build_manifest
+from bw_gui.contracts.keybinding import KeybindingRegistry
+from bw_gui.laufkern import LaufKernRoute, build_manifest
 
 
 def build_runtime_shortcut_manifest(registry: KeybindingRegistry):
