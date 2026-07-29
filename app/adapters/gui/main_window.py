@@ -52,6 +52,7 @@ from bw_gui.theming import apply_window_theme
 from bw_gui.theming import configure_ttk_theme
 from bw_gui.theming import get_theme
 from bw_gui.theming import normalize_theme_key
+from bw_gui.theming import theme_canvas
 
 if TYPE_CHECKING:
     from app.adapters.gui.ui_intent_controller import UiIntentController
@@ -1049,58 +1050,31 @@ class MainWindow(BwBaseWindow):
         )
 
     def _build_styles(self) -> None:
-        style = widgets.Style(self.root)
+        """Apply the bw_gui baseline and the single korrektor-specific App.TFrame style."""
         apply_window_theme(self.root, self._tooltip_theme_key)
         configure_ttk_theme(self.root, self._tooltip_theme_key)
-
         theme = get_theme(self._tooltip_theme_key)
-        bg_main = theme["bg_main"]
-        bg_surface = theme["bg_surface"]
-        fg_primary = theme["fg_primary"]
-        fg_muted = theme["fg_muted"]
-        panel_strong = theme.get("panel_strong", theme.get("bg_panel", bg_main))
-
-        style.configure("App.TFrame", background=bg_main)
-        style.configure("Surface.TFrame", background=bg_surface)
-        style.configure("Title.TLabel", background=bg_main, foreground=fg_primary, font=("Segoe UI", 18, "bold"))
-        style.configure("Muted.TLabel", background=bg_main, foreground=fg_muted, font=("Segoe UI", 10))
-        style.configure("Status.TLabel", background=bg_main, foreground=fg_primary, font=("Segoe UI", 10, "bold"))
-        style.configure("PrimaryAction.TButton", padding=(14, 8), font=("Segoe UI", 10, "bold"))
-        style.configure("SecondaryAction.TButton", padding=(12, 8), font=("Segoe UI", 10))
-
-        # Keep popup surfaces aligned with shared theme tokens where widgets use direct colors.
-        self.root.option_add("*Canvas.Background", bg_surface)
-        self.root.option_add("*Canvas.HighlightBackground", panel_strong)
+        widgets.Style(self.root).configure("App.TFrame", background=theme["bg_main"])
         self._apply_canvas_theme_tokens()
 
     def _canvas_theme_tokens(self) -> tuple[str, str]:
-        """Return surface/highlight colors for direct canvas styling."""
-
+        """Return (bg_surface, border) for constructing canvas widgets in _build_layout."""
         theme = get_theme(self._tooltip_theme_key)
         return theme["bg_surface"], theme["border"]
 
     def _apply_canvas_theme_tokens(self) -> None:
-        """Apply canvas colors to existing reading/extra popup surfaces."""
-
-        canvas_bg, canvas_border = self._canvas_theme_tokens()
-
-        reading_canvas = getattr(self, "_reading_canvas", None)
-        if reading_canvas is not None:
-            try:
-                reading_canvas.configure(bg=canvas_bg, highlightbackground=canvas_border)
-            except Exception:
-                pass
-
+        """Re-theme all canvas widgets to match the current theme."""
+        tk = self._tooltip_theme_key
+        for attr in ("_reading_canvas", "_correction_canvas"):
+            canvas = getattr(self, attr, None)
+            if canvas is not None:
+                try:
+                    theme_canvas(canvas, tk)
+                except Exception:
+                    pass
         if self._extra_popup_canvas is not None:
             try:
-                self._extra_popup_canvas.configure(bg=canvas_bg, highlightbackground=canvas_border)
-            except Exception:
-                pass
-
-        correction_canvas = getattr(self, "_correction_canvas", None)
-        if correction_canvas is not None:
-            try:
-                correction_canvas.configure(bg=canvas_bg, highlightbackground=canvas_border)
+                theme_canvas(self._extra_popup_canvas, tk)
             except Exception:
                 pass
 
