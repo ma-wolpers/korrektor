@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Lokale Theme-/Style-Overrides wurden entfernt: Canvas- und Widget-Farben laufen jetzt ausschließlich über `bw_gui.theming`-Tokens und `theme_canvas`-Helfer, keine dateilokal gepflegten Farbkonstanten mehr.
+- `MainWindow` wurde auf `BwBaseWindow` aus `bw_gui` umgestellt; das redundante lokale Themeeinstellungs-Feld entfiel, da Theme-Verwaltung zentral über das Shared-Objekt läuft.
 - Menueleiste auf den neuen zentralen bw-gui-Standardbaukasten umgestellt: Kernrubriken laufen jetzt konsistent ueber `Datei`, `Bearbeiten`, `Ansicht`, `Hilfe`; `Debug` bleibt als app-spezifische Erweiterung erhalten.
 - AI guardrails now emit non-blocking local warnings when configured core keyboard intents (for example create/export/escape/undo/redo/copy/cut/paste/debug) are present but matching shortcut binding markers are missing.
 - UI contract bridges are now fully decommissioned to thin shared re-export shims (`bw_libs/ui_contract/keybinding.py`, `bw_libs/ui_contract/popup.py`, `bw_libs/ui_contract/hsm.py`, `bw_libs/ui_contract/laufkern.py`); dead local duplicate implementations were removed.
