@@ -1,4 +1,4 @@
-"""Bootstrap helper that adds the shared bw-gui library to Python's import path.
+r"""Bootstrap helper that adds the shared bw-gui library to Python's import path.
 
 THIS FILE IS NOT THE LIBRARY. It is a bootstrap helper.
 

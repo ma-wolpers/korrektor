@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Korrektor stürzte beim Start ab: `main_window.py` importierte `get_theme` noch aus dem inzwischen privatisierten `bw_gui.theming`-Modul (`ImportError`, sobald die lokale `bw-gui`-Umgebungsauflösung das gemeinsame Live-Repo statt der eingefrorenen Submodul-Kopie fand). Import auf den dokumentierten privaten Pfad `bw_gui.theming._theme_manager` umgestellt. `bw_libs/shared_gui_core.py` enthielt zusätzlich einen fehlenden `r`-Prefix am Docstring, der bei einem Windows-Pfad mit Backslashes einen `SyntaxError` auslöste und den Absturz noch vor dem eigentlichen Theme-Import verursachte; als Raw-String (`r"""`) korrigiert.
 - Lokale Theme-/Style-Overrides wurden entfernt: Canvas- und Widget-Farben laufen jetzt ausschließlich über `bw_gui.theming`-Tokens und `theme_canvas`-Helfer, keine dateilokal gepflegten Farbkonstanten mehr.
 - `MainWindow` wurde auf `BwBaseWindow` aus `bw_gui` umgestellt; das redundante lokale Themeeinstellungs-Feld entfiel, da Theme-Verwaltung zentral über das Shared-Objekt läuft.
 - Menueleiste auf den neuen zentralen bw-gui-Standardbaukasten umgestellt: Kernrubriken laufen jetzt konsistent ueber `Datei`, `Bearbeiten`, `Ansicht`, `Hilfe`; `Debug` bleibt als app-spezifische Erweiterung erhalten.

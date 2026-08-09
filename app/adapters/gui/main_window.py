@@ -50,9 +50,9 @@ from bw_gui.widgets import HoverTooltip as SharedHoverTooltip
 
 from bw_gui.theming import apply_window_theme
 from bw_gui.theming import configure_ttk_theme
-from bw_gui.theming import get_theme
 from bw_gui.theming import normalize_theme_key
 from bw_gui.theming import theme_canvas
+from bw_gui.theming._theme_manager import get_theme
 
 if TYPE_CHECKING:
     from app.adapters.gui.ui_intent_controller import UiIntentController
