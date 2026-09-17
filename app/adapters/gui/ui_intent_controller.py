@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import csv
-import copy
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -113,14 +112,20 @@ class UiIntentController:
         before_payload: dict[str, object],
         after_payload: dict[str, object],
     ) -> None:
+        """Push one undo/redo entry that replays the given exam JSON snapshots.
+
+        `before_payload`/`after_payload` must already be independent snapshots
+        (e.g. a fresh `ExamProject.to_dict()` call) — `to_dict()` recursively
+        builds new dicts/lists of primitive values with no references back to
+        the live exam object, so callers must not deep-copy them again before
+        passing them in here.
+        """
         exam_file = self._deps.exam_repository.index_root / f"{exam_id}.json"
-        before_copy = copy.deepcopy(before_payload)
-        after_copy = copy.deepcopy(after_payload)
 
         self._record_history_action(
             description=description,
-            undo=lambda: self._write_exam_payload(exam_file, before_copy),
-            redo=lambda: self._write_exam_payload(exam_file, after_copy),
+            undo=lambda: self._write_exam_payload(exam_file, before_payload),
+            redo=lambda: self._write_exam_payload(exam_file, after_payload),
         )
 
     def _apply_exam_index_dir(self, target: Path) -> None:
@@ -130,28 +135,28 @@ class UiIntentController:
         self.refresh_exam_overview()
 
     def refresh_exam_overview(self) -> None:
-        overviews = self._deps.list_exams_usecase.execute()
-        by_id = {item.exam_id: item for item in overviews}
+        """Rebuild the exam overview list from a single load pass.
 
-        rows: list[ExamOverviewRow] = []
-        for exam_file in self._deps.exam_repository.list_exam_files():
-            exam = self._deps.exam_repository.load_exam(exam_file)
-            item = by_id.get(exam.exam_id)
-            if item is None:
-                continue
-            rows.append(
-                ExamOverviewRow(
-                    exam_id=exam.exam_id,
-                    exam_name=exam.exam_name,
-                    reading_percent=item.reading_percent,
-                    correction_percent=item.correction_percent,
-                    region_count=item.region_count,
-                    corrected_region_count=item.corrected_region_count,
-                    reading_complete=item.reading_complete,
-                    has_open_flags=item.has_unassigned_extra_pages or item.has_missing_page_markings,
-                    source_file=exam_file,
-                )
+        `ListExamsUseCase.execute()` already loads and parses every exam file
+        once; it must not be followed by a second directory-wide reload just
+        to look up `exam_id`/`exam_name`/the source path, since `exam_file`
+        is already carried on each `ExamOverview` result.
+        """
+        overviews = self._deps.list_exams_usecase.execute()
+        rows = [
+            ExamOverviewRow(
+                exam_id=item.exam_id,
+                exam_name=item.exam_name,
+                reading_percent=item.reading_percent,
+                correction_percent=item.correction_percent,
+                region_count=item.region_count,
+                corrected_region_count=item.corrected_region_count,
+                reading_complete=item.reading_complete,
+                has_open_flags=item.has_unassigned_extra_pages or item.has_missing_page_markings,
+                source_file=item.exam_file,
             )
+            for item in overviews
+        ]
         self._app.render_overview_rows(rows)
 
     def create_exam(self) -> None:
@@ -170,7 +175,7 @@ class UiIntentController:
             messagebox.showerror("Fehler", str(exc))
             return
 
-        payload = copy.deepcopy(result.exam.to_dict())
+        payload = result.exam.to_dict()
         exam_file = result.exam_file
         self._record_history_action(
             description=f"Klausur angelegt: {result.exam.exam_name}",
@@ -209,7 +214,7 @@ class UiIntentController:
         except Exception as exc:
             messagebox.showerror("Fehler", f"Klausur konnte nicht geladen werden: {exc}")
             return
-        payload = copy.deepcopy(snapshot_exam.to_dict())
+        payload = snapshot_exam.to_dict()
         exam_file = selected.source_file
 
         try:
@@ -340,7 +345,7 @@ class UiIntentController:
         if current_comment == normalized_comment:
             return exam
 
-        before_payload = copy.deepcopy(exam.to_dict())
+        before_payload = exam.to_dict()
 
         if normalized_comment:
             by_student = exam.task_comments.setdefault(student_id, {})
@@ -425,7 +430,7 @@ class UiIntentController:
             messagebox.showerror("Unbekannter Bereich", f"Bereich {normalized_area} existiert nicht.")
             return None
 
-        before_payload = copy.deepcopy(exam.to_dict())
+        before_payload = exam.to_dict()
         exam.person_area_completions = [
             item
             for item in exam.person_area_completions
@@ -492,7 +497,7 @@ class UiIntentController:
             )
             return None
 
-        before_payload = copy.deepcopy(exam.to_dict())
+        before_payload = exam.to_dict()
         tasks = [
             TaskDefinition(code=code.strip().upper(), name=code.strip().upper(), max_points=max_points)
             for code, max_points in task_specs
@@ -529,7 +534,7 @@ class UiIntentController:
         return updated
 
     def save_exam_immediate(self, *, exam: ExamProject) -> ExamProject:
-        before_payload = copy.deepcopy(exam.to_dict())
+        before_payload = exam.to_dict()
         exam_file = self._deps.exam_repository.save_exam(exam)
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
@@ -543,7 +548,7 @@ class UiIntentController:
         return updated
 
     def delete_region_immediate(self, *, exam: ExamProject, region_id: str) -> ExamProject:
-        before_payload = copy.deepcopy(exam.to_dict())
+        before_payload = exam.to_dict()
         exam.regions = [region for region in exam.regions if region.region_id != region_id]
         ordered = list(exam.regions)
         for idx, region in enumerate(ordered):
@@ -562,7 +567,7 @@ class UiIntentController:
         return updated
 
     def delete_extra_page_assignment_immediate(self, *, exam: ExamProject, assignment_id: str) -> ExamProject:
-        before_payload = copy.deepcopy(exam.to_dict())
+        before_payload = exam.to_dict()
         exam.extra_page_assignments = [
             assignment for assignment in exam.extra_page_assignments if assignment.assignment_id != assignment_id
         ]
@@ -579,7 +584,7 @@ class UiIntentController:
         return updated
 
     def finish_reading_mode(self, *, exam: ExamProject) -> ExamProject:
-        before_payload = copy.deepcopy(exam.to_dict())
+        before_payload = exam.to_dict()
         expected = set(range(1, exam.standard_page_count + 1))
         marked = {
             region.page_number
@@ -618,7 +623,7 @@ class UiIntentController:
         area_codes: list[str],
         assignment_id: str | None = None,
     ) -> ExamProject | None:
-        before_payload = copy.deepcopy(exam.to_dict())
+        before_payload = exam.to_dict()
         normalized_areas = [code.strip().upper() for code in area_codes if code.strip()]
         if not normalized_areas:
             messagebox.showerror("Ungültige Eingabe", "Bitte mindestens einen Bereich angeben, z. B. A.")

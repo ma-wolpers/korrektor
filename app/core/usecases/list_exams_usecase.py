@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from app.core.domain.progress import ExamProgress, ProgressCalculator
 from app.core.ports.repositories import ExamRepository
@@ -10,6 +11,7 @@ from app.core.ports.repositories import ExamRepository
 class ExamOverview:
     exam_id: str
     exam_name: str
+    exam_file: Path
     reading_percent: float
     correction_percent: float
     region_count: int
@@ -25,6 +27,12 @@ class ListExamsUseCase:
         self._progress_calculator = progress_calculator
 
     def execute(self) -> list[ExamOverview]:
+        """Load every exam file once and compute its overview row.
+
+        Carries `exam_file` on each result so callers (e.g. the GUI overview
+        refresh) can resolve the source path without loading every exam file
+        a second time.
+        """
         items: list[ExamOverview] = []
         for exam_file in self._exam_repo.list_exam_files():
             exam = self._exam_repo.load_exam(exam_file)
@@ -33,6 +41,7 @@ class ListExamsUseCase:
                 ExamOverview(
                     exam_id=exam.exam_id,
                     exam_name=exam.exam_name,
+                    exam_file=exam_file,
                     reading_percent=progress.reading_percent,
                     correction_percent=progress.correction_percent,
                     region_count=progress.region_count,
