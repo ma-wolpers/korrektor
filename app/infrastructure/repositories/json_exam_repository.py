@@ -4,8 +4,10 @@ import json
 from pathlib import Path
 
 from app.core.domain.models import ExamProject, utc_now_iso
+from app.core.domain.validation import validate_regions
 from app.core.ports.repositories import ExamRepository
 from app.infrastructure.repositories.file_utils import atomic_write_json
+from app.infrastructure.repositories.legacy_migration import migrate_legacy_area_code_references
 
 
 class JsonExamRepository(ExamRepository):
@@ -25,12 +27,24 @@ class JsonExamRepository(ExamRepository):
         return sorted(self._index_root.glob("*.json"))
 
     def load_exam(self, exam_file: Path) -> ExamProject:
+        """Load, migrate and validate one exam JSON file.
+
+        Pipeline: raw JSON -> legacy area_code-to-region_id migration (on the
+        raw dict) -> `ExamProject.from_dict` (materializes the new domain
+        model, raises `ValueError` for an unsupported/legacy schema) ->
+        `validate_regions` (raises `ExamStructureError` for structurally
+        ambiguous region identifiers that parsed successfully but must not
+        be used as-is). Callers decide how to surface either exception.
+        """
         with exam_file.open("r", encoding="utf-8") as handle:
             raw = json.load(handle)
+        raw = migrate_legacy_area_code_references(raw)
         try:
-            return ExamProject.from_dict(raw)
+            exam = ExamProject.from_dict(raw)
         except ValueError as exc:
             raise ValueError(f"{exam_file.name}: {exc}") from exc
+        validate_regions(exam)
+        return exam
 
     def save_exam(self, exam: ExamProject) -> Path:
         exam.updated_at = utc_now_iso()

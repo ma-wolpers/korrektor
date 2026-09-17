@@ -46,7 +46,7 @@ def _measure_drift(annotation: PdfAnnotation, font_size: int) -> tuple[float, fl
         x=annotation.x,
         y=annotation.y,
         task_code=annotation.task_code,
-        area_code=annotation.area_code,
+        region_id=annotation.region_id,
         font_size=annotation.font_size,
         rotation_deg=annotation.rotation_deg,
     )
@@ -87,7 +87,7 @@ def test_symbol_alignment_unrotated_stays_close(content: str, font_size: int) ->
         x=300.0,
         y=280.0,
         task_code="A1",
-        area_code="A",
+        region_id="r-a",
         font_size=float(font_size),
         rotation_deg=0.0,
     )
@@ -109,7 +109,7 @@ def test_text_alignment_unrotated_stays_reasonable(content: str, font_size: int)
         x=300.0,
         y=280.0,
         task_code="A1",
-        area_code="A",
+        region_id="r-a",
         font_size=float(font_size),
         rotation_deg=0.0,
     )
@@ -132,7 +132,7 @@ def test_text_alignment_rotated_is_bounded(content: str, font_size: int, rotatio
         x=300.0,
         y=280.0,
         task_code="A1",
-        area_code="A",
+        region_id="r-a",
         font_size=float(font_size),
         rotation_deg=rotation_deg,
     )
@@ -155,7 +155,7 @@ def test_symbol_alignment_rotated_is_bounded(content: str, font_size: int, rotat
         x=300.0,
         y=280.0,
         task_code="A1",
-        area_code="A",
+        region_id="r-a",
         font_size=float(font_size),
         rotation_deg=rotation_deg,
     )

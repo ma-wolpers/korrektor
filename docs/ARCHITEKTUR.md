@@ -30,6 +30,14 @@
 	- Extraseiten-Zuordnungen liegen separat in `extra_page_assignments` (student-/seitenbezogen).
 	- JSON ohne `extra_page_assignments` wird als nicht unterstuetztes Altschema abgewiesen.
 
+## Regionen-Identitaet
+
+- `RegionAssignment.region_id` ist die alleinige technische Identitaet einer Region (stabile UUID, bei Erzeugung vergeben, nie neu berechnet).
+- `assigned_area_codes[0]` ist ein sichtbares, fuer die Lebensdauer der Region stabiles Label (z. B. "A") - keine technische Primaeridentitaet. Nach dem Loeschen einer Region darf ihr Label spaeter an eine neu angelegte Region vergeben werden; das Loeschen einer Region veraendert nie Identitaet oder Label einer anderen Region.
+- Externe Referenzen (`PersonAreaCompletion.region_id`, `PdfAnnotation.region_id`) zeigen auf `region_id`, nicht auf das Label. `TaskDefinition.code` (`task_code`) ist davon unabhaengig und muss klausurweit eindeutig sein (Score-Spalten in `korrektor_scores.csv` sind allein ueber `task_code` geschluesselt).
+- Beim Laden wird die Struktur validiert (`app/core/domain/validation.py: validate_regions`): doppelte/leere `region_id`, doppelte Bereichs-Labels oder doppelte `task_code`s fuehren zu einem `ExamStructureError` statt zu stillschweigendem Datenverlust. Legacy-JSON mit altem `area_code`-Feld wird vorher, auf dem rohen Dict, migriert (`app/infrastructure/repositories/legacy_migration.py`) - nur wenn die Zuordnung eindeutig auflösbar ist, sonst bleibt sie unmigriert und die Validierung schlaegt kontrolliert fehl.
+- Eine fehlerhafte Klausur-Datei wird beim Laden der Uebersicht uebersprungen (nicht angezeigt) statt die gesamte Uebersicht abzubrechen; das Oeffnen einer einzelnen fehlerhaften Klausur zeigt einen Fehlerdialog.
+
 ## Undo/Redo
 
 - Session-lokale History mit Rueckgaengig/Wiederholen liegt in `app/adapters/undo/history.py`.

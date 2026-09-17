@@ -19,6 +19,12 @@ class ExamProgress:
 
 class ProgressCalculator:
     def compute(self, exam: ExamProject) -> ExamProgress:
+        """Compute reading/correction progress metrics for one exam.
+
+        "Fully finished" areas are matched via `PersonAreaCompletion.region_id`
+        against `RegionAssignment.region_id` — the stable technical identity,
+        not the (renameable) `assigned_area_codes` label.
+        """
         region_count = len(exam.regions) + len(exam.extra_page_assignments)
         corrected_region_count = (
             sum(1 for region in exam.regions if region.is_corrected)
@@ -57,16 +63,17 @@ class ProgressCalculator:
             for code in region.assigned_area_codes
             if code.strip()
         }
+        region_ids = {region.region_id for region in exam.regions if region.assigned_area_codes}
         student_ids = {student.student_id for student in exam.students}
         finished_pairs = {
-            (item.student_id, item.area_code.strip().upper())
+            (item.student_id, item.region_id.strip())
             for item in exam.person_area_completions
-            if item.is_finished and item.student_id.strip() and item.area_code.strip()
+            if item.is_finished and item.student_id.strip() and item.region_id.strip()
         }
         fully_finished_area_count = sum(
             1
-            for area_code in area_codes
-            if student_ids and all((student_id, area_code) in finished_pairs for student_id in student_ids)
+            for region_id in region_ids
+            if student_ids and all((student_id, region_id) in finished_pairs for student_id in student_ids)
         )
 
         return ExamProgress(

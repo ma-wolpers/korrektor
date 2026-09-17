@@ -70,6 +70,16 @@ class DraftRegion:
 
 @dataclass(slots=True)
 class CorrectionTemplate:
+    """One region as used by Korrekturmodus.
+
+    `region_id` is the stable technical identity (matches
+    `RegionAssignment.region_id`) and is the key used in
+    `MainWindow._correction_templates`. `area_code` is only the current
+    human-visible label for that region — used for the Bereich-Auswahl UI
+    and status text, never as a lookup key.
+    """
+
+    region_id: str
     area_code: str
     page_number: int
     box: tuple[float, float, float, float]
@@ -171,6 +181,7 @@ class MainWindow(BwBaseWindow):
         self._redraw_target_region_id: str | None = None
         self._redraw_on_next_box: bool = False
         self._correction_templates: dict[str, CorrectionTemplate] = {}
+        self._correction_label_to_region_id: dict[str, str] = {}
         self._correction_task_items: list[tuple[str, float]] = []
         self._correction_photo: ui.PhotoImage | None = None
         self._correction_zoom_percent = 100
@@ -2817,18 +2828,33 @@ class MainWindow(BwBaseWindow):
         self._render_current_reading_page()
 
     def _next_area_label(self) -> str:
+        """Return the first area-code label not already used by a region or draft.
+
+        Collision-safe by construction: scans the labels actually in use
+        (committed regions and open standard drafts) instead of deriving a
+        label purely from a count, which broke whenever the count and the
+        real labels in use fell out of sync (the root cause of duplicate
+        `assigned_area_codes` collapsing regions in Korrekturmodus).
+        """
         if self._current_exam is None:
             return "A"
         if self._extra_mode_active:
             existing = self._existing_standard_areas()
             return existing[0] if existing else "A"
-        standard_region_count = len(self._current_exam.regions)
-        standard_draft_count = sum(
-            1
+        used = {
+            region.assigned_area_codes[0].strip().upper()
+            for region in self._current_exam.regions
+            if region.assigned_area_codes and region.assigned_area_codes[0].strip()
+        }
+        used.update(
+            draft.area_codes[0].strip().upper()
             for draft in self._draft_regions.values()
-            if self._current_exam is not None and draft.student_pdf == ""
+            if draft.student_pdf == "" and draft.area_codes and draft.area_codes[0].strip()
         )
-        return self._index_to_area_label(standard_region_count + standard_draft_count)
+        index = 0
+        while self._index_to_area_label(index) in used:
+            index += 1
+        return self._index_to_area_label(index)
 
     def _finish_reading_mode(self) -> None:
         if not self._current_exam or not self._controller:
@@ -2979,6 +3005,7 @@ class MainWindow(BwBaseWindow):
         )
 
     def _start_correction_mode(self) -> None:
+        """Enter Korrekturmodus, building the region_id-keyed templates/label map."""
         if not self._current_exam:
             messagebox.showinfo("Hinweis", "Bitte zuerst eine Klausur öffnen.")
             return
@@ -2986,10 +3013,11 @@ class MainWindow(BwBaseWindow):
         if not templates:
             messagebox.showinfo("Keine Bereiche", "Bitte zuerst Standardbereiche im Einlesemodus markieren und speichern.")
             return
+        label_to_region_id = self._build_label_to_region_id_map(templates)
 
         area = self._correction_area_var.get().strip().upper()
-        if area not in templates:
-            area = sorted(templates.keys())[0]
+        if area not in label_to_region_id:
+            area = sorted(label_to_region_id.keys())[0]
             self._correction_area_var.set(area)
 
         indices = list(range(len(self._current_exam.students)))
@@ -3008,6 +3036,7 @@ class MainWindow(BwBaseWindow):
         self._correction_drag_annotation_id = None
         self._correction_drag_offset_pdf = None
         self._correction_templates = templates
+        self._correction_label_to_region_id = label_to_region_id
         self._correction_student_indices = indices
         self._correction_cursor = 0
         self._student_cursor = indices[0]
@@ -3020,9 +3049,11 @@ class MainWindow(BwBaseWindow):
         self._status_var.set(f"Korrekturmodus aktiv für Bereich {area}")
 
     def _stop_correction_mode(self, *, silent: bool = False) -> None:
+        """Leave Korrekturmodus, clearing the region templates and label map."""
         self._commit_points_if_possible()
         self._correction_mode_active = False
         self._correction_templates = {}
+        self._correction_label_to_region_id = {}
         self._correction_task_items = []
         self._correction_student_indices = []
         self._correction_cursor = 0
@@ -3042,6 +3073,13 @@ class MainWindow(BwBaseWindow):
 
     @staticmethod
     def _build_correction_templates(exam: ExamProject) -> dict[str, CorrectionTemplate]:
+        """Build one `CorrectionTemplate` per region, keyed by `region_id`.
+
+        Assumes `exam` already passed `validate_regions` (unique, non-empty
+        `region_id`s and `assigned_area_codes[0]` labels) — this no longer
+        needs to defend against duplicate labels by dropping regions, since
+        that is now rejected earlier, at load time.
+        """
         templates: dict[str, CorrectionTemplate] = {}
         ordered_regions = sorted(
             (region for region in exam.regions if region.assigned_area_codes),
@@ -3049,9 +3087,10 @@ class MainWindow(BwBaseWindow):
         )
         for region in ordered_regions:
             area_code = region.assigned_area_codes[0].strip().upper()
-            if not area_code or area_code in templates:
+            if not area_code or region.region_id in templates:
                 continue
-            templates[area_code] = CorrectionTemplate(
+            templates[region.region_id] = CorrectionTemplate(
+                region_id=region.region_id,
                 area_code=area_code,
                 page_number=region.page_number,
                 box=(region.box.x0, region.box.y0, region.box.x1, region.box.y1),
@@ -3059,9 +3098,19 @@ class MainWindow(BwBaseWindow):
             )
         return templates
 
+    @staticmethod
+    def _build_label_to_region_id_map(templates: dict[str, CorrectionTemplate]) -> dict[str, str]:
+        """Map each region's visible `area_code` label to its `region_id` key.
+
+        The Bereich-Auswahl UI (`_correction_area_var`) still operates on
+        labels; this is the single place that resolves a label back to the
+        `region_id` used to look regions up in `templates`. The result is
+        cached on `self._correction_label_to_region_id`.
+        """
+        return {template.area_code: region_id for region_id, template in templates.items()}
+
     def _refresh_correction_task_choices(self, *, load_saved_points: bool) -> None:
-        area_code = self._correction_area_var.get().strip().upper()
-        template = self._correction_templates.get(area_code)
+        template = self._current_correction_template()
         if template is None:
             self._correction_task_items = []
             self._correction_selected_annotation_id = None
@@ -3169,15 +3218,17 @@ class MainWindow(BwBaseWindow):
         )
 
     def _is_current_person_area_finished(self) -> bool:
+        """Check the finished-flag for the current student on the current region."""
         if self._controller is None or self._current_exam is None:
             return False
         student = self._current_correction_student()
-        if student is None:
+        template = self._current_correction_template()
+        if student is None or template is None:
             return False
         return self._controller.is_person_area_finished(
             exam=self._current_exam,
             student_id=student.student_id,
-            area_code=self._correction_area_var.get(),
+            region_id=template.region_id,
         )
 
     def _refresh_correction_completion_controls(self) -> None:
@@ -3201,11 +3252,13 @@ class MainWindow(BwBaseWindow):
             self._save_correction_button.configure(state="disabled" if is_finished else "normal")
 
     def _on_correction_finished_toggled(self) -> None:
+        """Persist the finished-checkbox state for the current student/region."""
         if not self._correction_mode_active or self._controller is None or self._current_exam is None:
             return
 
         student = self._current_correction_student()
-        if student is None:
+        template = self._current_correction_template()
+        if student is None or template is None:
             return
 
         requested = bool(self._correction_finished_var.get())
@@ -3218,7 +3271,7 @@ class MainWindow(BwBaseWindow):
         updated = self._controller.set_person_area_finished_immediate(
             exam=self._current_exam,
             student_id=student.student_id,
-            area_code=self._correction_area_var.get(),
+            region_id=template.region_id,
             is_finished=requested,
         )
         if updated is None:
@@ -3321,10 +3374,10 @@ class MainWindow(BwBaseWindow):
         return red, green, blue
 
     def _current_correction_annotations(self) -> list[PdfAnnotation]:
+        """List annotations for the current student/page, filtered by region_id."""
         if self._current_exam is None:
             return []
         student = self._current_correction_student()
-        area_code = self._correction_area_var.get().strip().upper()
         template = self._current_correction_template()
         if student is None or template is None:
             return []
@@ -3332,12 +3385,21 @@ class MainWindow(BwBaseWindow):
             item
             for item in self._current_exam.pdf_annotations
             if item.student_pdf == student.pdf_filename and item.page_number == template.page_number
-            and (not item.area_code or item.area_code == area_code)
+            and (not item.region_id or item.region_id == template.region_id)
         ]
 
     def _current_correction_template(self) -> CorrectionTemplate | None:
+        """Resolve the currently selected Bereich label to its CorrectionTemplate.
+
+        `_correction_templates` is keyed by `region_id`; `_correction_area_var`
+        holds the visible `area_code` label, so the lookup goes through
+        `_correction_label_to_region_id` first.
+        """
         area_code = self._correction_area_var.get().strip().upper()
-        return self._correction_templates.get(area_code)
+        region_id = self._correction_label_to_region_id.get(area_code)
+        if region_id is None:
+            return None
+        return self._correction_templates.get(region_id)
 
     def _selected_correction_annotation(self) -> PdfAnnotation | None:
         if self._correction_selected_annotation_id is None:
@@ -3413,6 +3475,7 @@ class MainWindow(BwBaseWindow):
         self._status_var.set(f"Durchgedrueckt: {created} Kopien erzeugt")
 
     def _enable_selected_annotation_sync(self, annotation: PdfAnnotation) -> int:
+        """"Durchdruecken": clone the annotation for every other correction student."""
         if self._current_exam is None:
             return 0
 
@@ -3439,7 +3502,7 @@ class MainWindow(BwBaseWindow):
                 x=annotation.x,
                 y=annotation.y,
                 task_code=annotation.task_code,
-                area_code=annotation.area_code,
+                region_id=annotation.region_id,
                 font_size=annotation.font_size,
                 rotation_deg=annotation.rotation_deg,
                 sync_group_id=sync_group_id,
@@ -3511,6 +3574,7 @@ class MainWindow(BwBaseWindow):
         return True
 
     def _paste_correction_annotation(self) -> bool:
+        """Paste the clipboard annotation into the currently selected region."""
         if self._current_exam is None:
             return False
         if not self._annotation_clipboard:
@@ -3519,7 +3583,6 @@ class MainWindow(BwBaseWindow):
 
         student = self._current_correction_student()
         template = self._current_correction_template()
-        area_code = self._correction_area_var.get().strip().upper()
         if student is None or template is None:
             return False
 
@@ -3539,7 +3602,7 @@ class MainWindow(BwBaseWindow):
             x=target_x,
             y=target_y,
             task_code=str(self._annotation_clipboard.get("task_code", "")).strip().upper(),
-            area_code=area_code,
+            region_id=template.region_id,
             font_size=self._normalize_marker_font_size(self._annotation_clipboard.get("font_size", 14.0)),
             rotation_deg=self._normalize_rotation_deg(float(self._annotation_clipboard.get("rotation_deg", 0.0))),
             sync_group_id="",
@@ -3587,8 +3650,9 @@ class MainWindow(BwBaseWindow):
         annotation: PdfAnnotation,
         templates: dict[str, CorrectionTemplate],
     ) -> tuple[float, float, float, float] | None:
-        if annotation.area_code:
-            template = templates.get(annotation.area_code)
+        """Find the region box an annotation belongs to, by region_id or position."""
+        if annotation.region_id:
+            template = templates.get(annotation.region_id)
             if template is None or template.page_number != annotation.page_number:
                 return None
             return template.box
@@ -3755,11 +3819,11 @@ class MainWindow(BwBaseWindow):
         annotation_type: str,
         content: str,
     ) -> bool:
+        """Place a new correction mark at the clicked canvas position."""
         if self._current_exam is None:
             return False
         student = self._current_correction_student()
-        area_code = self._correction_area_var.get().strip().upper()
-        template = self._correction_templates.get(area_code)
+        template = self._current_correction_template()
         if student is None or template is None:
             return False
         pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y)
@@ -3778,7 +3842,7 @@ class MainWindow(BwBaseWindow):
             x=pdf_pos[0],
             y=pdf_pos[1],
             task_code=task_code or "",
-            area_code=area_code,
+            region_id=template.region_id,
             font_size=default_font_size,
             rotation_deg=0.0,
             sync_group_id="",
@@ -3983,11 +4047,11 @@ class MainWindow(BwBaseWindow):
         self._status_var.set("Original-PDF mit Markierungen ueberschrieben")
 
     def _render_correction_preview(self) -> None:
+        """Render the current student's region clip and refresh the status line."""
         if self._current_exam is None:
             return
         student = self._current_correction_student()
-        area_code = self._correction_area_var.get().strip().upper()
-        template = self._correction_templates.get(area_code)
+        template = self._current_correction_template()
         if student is None or template is None:
             self._correction_canvas.delete("all")
             self._correction_clip_box = None
@@ -4027,7 +4091,7 @@ class MainWindow(BwBaseWindow):
             self._correction_canvas.configure(scrollregion=(0, 0, pix.width, pix.height))
             self._render_correction_annotations()
             self._correction_info_var.set(
-                f"Bereich {area_code} | {student.display_name} ({self._correction_cursor + 1}/{len(self._correction_student_indices)}) | Seite {template.page_number}"
+                f"Bereich {template.area_code} | {student.display_name} ({self._correction_cursor + 1}/{len(self._correction_student_indices)}) | Seite {template.page_number}"
             )
         except Exception as exc:
             self._correction_canvas.delete("all")

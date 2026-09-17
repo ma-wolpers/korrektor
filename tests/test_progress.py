@@ -83,21 +83,21 @@ def test_progress_counts_fully_finished_areas_for_all_students() -> None:
             ),
         ],
         person_area_completions=[
-            # Area A is fully finished for all students.
+            # Area A (region r-a) is fully finished for all students.
             PersonAreaCompletion(
                 student_id="alice",
-                area_code="A",
+                region_id="r-a",
                 is_finished=True,
             ),
             PersonAreaCompletion(
                 student_id="bob",
-                area_code="A",
+                region_id="r-a",
                 is_finished=True,
             ),
-            # Area B is unfinished for Bob.
+            # Area B (region r-b) is unfinished for Bob.
             PersonAreaCompletion(
                 student_id="alice",
-                area_code="B",
+                region_id="r-b",
                 is_finished=True,
             ),
         ],

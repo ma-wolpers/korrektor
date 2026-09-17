@@ -136,14 +136,23 @@ class ExtraPageAssignment:
 
 @dataclass(slots=True)
 class PersonAreaCompletion:
+    """Finished-status for one person on one region.
+
+    `region_id` references `RegionAssignment.region_id` — the region's
+    stable technical identity, not its (renameable, potentially reused)
+    `assigned_area_codes` display label. Raw JSON keyed by the legacy
+    `area_code` field is migrated to `region_id` before this class ever
+    parses it (see `app/infrastructure/repositories/legacy_migration.py`).
+    """
+
     student_id: str
-    area_code: str
+    region_id: str
     is_finished: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "student_id": self.student_id,
-            "area_code": self.area_code,
+            "region_id": self.region_id,
             "is_finished": self.is_finished,
         }
 
@@ -151,13 +160,23 @@ class PersonAreaCompletion:
     def from_dict(cls, raw: dict[str, Any]) -> "PersonAreaCompletion":
         return cls(
             student_id=str(raw.get("student_id", "")).strip(),
-            area_code=str(raw.get("area_code", "")).strip().upper(),
+            region_id=str(raw.get("region_id", "")).strip(),
             is_finished=bool(raw.get("is_finished", True)),
         )
 
 
 @dataclass(slots=True)
 class PdfAnnotation:
+    """One placed correction mark/comment on a student's PDF page.
+
+    `region_id` references `RegionAssignment.region_id` — the region's
+    stable technical identity, used to resolve the annotation's clip box
+    (see `MainWindow._resolve_annotation_clip_box`). It is not the
+    (renameable, potentially reused) `assigned_area_codes` display label.
+    `task_code` is a `TaskDefinition.code` and is unrelated to region
+    identity; it is never rewritten by region relabeling.
+    """
+
     annotation_id: str
     student_pdf: str
     page_number: int
@@ -167,7 +186,7 @@ class PdfAnnotation:
     x: float
     y: float
     task_code: str = ""
-    area_code: str = ""
+    region_id: str = ""
     font_size: float = 20.0
     rotation_deg: float = 0.0
     sync_group_id: str = ""
@@ -184,7 +203,7 @@ class PdfAnnotation:
             "x": self.x,
             "y": self.y,
             "task_code": self.task_code,
-            "area_code": self.area_code,
+            "region_id": self.region_id,
             "font_size": self.font_size,
             "rotation_deg": self.rotation_deg,
             "sync_group_id": self.sync_group_id,
@@ -203,7 +222,7 @@ class PdfAnnotation:
             x=float(raw.get("x", 0.0)),
             y=float(raw.get("y", 0.0)),
             task_code=str(raw.get("task_code", "")).strip().upper(),
-            area_code=str(raw.get("area_code", "")).strip().upper(),
+            region_id=str(raw.get("region_id", "")).strip(),
             font_size=float(raw.get("font_size", 20.0)),
             rotation_deg=float(raw.get("rotation_deg", 0.0)),
             sync_group_id=str(raw.get("sync_group_id", "")).strip(),

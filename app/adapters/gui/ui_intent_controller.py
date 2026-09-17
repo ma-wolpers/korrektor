@@ -91,19 +91,6 @@ class UiIntentController:
         exam_file.parent.mkdir(parents=True, exist_ok=True)
         atomic_write_json(exam_file, payload)
 
-    @staticmethod
-    def _index_to_area_label(index: int) -> str:
-        letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        result = ""
-        value = index
-        while True:
-            value, remainder = divmod(value, 26)
-            result = letters[remainder] + result
-            if value == 0:
-                break
-            value -= 1
-        return result
-
     def _record_exam_payload_action(
         self,
         *,
@@ -140,9 +127,12 @@ class UiIntentController:
         `ListExamsUseCase.execute()` already loads and parses every exam file
         once; it must not be followed by a second directory-wide reload just
         to look up `exam_id`/`exam_name`/the source path, since `exam_file`
-        is already carried on each `ExamOverview` result.
+        is already carried on each `ExamOverview` result. A file that fails
+        to load is skipped (not shown) rather than aborting the whole
+        overview; if any did, a short status hint names how many and the
+        first one, instead of a popup on every refresh.
         """
-        overviews = self._deps.list_exams_usecase.execute()
+        overviews, load_errors = self._deps.list_exams_usecase.execute()
         rows = [
             ExamOverviewRow(
                 exam_id=item.exam_id,
@@ -158,6 +148,12 @@ class UiIntentController:
             for item in overviews
         ]
         self._app.render_overview_rows(rows)
+        if load_errors:
+            first = load_errors[0]
+            suffix = f" ({len(load_errors) - 1} weitere)" if len(load_errors) > 1 else ""
+            self._app.set_status(
+                f"{len(load_errors)} Klausur(en) uebersprungen - fehlerhaft: {first.exam_file.name}: {first.message}{suffix}"
+            )
 
     def create_exam(self) -> None:
         folder = filedialog.askdirectory(title="Klausurordner wählen")
@@ -188,12 +184,22 @@ class UiIntentController:
         self._app.start_reading_mode_for_current_exam()
 
     def open_selected_exam(self) -> None:
+        """Open the exam selected in the overview, reporting a broken file instead of crashing.
+
+        A structurally invalid exam (see `validate_regions`) or an
+        unsupported legacy schema raises here; the user gets a clear error
+        naming the file instead of an unhandled exception.
+        """
         selected = self._app.get_selected_row()
         if selected is None:
             messagebox.showinfo("Hinweis", "Bitte zuerst eine Klausur auswählen.")
             return
 
-        exam = self._deps.load_exam_usecase.execute(exam_file=selected.source_file)
+        try:
+            exam = self._deps.load_exam_usecase.execute(exam_file=selected.source_file)
+        except Exception as exc:
+            messagebox.showerror("Klausur fehlerhaft", f"'{selected.source_file.name}' konnte nicht geoeffnet werden:\n{exc}")
+            return
         self._app.open_exam_detail(exam, selected.source_file)
 
     def delete_selected_exam(self) -> None:
@@ -399,12 +405,25 @@ class UiIntentController:
         self._app.set_status(f"Punkte exportiert: {output_path.name}")
         return True
 
-    def is_person_area_finished(self, *, exam: ExamProject, student_id: str, area_code: str) -> bool:
-        normalized_area = area_code.strip().upper()
-        if not normalized_area:
+    @staticmethod
+    def _area_label_for_region(exam: ExamProject, region_id: str) -> str:
+        """Resolve a region's display label for status/history messages.
+
+        `region_id` stays the technical lookup key; this only affects text
+        shown to the user, never how `PersonAreaCompletion` entries are matched.
+        """
+        region = next((item for item in exam.regions if item.region_id == region_id), None)
+        if region is not None and region.assigned_area_codes:
+            return region.assigned_area_codes[0]
+        return region_id
+
+    def is_person_area_finished(self, *, exam: ExamProject, student_id: str, region_id: str) -> bool:
+        """Check whether the given student is marked finished for this region."""
+        normalized_region_id = region_id.strip()
+        if not normalized_region_id:
             return False
         return any(
-            item.student_id == student_id and item.area_code == normalized_area and item.is_finished
+            item.student_id == student_id and item.region_id == normalized_region_id and item.is_finished
             for item in exam.person_area_completions
         )
 
@@ -413,41 +432,42 @@ class UiIntentController:
         *,
         exam: ExamProject,
         student_id: str,
-        area_code: str,
+        region_id: str,
         is_finished: bool,
     ) -> ExamProject | None:
-        normalized_area = area_code.strip().upper()
-        if not normalized_area:
-            messagebox.showerror("Ungueltige Eingabe", "Bereichscode fehlt.")
+        """Set/clear the finished flag for one student+region, with undo/redo."""
+        normalized_region_id = region_id.strip()
+        if not normalized_region_id:
+            messagebox.showerror("Ungueltige Eingabe", "Bereich fehlt.")
             return None
 
         if student_id not in {student.student_id for student in exam.students}:
             messagebox.showerror("Ungueltige Eingabe", "Unbekannte Person fuer Fertigstatus.")
             return None
 
-        valid_areas = self._existing_standard_area_codes(exam)
-        if normalized_area not in valid_areas:
-            messagebox.showerror("Unbekannter Bereich", f"Bereich {normalized_area} existiert nicht.")
+        if normalized_region_id not in {region.region_id for region in exam.regions}:
+            messagebox.showerror("Unbekannter Bereich", "Dieser Bereich existiert nicht (mehr).")
             return None
 
+        area_label = self._area_label_for_region(exam, normalized_region_id)
         before_payload = exam.to_dict()
         exam.person_area_completions = [
             item
             for item in exam.person_area_completions
-            if not (item.student_id == student_id and item.area_code == normalized_area)
+            if not (item.student_id == student_id and item.region_id == normalized_region_id)
         ]
         if is_finished:
             exam.person_area_completions.append(
-                PersonAreaCompletion(student_id=student_id, area_code=normalized_area, is_finished=True)
+                PersonAreaCompletion(student_id=student_id, region_id=normalized_region_id, is_finished=True)
             )
 
         exam_file = self._deps.exam_repository.save_exam(exam)
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
             description=(
-                f"Bereich als fertig markiert: {normalized_area}"
+                f"Bereich als fertig markiert: {area_label}"
                 if is_finished
-                else f"Bereich als offen markiert: {normalized_area}"
+                else f"Bereich als offen markiert: {area_label}"
             ),
             exam_id=updated.exam_id,
             before_payload=before_payload,
@@ -455,9 +475,9 @@ class UiIntentController:
         )
         self.refresh_exam_overview()
         self._app.set_status(
-            f"Fertigstatus aktualisiert: {normalized_area}"
+            f"Fertigstatus aktualisiert: {area_label}"
             if is_finished
-            else f"Fertigstatus entfernt: {normalized_area}"
+            else f"Fertigstatus entfernt: {area_label}"
         )
         return updated
 
@@ -548,12 +568,17 @@ class UiIntentController:
         return updated
 
     def delete_region_immediate(self, *, exam: ExamProject, region_id: str) -> ExamProject:
+        """Remove one region without touching any other region's identity.
+
+        Previously this relabeled every remaining region's `assigned_area_codes`
+        by list index, which silently rewrote other regions' visible labels
+        (and, before the region_id migration, corrupted any stored reference
+        keyed by that label) on every unrelated deletion. Area codes are now
+        stable once assigned (see `_next_area_label`) and `region_id` is the
+        only technical identity, so no relabeling is needed here.
+        """
         before_payload = exam.to_dict()
         exam.regions = [region for region in exam.regions if region.region_id != region_id]
-        ordered = list(exam.regions)
-        for idx, region in enumerate(ordered):
-            code = self._index_to_area_label(idx)
-            region.assigned_area_codes = [code]
         exam_file = self._deps.exam_repository.save_exam(exam)
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
