@@ -1501,8 +1501,15 @@ class MainWindow(BwBaseWindow):
         self._quick_tasks_var = ui.StringVar(value="")
         self._quick_tasks_entry = widgets.Entry(self._task_input_container, textvariable=self._quick_tasks_var)
         self._quick_tasks_entry.pack(fill=ui.X)
+        self._quick_tasks_entry.bind("<FocusOut>", self._on_reading_fields_focus_out)
+        self._quick_tasks_entry.bind("<Return>", self._on_reading_fields_commit)
+        self._quick_tasks_entry.bind("<Escape>", self._on_reading_fields_escape)
 
         self._form_tasks_text = ui.Text(self._task_input_container, height=4, wrap="word")
+        # No <Return> binding here: Enter must insert a newline between tasks
+        # in Formular-Modus. <FocusOut> is the commit path for this widget.
+        self._form_tasks_text.bind("<FocusOut>", self._on_reading_fields_focus_out)
+        self._form_tasks_text.bind("<Escape>", self._on_reading_fields_escape)
 
         self._task_input_example_var = ui.StringVar(value="")
         self._task_input_example_label = widgets.Label(
@@ -1529,23 +1536,25 @@ class MainWindow(BwBaseWindow):
 
         region_actions = widgets.Frame(self._regions_editor, style="Surface.TFrame")
         region_actions.pack(fill=ui.X, pady=(6, 0))
-        save_region_button = widgets.Button(
+        # Only shown in Extraseiten-Modus: the standard Aufgaben/Punkte editor
+        # commits automatically on FocusOut (see _commit_reading_fields_if_possible).
+        self._save_region_button = widgets.Button(
             region_actions,
             text="Speichern",
             style="SecondaryAction.TButton",
-            command=self._save_selected_region,
+            command=self._save_selected_extra_region,
         )
-        save_region_button.pack(side=ui.LEFT)
-        self._attach_hover_help(save_region_button, label="Aktiven Bereich speichern", shortcut=None)
+        self._save_region_button.pack(side=ui.LEFT)
+        self._attach_hover_help(self._save_region_button, label="Extraseiten-Zuordnung speichern", shortcut=None)
 
-        delete_region_button = widgets.Button(
+        self._delete_region_button = widgets.Button(
             region_actions,
             text="Loeschen",
             style="SecondaryAction.TButton",
             command=self._delete_selected_region,
         )
-        delete_region_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(delete_region_button, label="Aktiven Bereich loeschen", shortcut="Entf")
+        self._delete_region_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(self._delete_region_button, label="Aktiven Bereich loeschen", shortcut="Entf")
 
         redraw_region_button = widgets.Button(
             region_actions,
@@ -2079,6 +2088,23 @@ class MainWindow(BwBaseWindow):
         self._commit_points_if_possible()
         self.root.focus_set()
 
+    def _on_reading_fields_focus_out(self, _event: ui.Event[ui.Misc]) -> None:
+        """Commit the Aufgaben/Punkte editor when it loses focus."""
+        self._commit_reading_fields_if_possible()
+
+    def _on_reading_fields_commit(self, _event: ui.Event[ui.Misc]) -> None:
+        """Commit the Aufgaben/Punkte editor on <Return> and leave the field."""
+        self._commit_reading_fields_if_possible()
+        self.root.focus_set()
+
+    def _on_reading_fields_escape(self, _event: ui.Event[ui.Misc]) -> None:
+        """Leave the Aufgaben/Punkte editor on <Escape> without a direct commit.
+
+        No commit call here: leaving the field triggers <FocusOut>, which is
+        the single commit path (see _commit_reading_fields_if_possible).
+        """
+        self.root.focus_set()
+
     def _move_student(self, delta: int) -> None:
         if not self._current_exam or not self._current_exam.students:
             return
@@ -2550,6 +2576,12 @@ class MainWindow(BwBaseWindow):
         self._reading_canvas.coords(self._drag_rect_id, x0, y0, x1, y1)
 
     def _on_canvas_release(self, event: ui.Event[ui.Misc]) -> None:
+        """Finish a canvas drag: commit a pending redraw, or create a new draft region.
+
+        After creating a new standard (non-extra) draft, focus moves straight
+        into the Aufgaben/Punkte editor (`_focus_reading_task_input`) so the
+        drawn region's tasks/points can be typed without an extra click.
+        """
         if (not self._reading_active and not self._extra_mode_active) or self._drag_start is None:
             return
         if self._drag_rect_id is None:
@@ -2613,7 +2645,16 @@ class MainWindow(BwBaseWindow):
         if self._extra_mode_active:
             self._status_var.set("Extraseiten-Bereich markiert. Bereich(e) eintragen und Speichern klicken.")
         else:
-            self._status_var.set("Bereich markiert. Jetzt Aufgaben eintragen und Speichern klicken.")
+            self._status_var.set("Bereich markiert. Aufgaben eintragen - wird beim Verlassen des Feldes gespeichert.")
+            self._focus_reading_task_input()
+
+    def _focus_reading_task_input(self) -> None:
+        """Move focus into the Aufgaben/Punkte editor after a region is drawn."""
+        if self._assignment_mode_var.get() == "form":
+            self._form_tasks_text.focus_set()
+        else:
+            self._quick_tasks_entry.focus_set()
+            self._quick_tasks_entry.selection_range(0, ui.END)
 
     def _arm_redraw_selected_region(self) -> None:
         if self._selected_region_id is None or self._selected_region_kind not in {"region", "extra"}:
@@ -4346,6 +4387,13 @@ class MainWindow(BwBaseWindow):
         self._correction_controls_frame.pack_forget()
 
     def _set_detail_submode(self, mode: str) -> None:
+        """Switch the Klausur-Detail view between correction/extra/reading sub-modes.
+
+        Also toggles `_save_region_button` visibility: it is only shown in
+        "extra" mode, since the standard Aufgaben/Punkte editor now commits
+        via <FocusOut> instead of a manual button (see
+        `_commit_reading_fields_if_possible`).
+        """
         self._detail_submode = mode
 
         if mode == "correction":
@@ -4364,6 +4412,8 @@ class MainWindow(BwBaseWindow):
             self._task_input_container.pack_forget()
             self._extra_area_container.pack(fill=ui.X, pady=(4, 0))
             self._extra_toolbar.pack(fill=ui.X, pady=(6, 0))
+            self._save_region_button.pack_forget()
+            self._save_region_button.pack(side=ui.LEFT, before=self._delete_region_button)
             return
 
         self._reading_mode_title_var.set("Einlesen")
@@ -4377,6 +4427,7 @@ class MainWindow(BwBaseWindow):
             self._extra_overview_frame.pack_forget()
         self._extra_area_container.pack_forget()
         self._task_input_container.pack(fill=ui.X)
+        self._save_region_button.pack_forget()
 
     def _refresh_task_input_mode(self) -> None:
         mode = self._assignment_mode_var.get()
@@ -4619,12 +4670,18 @@ class MainWindow(BwBaseWindow):
         self._form_tasks_text.insert("1.0", form_text)
         self._rerender_active_page()
 
-    def _save_selected_region(self) -> None:
-        if self._current_exam is None or self._selected_region_id is None or self._controller is None:
-            return
+    def _commit_reading_fields_if_possible(self) -> None:
+        """Persist the Aufgaben/Punkte editor's current content, if any is selected.
 
+        This is the single commit path for the Einlesemodus task/points
+        editor (`_quick_tasks_entry`/`_form_tasks_text`) — it runs on
+        <FocusOut> and <Return>, replacing the former manual "Speichern"
+        button for this editor. Extraseiten-Zuordnung uses its own, separate
+        `_save_selected_extra_region` (still triggered via a visible button).
+        """
         if self._extra_mode_active:
-            self._save_selected_extra_region()
+            return
+        if self._current_exam is None or self._selected_region_id is None or self._controller is None:
             return
 
         task_specs = self._read_task_specs_from_editor()
