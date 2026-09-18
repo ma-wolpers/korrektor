@@ -108,3 +108,74 @@ def test_progress_counts_fully_finished_areas_for_all_students() -> None:
 
     assert progress.total_area_count == 2
     assert progress.fully_finished_area_count == 1
+    # Regression: correction_percent/corrected_region_count must reflect the
+    # PersonAreaCompletion-driven "Fertig korrigiert" state, not the legacy
+    # RegionAssignment.is_corrected/ExtraPageAssignment.is_corrected fields
+    # (which nothing in the app ever sets - using them always reported 0%).
+    assert progress.corrected_region_count == 1
+    assert progress.correction_percent == 50.0
+
+
+def test_progress_correction_percent_ignores_dead_is_corrected_flag() -> None:
+    now = utc_now_iso()
+    exam = ExamProject(
+        exam_id="exam-3",
+        exam_name="Physik",
+        folder_path="A:/tmp",
+        created_at=now,
+        updated_at=now,
+        standard_page_count=1,
+        students=[
+            StudentExam(student_id="alice", display_name="Alice", pdf_filename="Alice.pdf", page_count=1),
+        ],
+        regions=[
+            RegionAssignment(
+                region_id="r-a",
+                student_pdf="",
+                page_number=1,
+                box=RegionBox(0, 0, 100, 100),
+                assigned_area_codes=["A"],
+                is_read_complete=True,
+                is_corrected=True,  # legacy field, must be ignored
+            ),
+        ],
+        person_area_completions=[],  # nobody actually marked "Fertig korrigiert"
+    )
+
+    progress = ProgressCalculator().compute(exam)
+
+    assert progress.corrected_region_count == 0
+    assert progress.correction_percent == 0.0
+
+
+def test_progress_correction_percent_reaches_100_when_all_areas_finished() -> None:
+    now = utc_now_iso()
+    exam = ExamProject(
+        exam_id="exam-4",
+        exam_name="Chemie",
+        folder_path="A:/tmp",
+        created_at=now,
+        updated_at=now,
+        standard_page_count=1,
+        students=[
+            StudentExam(student_id="alice", display_name="Alice", pdf_filename="Alice.pdf", page_count=1),
+        ],
+        regions=[
+            RegionAssignment(
+                region_id="r-a",
+                student_pdf="",
+                page_number=1,
+                box=RegionBox(0, 0, 100, 100),
+                assigned_area_codes=["A"],
+                is_read_complete=True,
+            ),
+        ],
+        person_area_completions=[
+            PersonAreaCompletion(student_id="alice", region_id="r-a", is_finished=True),
+        ],
+    )
+
+    progress = ProgressCalculator().compute(exam)
+
+    assert progress.corrected_region_count == 1
+    assert progress.correction_percent == 100.0

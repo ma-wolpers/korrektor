@@ -26,17 +26,12 @@ class ProgressCalculator:
         not the (renameable) `assigned_area_codes` label.
         """
         region_count = len(exam.regions) + len(exam.extra_page_assignments)
-        corrected_region_count = (
-            sum(1 for region in exam.regions if region.is_corrected)
-            + sum(1 for assignment in exam.extra_page_assignments if assignment.is_corrected)
-        )
 
         read_complete_count = (
             sum(1 for region in exam.regions if region.is_read_complete)
             + sum(1 for assignment in exam.extra_page_assignments if assignment.is_read_complete)
         )
         reading_percent = 100.0 if region_count == 0 else (read_complete_count / region_count) * 100.0
-        correction_percent = 100.0 if region_count == 0 else (corrected_region_count / region_count) * 100.0
 
         expected_extra_pages = {
             (student.pdf_filename, page)
@@ -75,6 +70,14 @@ class ProgressCalculator:
             for region_id in region_ids
             if student_ids and all((student_id, region_id) in finished_pairs for student_id in student_ids)
         )
+        total_area_count = len(area_codes)
+        # corrected_region_count/correction_percent are the *area-based*
+        # "Fertig korrigiert" progress (the only correction signal the app
+        # actually maintains, via PersonAreaCompletion). RegionAssignment.
+        # is_corrected/ExtraPageAssignment.is_corrected are legacy fields
+        # nothing ever sets - they must not be used as a progress source.
+        corrected_region_count = fully_finished_area_count
+        correction_percent = 100.0 if total_area_count == 0 else (fully_finished_area_count / total_area_count) * 100.0
 
         return ExamProgress(
             reading_percent=reading_percent,
@@ -82,7 +85,7 @@ class ProgressCalculator:
             region_count=region_count,
             corrected_region_count=corrected_region_count,
             fully_finished_area_count=fully_finished_area_count,
-            total_area_count=len(area_codes),
+            total_area_count=total_area_count,
             has_unassigned_extra_pages=has_unassigned_extra_pages,
             has_missing_page_markings=has_missing_page_markings,
         )

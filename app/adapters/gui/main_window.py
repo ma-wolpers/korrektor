@@ -1105,7 +1105,7 @@ class MainWindow(BwBaseWindow):
         self._reading_view = widgets.Frame(self._view_stack, style="Surface.TFrame", padding=12)
         self._correction_view = widgets.Frame(self._view_stack, style="Surface.TFrame", padding=12)
 
-        widgets.Label(self._overview_view, text="Uebersicht", style="Title.TLabel").pack(anchor=ui.W)
+        widgets.Label(self._overview_view, text="Übersicht", style="Title.TLabel").pack(anchor=ui.W)
 
         overview_actions = widgets.Frame(self._overview_view, style="Surface.TFrame")
         overview_actions.pack(fill=ui.X, pady=(8, 10))
