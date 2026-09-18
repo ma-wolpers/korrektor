@@ -34,6 +34,7 @@ class GuiDependencies:
     export_scores_usecase: ExportScoresUseCase
     set_reading_complete_usecase: SetReadingCompleteUseCase
     exam_repository: JsonExamRepository
+    score_repository: CsvScoreRepository
     settings_repository: JsonAppSettingsRepository
     runtime_settings: AppRuntimeSettings
     undo_history: UndoHistory
@@ -72,6 +73,7 @@ def build_gui_dependencies(base_dir: Path) -> GuiDependencies:
         export_scores_usecase=ExportScoresUseCase(export_repo=export_repo),
         set_reading_complete_usecase=SetReadingCompleteUseCase(exam_repo=exam_repo),
         exam_repository=exam_repo,
+        score_repository=score_repo,
         settings_repository=settings_repository,
         runtime_settings=runtime_settings,
         undo_history=undo_history,

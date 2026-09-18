@@ -33,8 +33,10 @@ from bw_gui.laufkern import aggregate_completion, emit_tracking_artifact, verify
 from app.adapters.gui.ui_intents import UiIntent
 from app.adapters.gui.laufkern_manifest_provider import build_runtime_shortcut_manifest
 from app.adapters.gui.view_models import ExamOverviewRow
+from app.core.domain.annotation_sync import build_annotation_clones
 from app.core.domain.models import ExamProject, PdfAnnotation, StudentExam, TaskDefinition
 from app.core.domain.progress import ProgressCalculator
+from app.core.domain.score_filter import FilterOperator, compute_student_value, filter_matching_student_ids
 from app.infrastructure.repositories.json_app_settings_repository import AppRuntimeSettings
 
 ensure_bw_gui_on_path()
@@ -99,6 +101,16 @@ CORRECTION_MARKER_TOOLS: tuple[tuple[str, str, str], ...] = (
     ("hint", "!", "Hinweis"),
     ("question", "?", "Unklar"),
 )
+
+SUPERSYMBOL_OPERATOR_BY_LABEL: dict[str, FilterOperator] = {
+    "<": "<",
+    "≤": "<=",
+    "=": "==",
+    "≥": ">=",
+    ">": ">",
+}
+SUPERSYMBOL_OPERATOR_LABELS: tuple[str, ...] = tuple(SUPERSYMBOL_OPERATOR_BY_LABEL.keys())
+SUPERSYMBOL_SUM_SCOPE_LABEL = "Summe aller Aufgaben"
 
 CORRECTION_MARKER_COLORS: dict[str, str] = {
     "Rot": "#d62828",
@@ -191,6 +203,8 @@ class MainWindow(BwBaseWindow):
         self._correction_zoom_percent = 100
         self._correction_comment_entry: widgets.Entry | None = None
         self._correction_marker_tool_key = "check"
+        self._supersymbol_filter_active = False
+        self._supersymbol_matched_student_ids: list[str] = []
         settings = self.deps.runtime_settings
         self._default_annotation_color_hex = self._normalize_marker_color_hex(settings.default_annotation_color)
         self._default_annotation_font_size = self._normalize_marker_font_size(settings.default_annotation_pdf_font_size)
@@ -1932,6 +1946,68 @@ class MainWindow(BwBaseWindow):
             style="Muted.TLabel",
         ).pack(anchor=ui.W, pady=(2, 0))
 
+        supersymbol_controls = widgets.Frame(correction_form_panel, style="Surface.TFrame")
+        supersymbol_controls.pack(fill=ui.X, pady=(10, 0))
+        widgets.Label(supersymbol_controls, text="Supersymbol (Filter)", style="Muted.TLabel").pack(anchor=ui.W)
+
+        supersymbol_row1 = widgets.Frame(supersymbol_controls, style="Surface.TFrame")
+        supersymbol_row1.pack(fill=ui.X, pady=(4, 0))
+        widgets.Label(supersymbol_row1, text="Aufgabe(n)", style="Muted.TLabel").pack(side=ui.LEFT)
+        self._supersymbol_scope_var = ui.StringVar(value="")
+        self._supersymbol_scope_combo = widgets.Combobox(
+            supersymbol_row1,
+            textvariable=self._supersymbol_scope_var,
+            state="readonly",
+            width=16,
+            values=(),
+        )
+        self._supersymbol_scope_combo.pack(side=ui.LEFT, padx=(8, 0))
+
+        supersymbol_row2 = widgets.Frame(supersymbol_controls, style="Surface.TFrame")
+        supersymbol_row2.pack(fill=ui.X, pady=(4, 0))
+        widgets.Label(supersymbol_row2, text="Punkte", style="Muted.TLabel").pack(side=ui.LEFT)
+        self._supersymbol_operator_var = ui.StringVar(value=SUPERSYMBOL_OPERATOR_LABELS[0])
+        supersymbol_operator_combo = widgets.Combobox(
+            supersymbol_row2,
+            textvariable=self._supersymbol_operator_var,
+            state="readonly",
+            width=4,
+            values=SUPERSYMBOL_OPERATOR_LABELS,
+        )
+        supersymbol_operator_combo.pack(side=ui.LEFT, padx=(8, 0))
+        self._supersymbol_value_var = ui.StringVar(value="")
+        supersymbol_value_entry = widgets.Entry(supersymbol_row2, textvariable=self._supersymbol_value_var, width=8)
+        supersymbol_value_entry.pack(side=ui.LEFT, padx=(6, 0))
+
+        supersymbol_row3 = widgets.Frame(supersymbol_controls, style="Surface.TFrame")
+        supersymbol_row3.pack(fill=ui.X, pady=(6, 0))
+        self._supersymbol_preview_button = widgets.Button(
+            supersymbol_row3,
+            text="Vorschau anzeigen",
+            style="SecondaryAction.TButton",
+            command=self._start_supersymbol_filter,
+        )
+        self._supersymbol_preview_button.pack(side=ui.LEFT)
+        self._attach_hover_help(
+            self._supersymbol_preview_button,
+            label="Zeigt alle Personen, die die Bedingung erfuellen, ueberlagert an - Klick platziert das aktuell gewaehlte Markierungssymbol bei allen gleichzeitig",
+        )
+        self._supersymbol_cancel_button = widgets.Button(
+            supersymbol_row3,
+            text="Abbrechen",
+            style="SecondaryAction.TButton",
+            command=self._cancel_supersymbol_filter,
+        )
+        self._supersymbol_cancel_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._supersymbol_cancel_button.pack_forget()
+
+        self._supersymbol_info_var = ui.StringVar(value="")
+        widgets.Label(
+            supersymbol_controls,
+            textvariable=self._supersymbol_info_var,
+            style="Muted.TLabel",
+        ).pack(anchor=ui.W, pady=(4, 0))
+
         correction_buttons = widgets.Frame(correction_form_panel, style="Surface.TFrame")
         correction_buttons.pack(fill=ui.X, pady=(10, 0))
 
@@ -2374,18 +2450,26 @@ class MainWindow(BwBaseWindow):
         self._correction_zoom_info_var.set(f"Zoom: {self._correction_zoom_percent}%")
 
     def _change_correction_zoom(self, delta: int) -> None:
+        """Change the correction zoom level, cancelling any active Supersymbol filter."""
         target = max(CORRECTION_ZOOM_MIN_PERCENT, min(CORRECTION_ZOOM_MAX_PERCENT, self._correction_zoom_percent + delta))
         if target == self._correction_zoom_percent:
             return
         self._correction_zoom_percent = target
         self._refresh_correction_zoom_label()
+        # Cancel first: _render_correction_preview() below would otherwise
+        # silently overwrite the filtered composite's coordinate mapping
+        # (_correction_clip_box/_correction_scale) while a click would still
+        # be treated as a Supersymbol placement, misplacing it.
+        self._cancel_supersymbol_filter()
         self._render_correction_preview()
 
     def _reset_correction_zoom(self) -> None:
+        """Reset correction zoom to 100%, cancelling any active Supersymbol filter."""
         if self._correction_zoom_percent == 100:
             return
         self._correction_zoom_percent = 100
         self._refresh_correction_zoom_label()
+        self._cancel_supersymbol_filter()
         self._render_correction_preview()
 
     def _commit_points_if_possible(self) -> None:
@@ -2786,20 +2870,27 @@ class MainWindow(BwBaseWindow):
             return 1
         return max(max(student.page_count, 1) for student in self._current_exam.students)
 
-    def _render_superposed_page(self, *, students: Sequence[StudentExam], page_number: int) -> int:
-        """Overlay one page across many students' PDFs as a dark-wins composite.
+    def _build_superposed_pixmap(
+        self, *, students: Sequence[StudentExam], page_number: int, target_width: float = 520.0
+    ) -> tuple[fitz.Pixmap, fitz.Rect, int] | None:
+        """Composite one page across many students' PDFs into a dark-wins grayscale pixmap.
 
-        The shared technical mechanism behind Superseite (Einlesemodus,
-        Namenmodus region alignment, and the Supersymbol filtered view): it
-        only knows "which students, which page" - the caller decides *why*
-        that particular set was chosen (all students, or a filtered subset).
+        The shared technical mechanism behind every Superseite use (Einlesemodus,
+        Namenmodus region alignment, Supersymbol's filtered view): pure
+        computation over "which students, which page" with no canvas/Tkinter
+        side effects, so each caller can display the result on its own canvas
+        with its own coordinate/scale convention (see `_render_superposed_page`
+        for the Einlesemodus/Namenmodus reading-canvas display, and
+        `_render_supersymbol_filtered_page` for the Korrekturmodus
+        correction-canvas display - the two already use different coordinate
+        systems and must not be forced to share display code, only this math).
+        Returns `None` if no page of any student could be rendered.
         """
         if self._current_exam is None:
-            return 0
+            return None
 
         pixmaps: list[fitz.Pixmap] = []
         reference_rect: fitz.Rect | None = None
-        target_width = 520.0
 
         for student in students:
             if page_number > student.page_count:
@@ -2839,9 +2930,7 @@ class MainWindow(BwBaseWindow):
                 pixmaps.append(pix)
 
         if not pixmaps or reference_rect is None:
-            self._reading_canvas.delete("all")
-            self._reading_info_var.set("Superseite: Keine renderbaren Seiten vorhanden")
-            return 0
+            return None
 
         first = pixmaps[0]
         merged = bytearray(first.width * first.height)
@@ -2860,17 +2949,33 @@ class MainWindow(BwBaseWindow):
                     if value < merged[index]:
                         merged[index] = value
 
-        pgm_header = f"P5 {first.width} {first.height} 255\n".encode("ascii")
-        self._render_photo = ui.PhotoImage(data=pgm_header + bytes(merged), format="ppm")
+        merged_pixmap = fitz.Pixmap(fitz.csGRAY, first.width, first.height, bytes(merged), False)
+        # Keep the PPM/PhotoImage encoding local to callers (each targets a
+        # different Tkinter Canvas) - return the raw merged pixmap, the
+        # reference page rect callers need for their own scale-factor math,
+        # and the number of students actually merged into it (for "Quellen: N").
+        return merged_pixmap, reference_rect, len(pixmaps)
 
-        self._x_factor = reference_rect.width / max(first.width, 1)
-        self._y_factor = reference_rect.height / max(first.height, 1)
-        self._reading_canvas.configure(width=first.width, height=first.height)
+    def _render_superposed_page(self, *, students: Sequence[StudentExam], page_number: int) -> int:
+        """Render the Superseite composite onto the reading canvas (Einlesemodus/Namenmodus)."""
+        built = self._build_superposed_pixmap(students=students, page_number=page_number)
+        if built is None:
+            self._reading_canvas.delete("all")
+            self._reading_info_var.set("Superseite: Keine renderbaren Seiten vorhanden")
+            return 0
+        pixmap, reference_rect, source_count = built
+
+        pgm_header = f"P5 {pixmap.width} {pixmap.height} 255\n".encode("ascii")
+        self._render_photo = ui.PhotoImage(data=pgm_header + pixmap.samples, format="ppm")
+
+        self._x_factor = reference_rect.width / max(pixmap.width, 1)
+        self._y_factor = reference_rect.height / max(pixmap.height, 1)
+        self._reading_canvas.configure(width=pixmap.width, height=pixmap.height)
         self._reading_canvas.delete("all")
         self._canvas_image_id = self._reading_canvas.create_image(0, 0, anchor=ui.NW, image=self._render_photo)
-        self._reading_canvas.configure(scrollregion=(0, 0, first.width, first.height))
+        self._reading_canvas.configure(scrollregion=(0, 0, pixmap.width, pixmap.height))
         self._draw_existing_regions("", page_number)
-        return len(pixmaps)
+        return source_count
 
     def _draw_existing_regions(self, student_pdf: str, page_number: int) -> None:
         """Draw the persisted region(s) for the current mode: name_region in Namenmodus,
@@ -3487,6 +3592,12 @@ class MainWindow(BwBaseWindow):
         self._correction_drag_annotation_id = None
         self._correction_drag_offset_pdf = None
         self._correction_annotation_items.clear()
+        if self._supersymbol_filter_active:
+            self._supersymbol_filter_active = False
+            self._supersymbol_matched_student_ids = []
+            self._supersymbol_preview_button.configure(state="normal")
+            self._supersymbol_cancel_button.pack_forget()
+            self._supersymbol_info_var.set("")
         self._correction_finished_var.set(False)
         self._refresh_correction_completion_controls()
         self._close_extra_popup()
@@ -3534,7 +3645,14 @@ class MainWindow(BwBaseWindow):
         return {template.area_code: region_id for region_id, template in templates.items()}
 
     def _refresh_correction_task_choices(self, *, load_saved_points: bool) -> None:
+        """Refresh the task combobox/Supersymbol scope for the selected Bereich.
+
+        Cancels any active Supersymbol filter first, since it was computed
+        for the previous Bereich's tasks and would otherwise go stale.
+        """
         template = self._current_correction_template()
+        self._cancel_supersymbol_filter()
+        self._refresh_supersymbol_scope_choices(template)
         if template is None:
             self._correction_task_items = []
             self._correction_selected_annotation_id = None
@@ -3558,6 +3676,160 @@ class MainWindow(BwBaseWindow):
         self._refresh_correction_task_meta(load_saved_points=load_saved_points)
         self._render_correction_preview()
         self._refresh_correction_completion_controls()
+
+    def _refresh_supersymbol_scope_choices(self, template: CorrectionTemplate | None) -> None:
+        """Populate the Supersymbol "Aufgabe(n)" scope combobox for the current Bereich.
+
+        Offers each individual task code, plus "Summe aller Aufgaben" only
+        when the Bereich actually has more than one task (a sum over a
+        single task would just duplicate that task's own value).
+        """
+        if template is None or not template.tasks:
+            self._supersymbol_scope_combo["values"] = ()
+            self._supersymbol_scope_var.set("")
+            return
+        values = tuple(task.code for task in template.tasks)
+        if len(template.tasks) > 1:
+            values = values + (SUPERSYMBOL_SUM_SCOPE_LABEL,)
+        self._supersymbol_scope_combo["values"] = values
+        if self._supersymbol_scope_var.get() not in values:
+            self._supersymbol_scope_var.set(values[0])
+
+    def _resolve_supersymbol_task_codes(self, template: CorrectionTemplate) -> list[str]:
+        """Resolve the Supersymbol scope selection to a concrete task_code list.
+
+        Fixed once, at filter-start time (Invariant: the bulk apply is a
+        one-time action, not a live filter that would need to react to the
+        Bereich's tasks changing later).
+        """
+        scope = self._supersymbol_scope_var.get()
+        if not scope:
+            return []
+        if scope == SUPERSYMBOL_SUM_SCOPE_LABEL:
+            return [task.code for task in template.tasks]
+        return [scope]
+
+    def _start_supersymbol_filter(self) -> None:
+        """Validate the Supersymbol filter and show the matched-students Superseite.
+
+        0 matches is a hard stop (Invariant: there is no darstellbare
+        Superseite to place a symbol on), not just a UX nicety.
+        """
+        if self._current_exam is None or self._controller is None:
+            return
+        template = self._current_correction_template()
+        if template is None:
+            messagebox.showinfo("Hinweis", "Bitte zuerst einen Bereich waehlen.")
+            return
+        task_codes = self._resolve_supersymbol_task_codes(template)
+        if not task_codes:
+            messagebox.showinfo("Hinweis", "Bitte eine Aufgabe oder 'Summe aller Aufgaben' waehlen.")
+            return
+        operator = SUPERSYMBOL_OPERATOR_BY_LABEL.get(self._supersymbol_operator_var.get())
+        if operator is None:
+            return
+        raw_value = self._supersymbol_value_var.get().strip().replace(",", ".")
+        try:
+            target_value = float(raw_value)
+        except ValueError:
+            messagebox.showerror("Ungueltiger Wert", "Bitte eine Zahl als Filterwert eingeben.")
+            return
+
+        scores = self._controller.load_scores_for_exam(exam=self._current_exam)
+        values_by_student = {
+            student.student_id: compute_student_value(scores.get(student.student_id, {}), task_codes)
+            for student in self._current_exam.students
+        }
+        matched_ids = filter_matching_student_ids(values_by_student, operator, target_value)
+        if not matched_ids:
+            messagebox.showerror(
+                "Kein Treffer",
+                "Kein(e) Schueler:in erfuellt diese Bedingung - das Supersymbol kann so nicht platziert werden.",
+            )
+            return
+
+        matched_ids_set = set(matched_ids)
+        matched_students = [s for s in self._current_exam.students if s.student_id in matched_ids_set]
+        self._supersymbol_filter_active = True
+        self._supersymbol_matched_student_ids = matched_ids
+        self._supersymbol_preview_button.configure(state="disabled")
+        self._supersymbol_cancel_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._render_supersymbol_filtered_page(students=matched_students, page_number=template.page_number)
+        lookup = self._marker_tool_lookup(self._correction_marker_tool_key)
+        glyph_label = lookup[1] if lookup else "?"
+        self._supersymbol_info_var.set(
+            f"{len(matched_ids)} Treffer - Klick auf die Vorschau platziert '{glyph_label}' bei allen gleichzeitig."
+        )
+
+    def _cancel_supersymbol_filter(self) -> None:
+        """Leave the Supersymbol filtered preview (with or without having applied it)."""
+        if not self._supersymbol_filter_active:
+            return
+        self._supersymbol_filter_active = False
+        self._supersymbol_matched_student_ids = []
+        self._supersymbol_preview_button.configure(state="normal")
+        self._supersymbol_cancel_button.pack_forget()
+        self._supersymbol_info_var.set("")
+        self._render_correction_preview()
+
+    def _render_supersymbol_filtered_page(self, *, students: Sequence[StudentExam], page_number: int) -> int:
+        """Render the Supersymbol filtered Superseite onto the correction canvas.
+
+        Full page (uncropped), unlike the normal single-student Korrektur
+        preview: it sets `_correction_clip_box` to the whole reference page
+        (origin at 0,0) rather than `template.box`, so the existing
+        `_canvas_to_pdf_coords` conversion already yields correct absolute
+        PDF coordinates - a click lands at the identical position for every
+        matched student without any new coordinate-conversion code.
+        """
+        built = self._build_superposed_pixmap(students=students, page_number=page_number)
+        if built is None:
+            self._correction_canvas.delete("all")
+            self._correction_info_var.set("Supersymbol: keine renderbaren Seiten fuer die Treffer")
+            return 0
+        pixmap, reference_rect, source_count = built
+
+        pgm_header = f"P5 {pixmap.width} {pixmap.height} 255\n".encode("ascii")
+        self._correction_photo = ui.PhotoImage(data=pgm_header + pixmap.samples, format="ppm")
+        scale = pixmap.width / max(reference_rect.width, 1.0)
+        self._correction_clip_box = (0.0, 0.0, float(reference_rect.width), float(reference_rect.height))
+        self._correction_scale = scale
+        self._correction_canvas.delete("all")
+        self._correction_canvas.create_image(0, 0, anchor=ui.NW, image=self._correction_photo)
+        self._correction_canvas.configure(scrollregion=(0, 0, pixmap.width, pixmap.height))
+        self._correction_info_var.set(f"Supersymbol-Vorschau | Seite {page_number} | Treffer: {source_count}")
+        return source_count
+
+    def _apply_supersymbol_at_canvas_position(self, canvas_x: float, canvas_y: float) -> None:
+        """Place the current marker symbol for every matched student at the clicked position."""
+        if self._current_exam is None or self._controller is None:
+            return
+        template = self._current_correction_template()
+        if template is None:
+            return
+        pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y)
+        if pdf_pos is None:
+            return
+        lookup = self._marker_tool_lookup(self._correction_marker_tool_key)
+        if lookup is None:
+            return
+        glyph, _label = lookup
+        updated = self._controller.apply_super_symbol_immediate(
+            exam=self._current_exam,
+            region_id=template.region_id,
+            page_number=template.page_number,
+            matched_student_ids=self._supersymbol_matched_student_ids,
+            annotation_type="symbol",
+            content=glyph,
+            color_hex=self._current_marker_color_hex(),
+            font_size=self._default_annotation_font_size,
+            x=pdf_pos[0],
+            y=pdf_pos[1],
+        )
+        if updated is None:
+            return
+        self._current_exam = updated
+        self._cancel_supersymbol_filter()
 
     def _refresh_correction_task_meta(self, *, load_saved_points: bool) -> None:
         task_code, max_points = self._selected_correction_task()
@@ -3899,7 +4171,12 @@ class MainWindow(BwBaseWindow):
         self._status_var.set(f"Durchgedrueckt: {created} Kopien erzeugt")
 
     def _enable_selected_annotation_sync(self, annotation: PdfAnnotation) -> int:
-        """"Durchdruecken": clone the annotation for every other correction student."""
+        """"Durchdruecken": clone the annotation for every other correction student.
+
+        Uses the shared `build_annotation_clones` mechanism (also used by the
+        Supersymbol bulk apply) with `self._correction_student_indices` minus
+        the already-annotated student as the target set.
+        """
         if self._current_exam is None:
             return 0
 
@@ -3911,30 +4188,14 @@ class MainWindow(BwBaseWindow):
         annotation.sync_group_id = sync_group_id
         annotation.position_detached = False
 
-        created = 0
-        for student_index in self._correction_student_indices:
-            student = self._current_exam.students[student_index]
-            if student.pdf_filename == annotation.student_pdf:
-                continue
-            clone = PdfAnnotation(
-                annotation_id=f"ann-{uuid4().hex[:12]}",
-                student_pdf=student.pdf_filename,
-                page_number=template.page_number,
-                annotation_type=annotation.annotation_type,
-                content=annotation.content,
-                color_hex=annotation.color_hex,
-                x=annotation.x,
-                y=annotation.y,
-                task_code=annotation.task_code,
-                region_id=annotation.region_id,
-                font_size=annotation.font_size,
-                rotation_deg=annotation.rotation_deg,
-                sync_group_id=sync_group_id,
-                position_detached=False,
-            )
-            self._current_exam.pdf_annotations.append(clone)
-            created += 1
-        return created
+        other_students = [
+            self._current_exam.students[student_index]
+            for student_index in self._correction_student_indices
+            if self._current_exam.students[student_index].pdf_filename != annotation.student_pdf
+        ]
+        clones = build_annotation_clones(annotation, other_students, sync_group_id)
+        self._current_exam.pdf_annotations.extend(clones)
+        return len(clones)
 
     def _disable_selected_annotation_sync(self, annotation: PdfAnnotation) -> int:
         if self._current_exam is None or not annotation.sync_group_id:
@@ -4278,13 +4539,18 @@ class MainWindow(BwBaseWindow):
         return True
 
     def _on_correction_canvas_press(self, event: ui.Event[ui.Misc]):
+        """Handle a click on the correction canvas: Supersymbol apply, or normal select/place."""
         if not self._correction_mode_active:
             return None
-        self._correction_drag_alt_override = False
         self._correction_canvas.focus_set()
         canvas_x = float(self._correction_canvas.canvasx(event.x))
         canvas_y = float(self._correction_canvas.canvasy(event.y))
 
+        if self._supersymbol_filter_active:
+            self._apply_supersymbol_at_canvas_position(canvas_x, canvas_y)
+            return "break"
+
+        self._correction_drag_alt_override = False
         item_under_cursor = self._correction_canvas.find_withtag("current")
         if item_under_cursor:
             item_id = item_under_cursor[0]
@@ -4523,8 +4789,10 @@ class MainWindow(BwBaseWindow):
             self._correction_info_var.set(f"Fehler beim Korrektur-Rendering: {exc}")
 
     def _change_correction_student(self, delta: int) -> None:
+        """Move to the next/previous correction student, cancelling any Supersymbol filter."""
         if not self._correction_mode_active or not self._correction_student_indices:
             return
+        self._cancel_supersymbol_filter()
         self._save_current_correction_score()
         self._save_current_correction_comment()
         self._correction_cursor = (self._correction_cursor + delta) % len(self._correction_student_indices)

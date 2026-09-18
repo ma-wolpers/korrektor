@@ -56,6 +56,38 @@ class CsvScoreRepository(ScoreRepository):
 
         self._atomic_write(csv_path, rows, task_columns)
 
+    def load_scores(self, *, exam: ExamProject) -> dict[str, dict[str, float]]:
+        """Read every stored points value, keyed by student_id then task_code.
+
+        Used by the Supersymbol filter (Korrekturmodus) to evaluate a
+        points condition across all students without re-parsing the CSV
+        per student/task lookup. Rows/columns with a missing or
+        non-numeric points value are simply omitted for that task_code -
+        callers must treat an absent task_code as "no score recorded yet",
+        never as 0.
+        """
+        csv_path = Path(exam.folder_path) / "korrektor_scores.csv"
+        rows, task_columns = self._read_rows(csv_path)
+        points_columns = [column for column in task_columns if column.endswith("_points")]
+
+        scores: dict[str, dict[str, float]] = {}
+        for row in rows:
+            student_id = row.get("student_id", "").strip()
+            if not student_id:
+                continue
+            student_scores: dict[str, float] = {}
+            for column in points_columns:
+                raw_value = row.get(column, "").strip()
+                if not raw_value:
+                    continue
+                try:
+                    student_scores[column[: -len("_points")]] = float(raw_value)
+                except ValueError:
+                    continue
+            if student_scores:
+                scores[student_id] = student_scores
+        return scores
+
     def _read_rows(self, csv_path: Path) -> tuple[list[dict[str, str]], list[str]]:
         if not csv_path.exists():
             return [], []

@@ -32,6 +32,9 @@ class ScoreRepository(Protocol):
     ) -> None:
         ...
 
+    def load_scores(self, *, exam: ExamProject) -> dict[str, dict[str, float]]:
+        ...
+
 
 class ScoreExportRepository(Protocol):
     def export_scores(
