@@ -278,6 +278,9 @@ class ExamProject:
     # Persistente Korrekturmarkierungen fuer PDF-Overlay und PDF-Writeback.
     pdf_annotations: list[PdfAnnotation] = field(default_factory=list)
     is_reading_complete: bool = False
+    # Namensfeld-Bereich (Namenmodus): eine gemeinsame Position fuer alle Schueler:innen-PDFs.
+    name_region: RegionBox | None = None
+    name_region_page: int = 1
 
     def to_dict(self) -> dict[str, Any]:
         normalized_task_comments: dict[str, dict[str, str]] = {}
@@ -307,6 +310,8 @@ class ExamProject:
             "task_comments": normalized_task_comments,
             "pdf_annotations": [annotation.to_dict() for annotation in self.pdf_annotations],
             "is_reading_complete": self.is_reading_complete,
+            "name_region": self.name_region.to_dict() if self.name_region is not None else None,
+            "name_region_page": self.name_region_page,
         }
 
     @classmethod
@@ -355,6 +360,8 @@ class ExamProject:
             task_comments=task_comments,
             pdf_annotations=annotations,
             is_reading_complete=bool(raw.get("is_reading_complete", False)),
+            name_region=RegionBox.from_dict(raw["name_region"]) if raw.get("name_region") else None,
+            name_region_page=int(raw.get("name_region_page", 1)),
         )
 
     @property

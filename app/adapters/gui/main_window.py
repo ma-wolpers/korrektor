@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable, Sequence
 from uuid import uuid4
 
 import fitz
@@ -164,6 +164,10 @@ class MainWindow(BwBaseWindow):
         self._extra_mode_active = False
         self._extra_sequence: list[tuple[int, int]] = []
         self._extra_cursor = 0
+        self._naming_mode_active = False
+        self._naming_capture_active = False
+        self._naming_cursor = 0
+        self._pending_student_names: dict[str, str] = {}
         self._doc_cache: dict[str, fitz.Document] = {}
         self._render_photo: ui.PhotoImage | None = None
         self._x_factor = 1.0
@@ -1197,6 +1201,15 @@ class MainWindow(BwBaseWindow):
         mode_correction_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(mode_correction_button, label="In den Korrekturmodus wechseln", shortcut=None)
 
+        mode_naming_button = widgets.Button(
+            detail_actions,
+            text="Namen",
+            style="SecondaryAction.TButton",
+            command=self._start_naming_mode,
+        )
+        mode_naming_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(mode_naming_button, label="In den Namenmodus wechseln (PDFs umbenennen)", shortcut=None)
+
         export_detail_button = widgets.Button(
             detail_actions,
             text="Export",
@@ -1417,6 +1430,84 @@ class MainWindow(BwBaseWindow):
         )
         assign_extra_page_button.pack(side=ui.RIGHT)
         self._attach_hover_help(assign_extra_page_button, label="Aktuelle Extraseite einem Bereich zuordnen", shortcut=None)
+
+        self._naming_region_toolbar = widgets.Frame(self._reading_view, style="Surface.TFrame")
+        self._naming_region_hint_var = ui.StringVar(value="")
+        widgets.Label(
+            self._naming_region_toolbar,
+            textvariable=self._naming_region_hint_var,
+            style="Muted.TLabel",
+            justify=ui.LEFT,
+        ).pack(side=ui.LEFT, fill=ui.X, expand=True)
+        self._naming_enter_capture_button = widgets.Button(
+            self._naming_region_toolbar,
+            text="Namen erfassen ▶",
+            style="PrimaryAction.TButton",
+            command=self._enter_naming_capture,
+        )
+        self._naming_enter_capture_button.pack(side=ui.RIGHT)
+        self._attach_hover_help(
+            self._naming_enter_capture_button,
+            label="Weiter zur Namenserfassung (Namensbereich muss zuvor gezogen sein)",
+            shortcut=None,
+        )
+
+        self._naming_capture_panel = widgets.Frame(self._reading_view, style="Surface.TFrame")
+        naming_capture_nav = widgets.Frame(self._naming_capture_panel, style="Surface.TFrame")
+        naming_capture_nav.pack(fill=ui.X)
+        back_to_naming_region_button = widgets.Button(
+            naming_capture_nav,
+            text="◀ Bereich anpassen",
+            style="SecondaryAction.TButton",
+            command=self._exit_naming_capture,
+        )
+        back_to_naming_region_button.pack(side=ui.LEFT)
+        prev_naming_student_button = widgets.Button(
+            naming_capture_nav,
+            text="◀ Person",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_naming_student(-1),
+        )
+        prev_naming_student_button.pack(side=ui.LEFT, padx=(14, 0))
+        self._attach_hover_help(prev_naming_student_button, label="Vorherige Person", shortcut="Links")
+        next_naming_student_button = widgets.Button(
+            naming_capture_nav,
+            text="Person ▶",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_naming_student(1),
+        )
+        next_naming_student_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(next_naming_student_button, label="Naechste Person", shortcut="Rechts")
+
+        self._naming_rename_all_button = widgets.Button(
+            naming_capture_nav,
+            text="Alle umbenennen",
+            style="PrimaryAction.TButton",
+            command=self._rename_all_students,
+        )
+        self._naming_rename_all_button.pack(side=ui.RIGHT)
+        self._attach_hover_help(
+            self._naming_rename_all_button,
+            label="Erst aktiv, wenn fuer alle Schueler:innen ein Name erfasst wurde",
+            shortcut=None,
+        )
+
+        naming_capture_form = widgets.Frame(self._naming_capture_panel, style="Surface.TFrame")
+        naming_capture_form.pack(fill=ui.X, pady=(6, 0))
+        widgets.Label(naming_capture_form, text="Name:", style="Muted.TLabel").pack(side=ui.LEFT)
+        self._naming_name_var = ui.StringVar(value="")
+        self._naming_entry = widgets.Entry(naming_capture_form, textvariable=self._naming_name_var)
+        self._naming_entry.pack(side=ui.LEFT, fill=ui.X, expand=True, padx=(8, 0))
+        self._naming_entry.bind("<FocusOut>", self._on_naming_fields_focus_out)
+        self._naming_entry.bind("<Return>", self._on_naming_fields_commit)
+        self._naming_entry.bind("<Escape>", self._on_naming_fields_escape)
+
+        self._naming_progress_var = ui.StringVar(value="")
+        widgets.Label(
+            self._naming_capture_panel,
+            textvariable=self._naming_progress_var,
+            style="Muted.TLabel",
+        ).pack(anchor=ui.W, pady=(4, 0))
 
         self._mode_row = widgets.Frame(self._reading_view, style="Surface.TFrame")
         self._mode_row.pack(fill=ui.X, pady=(8, 0))
@@ -1919,6 +2010,7 @@ class MainWindow(BwBaseWindow):
         return self._rows_by_tree_id.get(first)
 
     def open_exam_detail(self, exam: ExamProject, exam_file: Path) -> None:
+        """Show the Klausur-Detail view for `exam`, resetting all mode state."""
         self._detail_exam_file = exam_file
         self._current_exam = exam
         self._student_cursor = 0
@@ -1929,6 +2021,10 @@ class MainWindow(BwBaseWindow):
         self._extra_mode_active = False
         self._extra_sequence = []
         self._extra_cursor = 0
+        self._naming_mode_active = False
+        self._naming_capture_active = False
+        self._naming_cursor = 0
+        self._pending_student_names.clear()
         self._correction_mode_active = False
         self._correction_student_indices = []
         self._correction_cursor = 0
@@ -1986,6 +2082,8 @@ class MainWindow(BwBaseWindow):
         self._refresh_active_student_label()
 
     def _on_escape(self, _event: ui.Event[ui.Misc]) -> None:
+        """Resolve one Escape press via the HSM contract: close popup, leave an inline
+        editor/active mode (reading, extra, naming, correction), or pop back to the overview."""
         self._sync_popup_sessions_from_windows()
         widget = self.root.focus_get()
         action = self._hsm_contract.resolve_escape_action(
@@ -1993,7 +2091,8 @@ class MainWindow(BwBaseWindow):
             has_inline_editor=isinstance(widget, (ui.Entry, widgets.Entry))
             or self._correction_mode_active
             or self._reading_active
-            or self._extra_mode_active,
+            or self._extra_mode_active
+            or self._naming_mode_active,
             has_parent_state=self._current_exam is not None,
         )
 
@@ -2024,7 +2123,7 @@ class MainWindow(BwBaseWindow):
                 self._stop_correction_mode()
                 return
 
-            if self._reading_active or self._extra_mode_active:
+            if self._reading_active or self._extra_mode_active or self._naming_mode_active:
                 self._leave_reading_view()
                 return
 
@@ -2042,6 +2141,9 @@ class MainWindow(BwBaseWindow):
         self._reading_active = False
         self._extra_mode_active = False
         self._extra_sequence = []
+        self._naming_mode_active = False
+        self._naming_capture_active = False
+        self._pending_student_names.clear()
         self._correction_mode_active = False
         self._correction_student_indices = []
         self._reading_info_var.set("Einlesemodus: nicht aktiv")
@@ -2053,6 +2155,22 @@ class MainWindow(BwBaseWindow):
 
     def set_status(self, text: str) -> None:
         self._status_var.set(text)
+
+    def invalidate_doc_cache(self, pdf_filenames: Iterable[str]) -> None:
+        """Close and evict cached PDF documents for the given filenames.
+
+        Must run before any filesystem rename of these files (Windows locks
+        open file handles) and again before replaying a rename on undo/redo,
+        so a stale, still-open `fitz.Document` is never left pointing at a
+        path that no longer exists.
+        """
+        for filename in pdf_filenames:
+            document = self._doc_cache.pop(filename, None)
+            if document is not None:
+                try:
+                    document.close()
+                except Exception:
+                    pass
 
     def _refresh_active_student_label(self) -> None:
         if self._active_view not in {"reading", "correction"}:
@@ -2128,33 +2246,43 @@ class MainWindow(BwBaseWindow):
         self._focus_first_input_field()
 
     def _on_left_key(self, _event: ui.Event[ui.Misc]) -> None:
+        """Dispatch Left to the active mode's "previous" action (student/page)."""
         if self._is_editable_widget(self.root.focus_get()) and not (
-            self._active_view == "correction" and self._correction_mode_active
+            (self._active_view == "correction" and self._correction_mode_active)
+            or (self._active_view == "reading" and self._detail_submode == "naming" and self._naming_capture_active)
         ):
             return
         if self._active_view == "correction" and self._correction_mode_active:
             self._change_correction_student(-1)
             return
+        if self._active_view == "reading" and self._detail_submode == "naming" and self._naming_capture_active:
+            self._change_naming_student(-1)
+            return
         if self._active_view == "reading" and self._detail_submode == "extra" and self._extra_mode_active:
             self._change_extra_page(-1)
             return
-        if self._active_view == "reading" and self._detail_submode == "reading" and self._reading_active:
+        if self._active_view == "reading" and self._detail_submode in {"reading", "naming"} and self._reading_active:
             self._change_reading_page(-1)
             return
         self._move_student(-1)
 
     def _on_right_key(self, _event: ui.Event[ui.Misc]) -> None:
+        """Dispatch Right to the active mode's "next" action (student/page)."""
         if self._is_editable_widget(self.root.focus_get()) and not (
-            self._active_view == "correction" and self._correction_mode_active
+            (self._active_view == "correction" and self._correction_mode_active)
+            or (self._active_view == "reading" and self._detail_submode == "naming" and self._naming_capture_active)
         ):
             return
         if self._active_view == "correction" and self._correction_mode_active:
             self._change_correction_student(1)
             return
+        if self._active_view == "reading" and self._detail_submode == "naming" and self._naming_capture_active:
+            self._change_naming_student(1)
+            return
         if self._active_view == "reading" and self._detail_submode == "extra" and self._extra_mode_active:
             self._change_extra_page(1)
             return
-        if self._active_view == "reading" and self._detail_submode == "reading" and self._reading_active:
+        if self._active_view == "reading" and self._detail_submode in {"reading", "naming"} and self._reading_active:
             self._change_reading_page(1)
             return
         self._move_student(1)
@@ -2277,11 +2405,14 @@ class MainWindow(BwBaseWindow):
         )
 
     def _start_reading_mode(self) -> None:
+        """Enter Einlesemodus, resetting any active extra/naming/correction mode."""
         if not self._current_exam or not self._current_exam.students:
             messagebox.showinfo("Hinweis", "Bitte zuerst eine Klausur öffnen.")
             return
         self._stop_correction_mode(silent=True)
         self._extra_mode_active = False
+        self._naming_mode_active = False
+        self._naming_capture_active = False
         self._reading_active = True
         self._reading_student_cursor = 0
         self._reading_page = 1
@@ -2302,6 +2433,7 @@ class MainWindow(BwBaseWindow):
         return sequence
 
     def _start_extra_mode(self) -> None:
+        """Enter Extraseiten-Modus, resetting any active reading/naming/correction mode."""
         if not self._current_exam:
             messagebox.showinfo("Hinweis", "Bitte zuerst eine Klausur öffnen.")
             return
@@ -2312,6 +2444,8 @@ class MainWindow(BwBaseWindow):
 
         self._reading_active = False
         self._extra_mode_active = True
+        self._naming_mode_active = False
+        self._naming_capture_active = False
         self._superpage_var.set(False)
         self._stop_correction_mode(silent=True)
         self._extra_sequence = sequence
@@ -2323,6 +2457,266 @@ class MainWindow(BwBaseWindow):
         self._refresh_region_tree()
         self._render_current_extra_page()
         self._status_var.set("Extraseiten-Modus aktiv")
+
+    def _start_naming_mode(self) -> None:
+        """Enter Namenmodus: region-definition sub-step (reuses the reading canvas)."""
+        if not self._current_exam or not self._current_exam.students:
+            messagebox.showinfo("Hinweis", "Bitte zuerst eine Klausur öffnen.")
+            return
+        self._stop_correction_mode(silent=True)
+        self._extra_mode_active = False
+        self._naming_mode_active = True
+        self._naming_capture_active = False
+        self._reading_active = True
+        self._reading_student_cursor = 0
+        self._reading_page = self._current_exam.name_region_page if self._current_exam.name_region else 1
+        self._selected_region_id = None
+        self._selected_region_kind = None
+        self._superpage_var.set(True)
+        self._set_detail_submode("naming")
+        self._show_view("reading")
+        self._refresh_naming_region_hint()
+        self._render_current_reading_page()
+        self._status_var.set("Namenmodus aktiv - Namensbereich ziehen oder anpassen")
+
+    def _refresh_naming_region_hint(self) -> None:
+        """Update the region-definition hint and gate the "Namen erfassen" button."""
+        exam = self._current_exam
+        if exam is not None and exam.name_region is not None:
+            self._naming_region_hint_var.set(f"Namensbereich gesetzt (Seite {exam.name_region_page}).")
+            self._naming_enter_capture_button.configure(state="normal")
+        else:
+            self._naming_region_hint_var.set("Noch kein Namensbereich gezogen - Bereich ueber den Namen ziehen.")
+            self._naming_enter_capture_button.configure(state="disabled")
+
+    def _check_name_region_geometry(self, exam: ExamProject, page_number: int) -> list[str]:
+        """Report students whose page geometry at `page_number` differs from the first.
+
+        `name_region` assumes every student's PDF has the same page size and
+        rotation at `page_number`; this only detects and reports a mismatch
+        (purely informational) - it does not normalize or exclude anything.
+        """
+        folder = Path(exam.folder_path)
+        reference_rect: fitz.Rect | None = None
+        reference_rotation: int | None = None
+        mismatched: list[str] = []
+        for student in exam.students:
+            if page_number > student.page_count:
+                continue
+            pdf_path = folder / student.pdf_filename
+            if not pdf_path.exists():
+                continue
+            document = self._doc_cache.get(student.pdf_filename)
+            if document is None:
+                try:
+                    document = fitz.open(pdf_path)
+                except Exception:
+                    continue
+                self._doc_cache[student.pdf_filename] = document
+            try:
+                page = document.load_page(page_number - 1)
+            except Exception:
+                continue
+            rect = page.rect
+            rotation = int(page.rotation)
+            if reference_rect is None or reference_rotation is None:
+                reference_rect = rect
+                reference_rotation = rotation
+                continue
+            size_matches = abs(rect.width - reference_rect.width) <= 1.0 and abs(rect.height - reference_rect.height) <= 1.0
+            if not size_matches or rotation != reference_rotation:
+                mismatched.append(student.display_name or student.student_id)
+        return mismatched
+
+    def _commit_name_region_from_drag(self, *, box: tuple[float, float, float, float], page_number: int) -> None:
+        """Persist a freshly dragged Namenmodus region and warn on geometry mismatches."""
+        self._reading_canvas.delete(self._drag_rect_id)
+        self._drag_rect_id = None
+        self._drag_start = None
+        if self._current_exam is None or self._controller is None:
+            return
+        updated = self._controller.set_name_region_immediate(
+            exam=self._current_exam,
+            box=box,
+            page_number=page_number,
+        )
+        self._current_exam = updated
+        self._refresh_naming_region_hint()
+        self._rerender_active_page()
+        mismatched = self._check_name_region_geometry(updated, page_number)
+        if mismatched:
+            messagebox.showwarning(
+                "Abweichende Seitengroesse",
+                "Der Namensbereich liegt bei folgenden Personen moeglicherweise an anderer "
+                "Stelle (abweichende Seitengroesse/Rotation):\n" + ", ".join(mismatched),
+            )
+
+    def _enter_naming_capture(self) -> None:
+        """Switch from region-definition to the per-student naming walk."""
+        if self._current_exam is None or self._current_exam.name_region is None:
+            messagebox.showinfo("Hinweis", "Bitte zuerst einen Namensbereich ziehen.")
+            return
+        self._naming_capture_active = True
+        self._reading_active = False
+        self._naming_cursor = 0
+        self._set_detail_submode("naming")
+        self._render_naming_capture_page()
+        self._refresh_naming_progress()
+        self._focus_naming_entry()
+        self._status_var.set("Namenserfassung aktiv")
+
+    def _exit_naming_capture(self) -> None:
+        """Return from the naming walk to region-definition (e.g. to re-align)."""
+        self._commit_naming_field_if_possible()
+        self._naming_capture_active = False
+        self._reading_active = True
+        self._set_detail_submode("naming")
+        self._refresh_naming_region_hint()
+        self._render_current_reading_page()
+        self._status_var.set("Namenmodus aktiv - Namensbereich ziehen oder anpassen")
+
+    def _change_naming_student(self, delta: int) -> None:
+        """Commit the current name, move to the next/previous student, refocus the entry."""
+        if not self._naming_capture_active or not self._current_exam or not self._current_exam.students:
+            return
+        self._commit_naming_field_if_possible()
+        self._naming_cursor = (self._naming_cursor + delta) % len(self._current_exam.students)
+        self._render_naming_capture_page()
+        self._refresh_naming_progress()
+        self._focus_naming_entry()
+
+    def _current_naming_student(self) -> StudentExam | None:
+        """Return the student currently shown in the naming-capture walk."""
+        if not self._current_exam or not self._current_exam.students:
+            return None
+        return self._current_exam.students[self._naming_cursor]
+
+    def _focus_naming_entry(self) -> None:
+        """Move focus into the name entry with its content fully selected."""
+        self._naming_entry.focus_set()
+        self._naming_entry.selection_range(0, ui.END)
+
+    def _render_naming_capture_page(self) -> None:
+        """Render the current student's PDF cropped to the shared name_region."""
+        exam = self._current_exam
+        student = self._current_naming_student()
+        if exam is None or student is None or exam.name_region is None:
+            return
+        self._naming_name_var.set(self._pending_student_names.get(student.student_id, ""))
+
+        pdf_path = Path(exam.folder_path) / student.pdf_filename
+        if not pdf_path.exists():
+            self._reading_canvas.delete("all")
+            self._reading_info_var.set(f"Datei fehlt: {student.pdf_filename}")
+            return
+
+        document = self._doc_cache.get(student.pdf_filename)
+        if document is None:
+            try:
+                document = fitz.open(pdf_path)
+            except Exception as exc:
+                self._reading_canvas.delete("all")
+                self._reading_info_var.set(f"Fehler beim PDF-Rendering: {exc}")
+                return
+            self._doc_cache[student.pdf_filename] = document
+
+        page_index = exam.name_region_page - 1
+        if page_index < 0 or page_index >= document.page_count:
+            self._reading_canvas.delete("all")
+            self._reading_info_var.set(f"Namensseite {exam.name_region_page} existiert nicht in {student.pdf_filename}")
+            return
+
+        try:
+            page = document.load_page(page_index)
+            clip = fitz.Rect(exam.name_region.x0, exam.name_region.y0, exam.name_region.x1, exam.name_region.y1)
+            clip = clip.intersect(page.rect)
+            if clip.is_empty:
+                clip = page.rect
+            target_width = 480.0
+            scale = target_width / max(clip.width, 1.0)
+            try:
+                pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=clip, alpha=False)
+            except TypeError:
+                pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=clip)
+        except Exception as exc:
+            self._reading_canvas.delete("all")
+            self._reading_info_var.set(f"Fehler beim PDF-Rendering: {exc}")
+            return
+
+        self._render_photo = ui.PhotoImage(data=pix.tobytes("ppm"), format="ppm")
+        self._reading_canvas.configure(width=pix.width, height=pix.height)
+        self._reading_canvas.delete("all")
+        self._canvas_image_id = self._reading_canvas.create_image(0, 0, anchor=ui.NW, image=self._render_photo)
+        self._reading_canvas.configure(scrollregion=(0, 0, pix.width, pix.height))
+        self._reading_info_var.set(
+            f"{student.display_name} ({self._naming_cursor + 1}/{len(exam.students)})"
+        )
+
+    def _refresh_naming_progress(self) -> None:
+        """Update the "N/M Namen erfasst" label and gate the rename-all button."""
+        exam = self._current_exam
+        if exam is None:
+            self._naming_progress_var.set("")
+            self._naming_rename_all_button.configure(state="disabled")
+            return
+        done = sum(1 for student in exam.students if self._pending_student_names.get(student.student_id, "").strip())
+        total = len(exam.students)
+        self._naming_progress_var.set(f"{done}/{total} Namen erfasst")
+        self._naming_rename_all_button.configure(state="normal" if done == total and total > 0 else "disabled")
+
+    def _commit_naming_field_if_possible(self) -> None:
+        """Store the currently typed name in-memory (no persistence/history entry yet)."""
+        student = self._current_naming_student()
+        if student is None:
+            return
+        name = self._naming_name_var.get().strip()
+        if name:
+            self._pending_student_names[student.student_id] = name
+        else:
+            self._pending_student_names.pop(student.student_id, None)
+        self._refresh_naming_progress()
+
+    def _on_naming_fields_focus_out(self, _event: ui.Event[ui.Misc]) -> None:
+        """Commit the pending name when the entry loses focus."""
+        self._commit_naming_field_if_possible()
+
+    def _on_naming_fields_commit(self, _event: ui.Event[ui.Misc]) -> None:
+        """Commit the pending name on <Return> and leave the field."""
+        self._commit_naming_field_if_possible()
+        self.root.focus_set()
+
+    def _on_naming_fields_escape(self, _event: ui.Event[ui.Misc]) -> None:
+        """Leave the name entry on <Escape> without a direct commit.
+
+        No commit call here: leaving the field triggers <FocusOut>, which is
+        the single commit path (see _commit_naming_field_if_possible).
+        """
+        self.root.focus_set()
+
+    def _rename_all_students(self) -> None:
+        """Trigger the batch rename once every student has a pending name."""
+        if self._current_exam is None or self._controller is None:
+            return
+        self._commit_naming_field_if_possible()
+        missing = [
+            student.display_name or student.student_id
+            for student in self._current_exam.students
+            if not self._pending_student_names.get(student.student_id, "").strip()
+        ]
+        if missing:
+            messagebox.showinfo("Hinweis", "Noch kein Name erfasst fuer: " + ", ".join(missing))
+            return
+        updated = self._controller.rename_students_immediate(
+            exam=self._current_exam,
+            name_by_student_id=dict(self._pending_student_names),
+        )
+        if updated is None:
+            return
+        self._current_exam = updated
+        self._pending_student_names.clear()
+        self._apply_detail_labels(updated)
+        self._render_naming_capture_page()
+        self._refresh_naming_progress()
 
     def _change_reading_student(self, delta: int) -> None:
         if not self._reading_active or not self._current_exam or not self._current_exam.students:
@@ -2358,7 +2752,7 @@ class MainWindow(BwBaseWindow):
             return
 
         if bool(self._superpage_var.get()):
-            used = self._render_superposed_page(page_number=self._reading_page)
+            used = self._render_superposed_page(students=self._current_exam.students, page_number=self._reading_page)
             max_page = self._max_available_page()
             if used > 0:
                 self._reading_info_var.set(
@@ -2392,7 +2786,14 @@ class MainWindow(BwBaseWindow):
             return 1
         return max(max(student.page_count, 1) for student in self._current_exam.students)
 
-    def _render_superposed_page(self, *, page_number: int) -> int:
+    def _render_superposed_page(self, *, students: Sequence[StudentExam], page_number: int) -> int:
+        """Overlay one page across many students' PDFs as a dark-wins composite.
+
+        The shared technical mechanism behind Superseite (Einlesemodus,
+        Namenmodus region alignment, and the Supersymbol filtered view): it
+        only knows "which students, which page" - the caller decides *why*
+        that particular set was chosen (all students, or a filtered subset).
+        """
         if self._current_exam is None:
             return 0
 
@@ -2400,7 +2801,7 @@ class MainWindow(BwBaseWindow):
         reference_rect: fitz.Rect | None = None
         target_width = 520.0
 
-        for student in self._current_exam.students:
+        for student in students:
             if page_number > student.page_count:
                 continue
             pdf_path = Path(self._current_exam.folder_path) / student.pdf_filename
@@ -2472,7 +2873,21 @@ class MainWindow(BwBaseWindow):
         return len(pixmaps)
 
     def _draw_existing_regions(self, student_pdf: str, page_number: int) -> None:
+        """Draw the persisted region(s) for the current mode: name_region in Namenmodus,
+        extra-page/task regions plus open drafts otherwise."""
         if not self._current_exam:
+            return
+
+        if self._naming_mode_active and not self._naming_capture_active:
+            region = self._current_exam.name_region
+            if region is not None and self._current_exam.name_region_page == page_number:
+                x0 = region.x0 / self._x_factor
+                y0 = region.y0 / self._y_factor
+                x1 = region.x1 / self._x_factor
+                y1 = region.y1 / self._y_factor
+                self._reading_canvas.create_rectangle(
+                    x0, y0, x1, y1, outline="#8b5cf6", width=3, tags=("region", "name_region"),
+                )
             return
 
         if self._extra_mode_active:
@@ -2628,6 +3043,10 @@ class MainWindow(BwBaseWindow):
             self._drag_rect_id = None
             self._drag_start = None
             self._rerender_active_page()
+            return
+
+        if self._naming_mode_active and not self._naming_capture_active:
+            self._commit_name_region_from_drag(box=box, page_number=page_number)
             return
 
         draft_id = f"draft-{uuid4().hex[:10]}"
@@ -2857,12 +3276,15 @@ class MainWindow(BwBaseWindow):
         return self._index_to_area_label(index)
 
     def _finish_reading_mode(self) -> None:
+        """Mark Einlesemodus complete for the current exam and leave the reading view."""
         if not self._current_exam or not self._controller:
             return
         updated = self._controller.finish_reading_mode(exam=self._current_exam)
         self._current_exam = updated
         self._apply_detail_labels(updated)
         self._reading_active = False
+        self._naming_mode_active = False
+        self._naming_capture_active = False
         self._reading_info_var.set("Einlesemodus: abgeschlossen")
         self._show_detail_mode()
 
@@ -3028,6 +3450,8 @@ class MainWindow(BwBaseWindow):
         self._reading_active = False
         self._extra_mode_active = False
         self._extra_sequence = []
+        self._naming_mode_active = False
+        self._naming_capture_active = False
         self._close_extra_popup()
         self._correction_mode_active = True
         self._correction_zoom_percent = 100
@@ -4386,22 +4810,29 @@ class MainWindow(BwBaseWindow):
         self._refresh_active_student_label()
 
     def _leave_reading_view(self) -> None:
+        was_naming = self._naming_mode_active
         self._reading_active = False
         self._extra_mode_active = False
+        self._naming_mode_active = False
+        self._naming_capture_active = False
         self._superpage_var.set(False)
         self._extra_sequence = []
         self._reading_mode_title_var.set("Einlesen")
         self._clear_pending_redraw()
         self._close_extra_popup()
         self._reading_info_var.set("Einlesemodus: bereit")
-        self._status_var.set("Einlesemodus verlassen")
+        self._status_var.set("Namenmodus verlassen" if was_naming else "Einlesemodus verlassen")
         self._show_detail_mode()
 
     def _return_to_overview(self) -> None:
+        """Close the current exam and all its active mode state, showing the overview."""
         self._current_exam = None
         self._detail_exam_file = None
         self._reading_active = False
         self._extra_mode_active = False
+        self._naming_mode_active = False
+        self._naming_capture_active = False
+        self._pending_student_names.clear()
         self._correction_mode_active = False
         self._superpage_var.set(False)
         self._selected_region_id = None
@@ -4451,7 +4882,7 @@ class MainWindow(BwBaseWindow):
         self._correction_controls_frame.pack_forget()
 
     def _set_detail_submode(self, mode: str) -> None:
-        """Switch the Klausur-Detail view between correction/extra/reading sub-modes.
+        """Switch the Klausur-Detail view between correction/extra/reading/naming sub-modes.
 
         Also toggles `_save_region_button` visibility: it is only shown in
         "extra" mode, since the standard Aufgaben/Punkte editor now commits
@@ -4464,6 +4895,8 @@ class MainWindow(BwBaseWindow):
             self._show_view("correction")
             return
         self._hide_correction_controls()
+        self._naming_region_toolbar.pack_forget()
+        self._naming_capture_panel.pack_forget()
 
         if mode == "extra":
             self._reading_mode_title_var.set("Extraseiten")
@@ -4478,6 +4911,24 @@ class MainWindow(BwBaseWindow):
             self._extra_toolbar.pack(fill=ui.X, pady=(6, 0))
             self._save_region_button.pack_forget()
             self._save_region_button.pack(side=ui.LEFT, before=self._delete_region_button)
+            return
+
+        if mode == "naming":
+            self._reading_mode_title_var.set("Namen")
+            self._extra_toolbar.pack_forget()
+            self._mode_row.pack_forget()
+            self._regions_editor.pack_forget()
+            if self._extra_overview_frame is not None:
+                self._extra_overview_frame.pack_forget()
+            self._save_region_button.pack_forget()
+            if self._naming_capture_active:
+                self._reading_toolbar.pack_forget()
+                self._naming_capture_panel.pack(fill=ui.BOTH, pady=(10, 0))
+            else:
+                self._reading_toolbar.pack(fill=ui.X)
+                self._superpage_toggle.pack_forget()
+                self._superpage_toggle.pack(side=ui.RIGHT)
+                self._naming_region_toolbar.pack(fill=ui.X, pady=(6, 0))
             return
 
         self._reading_mode_title_var.set("Einlesen")

@@ -53,5 +53,11 @@
 ## Aktueller Umbau (Modi)
 
 - Die Korrektur laeuft in einer eigenen Ansicht (separat von Klausur-Details und Einlesen) und nicht mehr als eingebetteter Formularblock in der Detailansicht.
-- Die Detailansicht bleibt Hub fuer den Moduswechsel (Einlesen, Extraseiten, Korrektur).
+- Die Detailansicht bleibt Hub fuer den Moduswechsel (Einlesen, Extraseiten, Namen, Korrektur).
 - Im Extraseitenmodus werden keine neuen Aufgaben definiert; es sind nur Zuordnungen zu bereits vorhandenen Standard-Bereichen erlaubt.
+- Namenmodus (Namen aendern/PDFs umbenennen) hat zwei Teilschritte in derselben Ansicht: Bereich-Definition (teilt sich Canvas, Seiten-/Superseiten-Navigation mit dem Einlesemodus - ein Drag committet dort aber sofort `exam.name_region`, kein Draft/Aufgaben-Schritt) und Namenserfassung (eigenes, zugeschnittenes Einzelseiten-Rendering, Pfeiltasten wechseln Schueler:in, Name wird nur in-memory gesammelt bis "Alle umbenennen").
+
+## Gemeinsame technische Mechanismen (nicht pro Modus duplizieren)
+
+- **Superseiten-Rendering** (`MainWindow._render_superposed_page`): ein Renderer fuer "mehrere PDFs, eine Seite, dunkel-gewinnt-Komposit", nimmt die Schueler:innen-Menge als expliziten Parameter. Einlesemodus und Namenmodus (Bereich-Definition) uebergeben `exam.students`; ein spaeterer gefilterter Anwendungsfall (Supersymbol) uebergibt eine Teilmenge. Der Renderer kennt nur "wer + welche Seite", nie *warum* diese Menge gewaehlt wurde.
+- **Umbenennen als rollback-faehige Gesamtoperation** (`UiIntentController.rename_students_immediate`): Preflight (1:1-Rename-Set-Check gegen den Ordnerinhalt, Zielnamen-Planung mit interner Kollisionsaufloesung, externe Konfliktpruefung) -> zweiphasiges Staged-Rename ueber Temp-Namen (loest A<->B-Tauschfaelle, rollt bei jedem Fehler zurueck) -> In-Memory-Update -> `save_exam` -> eine `HistoryAction` mit den konkreten alt/neu-Dateinamen-Paaren (Undo/Redo spielt sie ab, berechnet sie nie neu). Rollback deckt nur waehrend des Aufrufs erkannte Laufzeitfehler ab, keine Crash-Atomicity (ein harter Prozess-/OS-Absturz mitten im Ablauf ist nicht garantiert wiederherstellbar). `MainWindow.invalidate_doc_cache` schliesst betroffene PDF-Handles vor jedem Rename.
