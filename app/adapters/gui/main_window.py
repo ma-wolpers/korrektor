@@ -1342,14 +1342,14 @@ class MainWindow(BwBaseWindow):
         back_to_detail_button.pack(side=ui.LEFT)
         self._attach_hover_help(back_to_detail_button, label="Zur Klausurdetailansicht zurueck", shortcut="Esc")
 
-        finish_reading_button = widgets.Button(
+        self._finish_reading_button = widgets.Button(
             reading_nav,
             text="Einlesen abschliessen",
             style="PrimaryAction.TButton",
             command=self._finish_reading_mode,
         )
-        finish_reading_button.pack(side=ui.RIGHT)
-        self._attach_hover_help(finish_reading_button, label="Einlesemodus abschliessen", shortcut=None)
+        self._finish_reading_button.pack(side=ui.RIGHT)
+        self._attach_hover_help(self._finish_reading_button, label="Einlesemodus abschliessen", shortcut=None)
 
         self._reading_toolbar = widgets.Frame(self._reading_view, style="Surface.TFrame")
         self._reading_toolbar.pack(fill=ui.X)
@@ -1516,13 +1516,13 @@ class MainWindow(BwBaseWindow):
         widgets.Radiobutton(self._mode_row, text="Formular", value="form", variable=self._assignment_mode_var).pack(side=ui.LEFT, padx=(8, 0))
         self._assignment_mode_var.trace_add("write", lambda *_args: self._refresh_task_input_mode())
 
-        reading_split = widgets.PanedWindow(self._reading_view, orient=ui.HORIZONTAL)
-        reading_split.pack(fill=ui.BOTH, expand=True, pady=(10, 0))
+        self._reading_split = widgets.PanedWindow(self._reading_view, orient=ui.HORIZONTAL)
+        self._reading_split.pack(fill=ui.BOTH, expand=True, pady=(10, 0))
 
-        canvas_panel = widgets.Frame(reading_split, style="Surface.TFrame", padding=(0, 0, 8, 0))
-        editor_panel = widgets.Frame(reading_split, style="Surface.TFrame", padding=(8, 0, 0, 0))
-        reading_split.add(canvas_panel, weight=3)
-        reading_split.add(editor_panel, weight=2)
+        canvas_panel = widgets.Frame(self._reading_split, style="Surface.TFrame", padding=(0, 0, 8, 0))
+        editor_panel = widgets.Frame(self._reading_split, style="Surface.TFrame", padding=(8, 0, 0, 0))
+        self._reading_split.add(canvas_panel, weight=3)
+        self._reading_split.add(editor_panel, weight=2)
 
         canvas_container = widgets.Frame(canvas_panel, style="Surface.TFrame")
         canvas_container.pack(fill=ui.BOTH, expand=True)
@@ -4897,6 +4897,7 @@ class MainWindow(BwBaseWindow):
         self._hide_correction_controls()
         self._naming_region_toolbar.pack_forget()
         self._naming_capture_panel.pack_forget()
+        self._finish_reading_button.pack(side=ui.RIGHT)
 
         if mode == "extra":
             self._reading_mode_title_var.set("Extraseiten")
@@ -4908,12 +4909,19 @@ class MainWindow(BwBaseWindow):
                 self._extra_overview_frame.pack(fill=ui.X, pady=(0, 6), before=self._regions_tree.master)
             self._task_input_container.pack_forget()
             self._extra_area_container.pack(fill=ui.X, pady=(4, 0))
-            self._extra_toolbar.pack(fill=ui.X, pady=(6, 0))
+            self._extra_toolbar.pack(fill=ui.X, pady=(6, 0), before=self._reading_split)
             self._save_region_button.pack_forget()
             self._save_region_button.pack(side=ui.LEFT, before=self._delete_region_button)
             return
 
         if mode == "naming":
+            # Widgets toggled here live at the _reading_view level, as siblings
+            # of self._reading_split (the canvas/editor PanedWindow, packed
+            # once at construction and never forgotten). Re-packing a sibling
+            # after pack_forget() without `before=` would append it AFTER an
+            # already-packed self._reading_split, leaving it squeezed into no
+            # visible space - every pack() call here must anchor `before=
+            # self._reading_split` to land above the canvas as intended.
             self._reading_mode_title_var.set("Namen")
             self._extra_toolbar.pack_forget()
             self._mode_row.pack_forget()
@@ -4921,22 +4929,28 @@ class MainWindow(BwBaseWindow):
             if self._extra_overview_frame is not None:
                 self._extra_overview_frame.pack_forget()
             self._save_region_button.pack_forget()
+            # "Einlesen abschliessen" finishes task-region marking - meaningless
+            # in Namenmodus, unlike the reading_nav frame it lives in, which
+            # also hosts "Zurueck zur Klausur" and stays visible in every submode.
+            self._finish_reading_button.pack_forget()
             if self._naming_capture_active:
                 self._reading_toolbar.pack_forget()
-                self._naming_capture_panel.pack(fill=ui.BOTH, pady=(10, 0))
+                self._naming_region_toolbar.pack_forget()
+                self._naming_capture_panel.pack(fill=ui.BOTH, pady=(10, 0), before=self._reading_split)
             else:
-                self._reading_toolbar.pack(fill=ui.X)
+                self._naming_capture_panel.pack_forget()
+                self._reading_toolbar.pack(fill=ui.X, before=self._reading_split)
                 self._superpage_toggle.pack_forget()
                 self._superpage_toggle.pack(side=ui.RIGHT)
-                self._naming_region_toolbar.pack(fill=ui.X, pady=(6, 0))
+                self._naming_region_toolbar.pack(fill=ui.X, pady=(6, 0), before=self._reading_split)
             return
 
         self._reading_mode_title_var.set("Einlesen")
         self._extra_toolbar.pack_forget()
-        self._reading_toolbar.pack(fill=ui.X)
+        self._reading_toolbar.pack(fill=ui.X, before=self._reading_split)
         self._superpage_toggle.pack_forget()
         self._superpage_toggle.pack(side=ui.RIGHT)
-        self._mode_row.pack(fill=ui.X, pady=(8, 0))
+        self._mode_row.pack(fill=ui.X, pady=(8, 0), before=self._reading_split)
         self._regions_editor.pack(fill=ui.BOTH, pady=(10, 0))
         if self._extra_overview_frame is not None:
             self._extra_overview_frame.pack_forget()

@@ -14,6 +14,7 @@
 4. Persistenz erfolgt direkt bei relevanten UI-Ereignissen (Fokuswechsel, Navigation, Escape aus Feld).
 5. Hauptansichten sind klar getrennt: Uebersicht, Klausur-Detail und Einlesen.
 6. Die alte SplitView-Pane-Aufteilung ist entfernt; Ansichtswechsel laufen explizit ueber View-State.
+6a. Tkinter-Pack-Falle: Ein `pack_forget()` gefolgt von `pack()` OHNE `before=`/`after=` haengt das Widget ans Ende der Pack-Reihenfolge seines Masters an - liegt dort bereits ein staendig gepacktes `expand=True`-Geschwister (z. B. `self._reading_split`), landet das wieder eingeblendete Widget dahinter und bekommt keinen sichtbaren Platz mehr. Jedes in `_set_detail_submode` per Moduswechsel ein-/ausgeblendete `_reading_view`-Kind-Widget muss deshalb `before=self._reading_split` (oder ein aequivalentes Ankerwidget) setzen, nicht nur beim ersten Anzeigen, sondern bei jedem erneuten `pack()`.
 7. KeyBindings werden zentral in `bw_libs/ui_contract/keybinding.py` definiert.
 8. Pop-up-Verhalten wird zentral in `bw_libs/ui_contract/popup.py` definiert.
 9. HSM-Vertragslogik fuer Intent-Katalog, Escape-Prioritaet und Transition-Validierung liegt zentral in `bw_libs/ui_contract/hsm.py`.
