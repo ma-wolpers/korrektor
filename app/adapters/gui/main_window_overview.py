@@ -10,13 +10,69 @@ from app.core.domain.progress import ProgressCalculator
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui
+from bw_gui.runtime import ui, widgets
 
 
 class MainWindowOverviewMixin:
     def _initial_load(self) -> None:
         if self._controller:
             self._controller.refresh_exam_overview()
+
+    def _build_overview_view(self) -> None:
+        widgets.Label(self._overview_view, text="Übersicht", style="Title.TLabel").pack(anchor=ui.W)
+
+        overview_actions = widgets.Frame(self._overview_view, style="Surface.TFrame")
+        overview_actions.pack(fill=ui.X, pady=(8, 10))
+
+        create_exam_button = widgets.Button(
+            overview_actions,
+            text="Neue Klausur",
+            style="PrimaryAction.TButton",
+            command=lambda: self._controller and self._controller.create_exam(),
+        )
+        create_exam_button.pack(side=ui.LEFT)
+        self._attach_hover_help(create_exam_button, label="Neue Klausur erstellen", shortcut="Ctrl+N")
+
+        open_exam_button = widgets.Button(
+            overview_actions,
+            text="Klausur oeffnen",
+            style="SecondaryAction.TButton",
+            command=lambda: self._controller and self._controller.open_selected_exam(),
+        )
+        open_exam_button.pack(side=ui.LEFT, padx=(10, 0))
+        self._attach_hover_help(open_exam_button, label="Ausgewaehlte Klausur oeffnen", shortcut="Enter")
+
+        delete_exam_button = widgets.Button(
+            overview_actions,
+            text="Klausur loeschen",
+            style="SecondaryAction.TButton",
+            command=lambda: self._controller and self._controller.delete_selected_exam(),
+        )
+        delete_exam_button.pack(side=ui.LEFT, padx=(10, 0))
+        self._attach_hover_help(delete_exam_button, label="Ausgewaehlte Klausur loeschen", shortcut=None)
+
+        self._tree = widgets.Treeview(
+            self._overview_view,
+            columns=("name", "read", "corr", "regions", "done", "complete", "flags"),
+            show="headings",
+            height=18,
+        )
+        headings = {
+            "name": "Klausur",
+            "read": "Einlesen %",
+            "corr": "Korrektur %",
+            "regions": "Bereiche",
+            "done": "Korrigiert",
+            "complete": "Vollständig",
+            "flags": "Offen",
+        }
+        widths = {"name": 250, "read": 100, "corr": 100, "regions": 90, "done": 90, "complete": 100, "flags": 110}
+        for key in headings:
+            self._tree.heading(key, text=headings[key])
+            self._tree.column(key, width=widths[key], anchor=ui.CENTER if key != "name" else ui.W)
+        self._tree.pack(fill=ui.BOTH, expand=True)
+        self._tree.bind("<Double-1>", lambda _event: self._controller and self._controller.open_selected_exam())
+        self._tree.bind("<Return>", lambda _event: self._controller and self._controller.open_selected_exam())
 
     def render_overview_rows(self, rows: list[ExamOverviewRow]) -> None:
         self._rows_by_tree_id.clear()

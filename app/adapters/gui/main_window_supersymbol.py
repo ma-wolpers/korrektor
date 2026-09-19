@@ -3,7 +3,11 @@ from __future__ import annotations
 from typing import Sequence
 
 from app.adapters.gui.dialog_services import messagebox
-from app.adapters.gui.main_window_constants import SUPERSYMBOL_OPERATOR_BY_LABEL, SUPERSYMBOL_SUM_SCOPE_LABEL
+from app.adapters.gui.main_window_constants import (
+    SUPERSYMBOL_OPERATOR_BY_LABEL,
+    SUPERSYMBOL_OPERATOR_LABELS,
+    SUPERSYMBOL_SUM_SCOPE_LABEL,
+)
 from app.adapters.gui.main_window_types import CorrectionTemplate
 from app.core.domain.models import StudentExam
 from app.core.domain.score_filter import compute_student_value, filter_matching_student_ids
@@ -11,10 +15,73 @@ from app.core.domain.score_filter import compute_student_value, filter_matching_
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui
+from bw_gui.runtime import ui, widgets
 
 
 class MainWindowSupersymbolMixin:
+    def _build_correction_view_form_supersymbol(self) -> None:
+        supersymbol_controls = widgets.Frame(self._correction_form_panel, style="Surface.TFrame")
+        supersymbol_controls.pack(fill=ui.X, pady=(10, 0))
+        widgets.Label(supersymbol_controls, text="Supersymbol (Filter)", style="Muted.TLabel").pack(anchor=ui.W)
+
+        supersymbol_row1 = widgets.Frame(supersymbol_controls, style="Surface.TFrame")
+        supersymbol_row1.pack(fill=ui.X, pady=(4, 0))
+        widgets.Label(supersymbol_row1, text="Aufgabe(n)", style="Muted.TLabel").pack(side=ui.LEFT)
+        self._supersymbol_scope_var = ui.StringVar(value="")
+        self._supersymbol_scope_combo = widgets.Combobox(
+            supersymbol_row1,
+            textvariable=self._supersymbol_scope_var,
+            state="readonly",
+            width=16,
+            values=(),
+        )
+        self._supersymbol_scope_combo.pack(side=ui.LEFT, padx=(8, 0))
+
+        supersymbol_row2 = widgets.Frame(supersymbol_controls, style="Surface.TFrame")
+        supersymbol_row2.pack(fill=ui.X, pady=(4, 0))
+        widgets.Label(supersymbol_row2, text="Punkte", style="Muted.TLabel").pack(side=ui.LEFT)
+        self._supersymbol_operator_var = ui.StringVar(value=SUPERSYMBOL_OPERATOR_LABELS[0])
+        supersymbol_operator_combo = widgets.Combobox(
+            supersymbol_row2,
+            textvariable=self._supersymbol_operator_var,
+            state="readonly",
+            width=4,
+            values=SUPERSYMBOL_OPERATOR_LABELS,
+        )
+        supersymbol_operator_combo.pack(side=ui.LEFT, padx=(8, 0))
+        self._supersymbol_value_var = ui.StringVar(value="")
+        supersymbol_value_entry = widgets.Entry(supersymbol_row2, textvariable=self._supersymbol_value_var, width=8)
+        supersymbol_value_entry.pack(side=ui.LEFT, padx=(6, 0))
+
+        supersymbol_row3 = widgets.Frame(supersymbol_controls, style="Surface.TFrame")
+        supersymbol_row3.pack(fill=ui.X, pady=(6, 0))
+        self._supersymbol_preview_button = widgets.Button(
+            supersymbol_row3,
+            text="Vorschau anzeigen",
+            style="SecondaryAction.TButton",
+            command=self._start_supersymbol_filter,
+        )
+        self._supersymbol_preview_button.pack(side=ui.LEFT)
+        self._attach_hover_help(
+            self._supersymbol_preview_button,
+            label="Zeigt alle Personen, die die Bedingung erfuellen, ueberlagert an - Klick platziert das aktuell gewaehlte Markierungssymbol bei allen gleichzeitig",
+        )
+        self._supersymbol_cancel_button = widgets.Button(
+            supersymbol_row3,
+            text="Abbrechen",
+            style="SecondaryAction.TButton",
+            command=self._cancel_supersymbol_filter,
+        )
+        self._supersymbol_cancel_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._supersymbol_cancel_button.pack_forget()
+
+        self._supersymbol_info_var = ui.StringVar(value="")
+        widgets.Label(
+            supersymbol_controls,
+            textvariable=self._supersymbol_info_var,
+            style="Muted.TLabel",
+        ).pack(anchor=ui.W, pady=(4, 0))
+
     def _refresh_supersymbol_scope_choices(self, template: CorrectionTemplate | None) -> None:
         """Populate the Supersymbol "Aufgabe(n)" scope combobox for the current Bereich.
 

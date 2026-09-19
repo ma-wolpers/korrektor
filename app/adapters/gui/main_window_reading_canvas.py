@@ -8,10 +8,48 @@ from app.adapters.gui.main_window_types import DraftRegion
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui
+from bw_gui.runtime import ui, widgets
 
 
 class MainWindowReadingCanvasMixin:
+    def _build_reading_view_canvas(self) -> None:
+        self._reading_split = widgets.PanedWindow(self._reading_view, orient=ui.HORIZONTAL)
+        self._reading_split.pack(fill=ui.BOTH, expand=True, pady=(10, 0))
+
+        canvas_panel = widgets.Frame(self._reading_split, style="Surface.TFrame", padding=(0, 0, 8, 0))
+        self._reading_editor_panel = widgets.Frame(self._reading_split, style="Surface.TFrame", padding=(8, 0, 0, 0))
+        self._reading_split.add(canvas_panel, weight=3)
+        self._reading_split.add(self._reading_editor_panel, weight=2)
+
+        canvas_container = widgets.Frame(canvas_panel, style="Surface.TFrame")
+        canvas_container.pack(fill=ui.BOTH, expand=True)
+
+        canvas_scroll_x = widgets.Scrollbar(canvas_container, orient=ui.HORIZONTAL)
+        canvas_scroll_y = widgets.Scrollbar(canvas_container, orient=ui.VERTICAL)
+
+        canvas_bg, canvas_border = self._canvas_theme_tokens()
+        self._reading_canvas = ui.Canvas(
+            canvas_container,
+            width=520,
+            height=360,
+            bg=canvas_bg,
+            highlightthickness=1,
+            highlightbackground=canvas_border,
+            xscrollcommand=canvas_scroll_x.set,
+            yscrollcommand=canvas_scroll_y.set,
+        )
+        canvas_scroll_x.config(command=self._reading_canvas.xview)
+        canvas_scroll_y.config(command=self._reading_canvas.yview)
+
+        canvas_scroll_x.pack(side=ui.BOTTOM, fill=ui.X)
+        canvas_scroll_y.pack(side=ui.RIGHT, fill=ui.Y)
+        self._reading_canvas.pack(side=ui.LEFT, fill=ui.BOTH, expand=True)
+        self._reading_canvas.bind("<ButtonPress-1>", self._on_canvas_press)
+        self._reading_canvas.bind("<B1-Motion>", self._on_canvas_drag)
+        self._reading_canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
+        self._reading_canvas.bind("<MouseWheel>", self._on_canvas_mousewheel)
+        self._reading_canvas.bind("<Shift-MouseWheel>", self._on_canvas_shift_mousewheel)
+
     def _draw_existing_regions(self, student_pdf: str, page_number: int) -> None:
         """Draw the persisted region(s) for the current mode: name_region in Namenmodus,
         extra-page/task regions plus open drafts otherwise."""

@@ -15,6 +15,112 @@ from bw_gui.runtime import ui, widgets
 
 
 class MainWindowCorrectionCoreMixin:
+    def _build_correction_view_canvas_header(self) -> None:
+        widgets.Label(self._correction_view, text="Korrektur", style="Title.TLabel").pack(anchor=ui.W)
+        self._correction_info_var = ui.StringVar(value="Korrektur: nicht aktiv")
+        widgets.Label(self._correction_view, textvariable=self._correction_info_var, style="Muted.TLabel").pack(anchor=ui.W, pady=(4, 8))
+
+        correction_actions = widgets.Frame(self._correction_view, style="Surface.TFrame")
+        correction_actions.pack(fill=ui.X, pady=(0, 8))
+
+        correction_back_button = widgets.Button(
+            correction_actions,
+            text="Zurueck zur Klausur",
+            style="SecondaryAction.TButton",
+            command=self._stop_correction_mode,
+        )
+        correction_back_button.pack(side=ui.LEFT)
+        self._attach_hover_help(correction_back_button, label="Korrekturansicht verlassen", shortcut="Esc")
+
+        widgets.Label(correction_actions, text="Bereich", style="Muted.TLabel").pack(side=ui.LEFT, padx=(14, 4))
+        self._correction_area_combo_view = widgets.Combobox(
+            correction_actions,
+            textvariable=self._correction_area_var,
+            state="readonly",
+            width=10,
+            values=("A",),
+        )
+        self._correction_area_combo_view.pack(side=ui.LEFT)
+        self._correction_area_combo_view.bind("<<ComboboxSelected>>", self._on_correction_area_changed)
+
+        widgets.Label(correction_actions, text="Aufgabe", style="Muted.TLabel").pack(side=ui.LEFT, padx=(12, 4))
+        self._correction_task_var = ui.StringVar(value="")
+        self._correction_task_combo = widgets.Combobox(
+            correction_actions,
+            textvariable=self._correction_task_var,
+            state="readonly",
+            width=20,
+            values=(),
+        )
+        self._correction_task_combo.pack(side=ui.LEFT)
+        self._correction_task_combo.bind("<<ComboboxSelected>>", self._on_correction_task_changed)
+
+        self._correction_max_points_var = ui.StringVar(value="Max: -")
+        widgets.Label(correction_actions, textvariable=self._correction_max_points_var, style="Status.TLabel").pack(side=ui.LEFT, padx=(12, 0))
+
+        correction_zoom_actions = widgets.Frame(correction_actions, style="Surface.TFrame")
+        correction_zoom_actions.pack(side=ui.RIGHT)
+        widgets.Label(correction_zoom_actions, textvariable=self._correction_zoom_info_var, style="Muted.TLabel").pack(side=ui.RIGHT, padx=(8, 0))
+        reset_correction_zoom_button = widgets.Button(
+            correction_zoom_actions,
+            text="100%",
+            style="SecondaryAction.TButton",
+            command=self._reset_correction_zoom,
+        )
+        reset_correction_zoom_button.pack(side=ui.RIGHT)
+        self._attach_hover_help(reset_correction_zoom_button, label="Korrektur-Zoom auf 100% setzen", shortcut="Strg+0")
+
+        zoom_in_correction_button = widgets.Button(
+            correction_zoom_actions,
+            text="+",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_correction_zoom(10),
+            width=3,
+        )
+        zoom_in_correction_button.pack(side=ui.RIGHT, padx=(8, 0))
+        self._attach_hover_help(zoom_in_correction_button, label="Korrektur-Zoom vergroessern", shortcut="Strg++")
+
+        zoom_out_correction_button = widgets.Button(
+            correction_zoom_actions,
+            text="-",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_correction_zoom(-10),
+            width=3,
+        )
+        zoom_out_correction_button.pack(side=ui.RIGHT, padx=(8, 0))
+        self._attach_hover_help(zoom_out_correction_button, label="Korrektur-Zoom verkleinern", shortcut="Strg+-")
+
+    def _build_correction_view_form_save_nav(self) -> None:
+        correction_buttons = widgets.Frame(self._correction_form_panel, style="Surface.TFrame")
+        correction_buttons.pack(fill=ui.X, pady=(10, 0))
+
+        save_comments_button = widgets.Button(
+            correction_buttons,
+            text="PDF ueberschreiben",
+            style="SecondaryAction.TButton",
+            command=self._save_correction_annotations_to_pdfs,
+        )
+        save_comments_button.pack(side=ui.LEFT)
+        self._attach_hover_help(save_comments_button, label="Original-PDF mit Markierungen ueberschreiben")
+
+        prev_correction_student_button = widgets.Button(
+            correction_buttons,
+            text="◀ Person",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_correction_student(-1),
+        )
+        prev_correction_student_button.pack(side=ui.RIGHT)
+        self._attach_hover_help(prev_correction_student_button, label="Vorherige Person in Korrektur", shortcut="Links")
+
+        next_correction_student_button = widgets.Button(
+            correction_buttons,
+            text="Person ▶",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_correction_student(1),
+        )
+        next_correction_student_button.pack(side=ui.RIGHT, padx=(0, 8))
+        self._attach_hover_help(next_correction_student_button, label="Naechste Person in Korrektur", shortcut="Rechts")
+
     def _start_correction_mode(self) -> None:
         """Enter Korrekturmodus, building the region_id-keyed templates/label map."""
         if not self._current_exam:

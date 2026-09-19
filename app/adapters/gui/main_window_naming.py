@@ -10,10 +10,89 @@ from app.core.domain.models import ExamProject, StudentExam
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui
+from bw_gui.runtime import ui, widgets
 
 
 class MainWindowNamingMixin:
+    def _build_reading_view_naming_panel(self) -> None:
+        self._naming_region_toolbar = widgets.Frame(self._reading_view, style="Surface.TFrame")
+        self._naming_region_hint_var = ui.StringVar(value="")
+        widgets.Label(
+            self._naming_region_toolbar,
+            textvariable=self._naming_region_hint_var,
+            style="Muted.TLabel",
+            justify=ui.LEFT,
+        ).pack(side=ui.LEFT, fill=ui.X, expand=True)
+        self._naming_enter_capture_button = widgets.Button(
+            self._naming_region_toolbar,
+            text="Namen erfassen ▶",
+            style="PrimaryAction.TButton",
+            command=self._enter_naming_capture,
+        )
+        self._naming_enter_capture_button.pack(side=ui.RIGHT)
+        self._attach_hover_help(
+            self._naming_enter_capture_button,
+            label="Weiter zur Namenserfassung (Namensbereich muss zuvor gezogen sein)",
+            shortcut=None,
+        )
+
+        self._naming_capture_panel = widgets.Frame(self._reading_view, style="Surface.TFrame")
+        naming_capture_nav = widgets.Frame(self._naming_capture_panel, style="Surface.TFrame")
+        naming_capture_nav.pack(fill=ui.X)
+        back_to_naming_region_button = widgets.Button(
+            naming_capture_nav,
+            text="◀ Bereich anpassen",
+            style="SecondaryAction.TButton",
+            command=self._exit_naming_capture,
+        )
+        back_to_naming_region_button.pack(side=ui.LEFT)
+        prev_naming_student_button = widgets.Button(
+            naming_capture_nav,
+            text="◀ Person",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_naming_student(-1),
+        )
+        prev_naming_student_button.pack(side=ui.LEFT, padx=(14, 0))
+        self._attach_hover_help(prev_naming_student_button, label="Vorherige Person", shortcut="Links")
+        next_naming_student_button = widgets.Button(
+            naming_capture_nav,
+            text="Person ▶",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_naming_student(1),
+        )
+        next_naming_student_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(next_naming_student_button, label="Naechste Person", shortcut="Rechts")
+
+        self._naming_rename_all_button = widgets.Button(
+            naming_capture_nav,
+            text="Alle umbenennen",
+            style="PrimaryAction.TButton",
+            command=self._rename_all_students,
+        )
+        self._naming_rename_all_button.pack(side=ui.RIGHT)
+        self._attach_hover_help(
+            self._naming_rename_all_button,
+            label="Erst aktiv, wenn fuer alle Schueler:innen ein Name erfasst wurde",
+            shortcut=None,
+        )
+
+        naming_capture_form = widgets.Frame(self._naming_capture_panel, style="Surface.TFrame")
+        naming_capture_form.pack(fill=ui.X, pady=(6, 0))
+        widgets.Label(naming_capture_form, text="Name:", style="Muted.TLabel").pack(side=ui.LEFT)
+        self._naming_name_var = ui.StringVar(value="")
+        self._naming_entry = widgets.Entry(naming_capture_form, textvariable=self._naming_name_var)
+        self._naming_entry.pack(side=ui.LEFT, fill=ui.X, expand=True, padx=(8, 0))
+        self._naming_entry.bind("<FocusOut>", self._on_naming_fields_focus_out)
+        self._naming_entry.bind("<Return>", self._on_naming_fields_commit)
+        self._naming_entry.bind("<Escape>", self._on_naming_fields_escape)
+
+        self._naming_progress_var = ui.StringVar(value="")
+        widgets.Label(
+            self._naming_capture_panel,
+            textvariable=self._naming_progress_var,
+            style="Muted.TLabel",
+        ).pack(anchor=ui.W, pady=(4, 0))
+
     def _start_naming_mode(self) -> None:
         """Enter Namenmodus: region-definition sub-step (reuses the reading canvas)."""
         if not self._current_exam or not self._current_exam.students:

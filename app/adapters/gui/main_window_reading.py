@@ -8,10 +8,85 @@ from app.core.domain.models import StudentExam
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui
+from bw_gui.runtime import ui, widgets
 
 
 class MainWindowReadingMixin:
+    def _build_reading_view_nav_bar(self) -> None:
+        widgets.Label(self._reading_view, textvariable=self._reading_mode_title_var, style="Title.TLabel").pack(anchor=ui.W)
+        widgets.Label(self._reading_view, textvariable=self._reading_info_var, style="Muted.TLabel").pack(anchor=ui.W, pady=(4, 8))
+
+        reading_nav = widgets.Frame(self._reading_view, style="Surface.TFrame")
+        reading_nav.pack(fill=ui.X, pady=(0, 8))
+
+        back_to_detail_button = widgets.Button(
+            reading_nav,
+            text="Zurueck zur Klausur",
+            style="SecondaryAction.TButton",
+            command=self._leave_reading_view,
+        )
+        back_to_detail_button.pack(side=ui.LEFT)
+        self._attach_hover_help(back_to_detail_button, label="Zur Klausurdetailansicht zurueck", shortcut="Esc")
+
+        self._finish_reading_button = widgets.Button(
+            reading_nav,
+            text="Einlesen abschliessen",
+            style="PrimaryAction.TButton",
+            command=self._finish_reading_mode,
+        )
+        self._finish_reading_button.pack(side=ui.RIGHT)
+        self._attach_hover_help(self._finish_reading_button, label="Einlesemodus abschliessen", shortcut=None)
+
+        self._reading_toolbar = widgets.Frame(self._reading_view, style="Surface.TFrame")
+        self._reading_toolbar.pack(fill=ui.X)
+        prev_page_button = widgets.Button(
+            self._reading_toolbar,
+            text="◀ Seite",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_reading_page(-1),
+        )
+        prev_page_button.pack(side=ui.LEFT)
+        self._attach_hover_help(prev_page_button, label="Vorherige Seite", shortcut="Links")
+
+        next_page_button = widgets.Button(
+            self._reading_toolbar,
+            text="Seite ▶",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_reading_page(1),
+        )
+        next_page_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(next_page_button, label="Naechste Seite", shortcut="Rechts")
+
+        prev_reading_student_button = widgets.Button(
+            self._reading_toolbar,
+            text="◀ Schüler:in",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_reading_student(-1),
+        )
+        prev_reading_student_button.pack(side=ui.LEFT, padx=(14, 0))
+        self._attach_hover_help(prev_reading_student_button, label="Vorherige Person im Einlesen", shortcut=None)
+
+        next_reading_student_button = widgets.Button(
+            self._reading_toolbar,
+            text="Schüler:in ▶",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_reading_student(1),
+        )
+        next_reading_student_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(next_reading_student_button, label="Naechste Person im Einlesen", shortcut=None)
+
+        self._superpage_toggle = widgets.Checkbutton(
+            self._reading_toolbar,
+            text="Superseite",
+            variable=self._superpage_var,
+            command=self._on_superpage_toggle,
+        )
+        self._superpage_toggle.pack(side=ui.RIGHT)
+        self._attach_hover_help(
+            self._superpage_toggle,
+            label="Alle PDFs der aktuellen Seite als dunkle Superposition anzeigen",
+            shortcut=None,
+        )
     def _start_reading_mode(self) -> None:
         """Enter Einlesemodus, resetting any active extra/naming/correction mode."""
         if not self._current_exam or not self._current_exam.students:

@@ -11,10 +11,76 @@ from app.adapters.gui.main_window_constants import (
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui
+from bw_gui.runtime import ui, widgets
 
 
 class MainWindowCorrectionMarkersMixin:
+    def _build_correction_view_canvas(self) -> None:
+        correction_split = widgets.PanedWindow(self._correction_view, orient=ui.HORIZONTAL)
+        correction_split.pack(fill=ui.BOTH, expand=True)
+
+        correction_canvas_panel = widgets.Frame(correction_split, style="Surface.TFrame", padding=(0, 0, 8, 0))
+        self._correction_form_panel = widgets.Frame(correction_split, style="Surface.TFrame", padding=(8, 0, 0, 0))
+        correction_split.add(correction_canvas_panel, weight=3)
+        correction_split.add(self._correction_form_panel, weight=2)
+
+        correction_canvas_bg, correction_canvas_border = self._canvas_theme_tokens()
+        self._correction_canvas = ui.Canvas(
+            correction_canvas_panel,
+            width=520,
+            height=360,
+            bg=correction_canvas_bg,
+            highlightthickness=1,
+            highlightbackground=correction_canvas_border,
+        )
+        self._correction_canvas.pack(fill=ui.BOTH, expand=True)
+        self._correction_canvas.bind("<MouseWheel>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Shift-MouseWheel>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Control-MouseWheel>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Button-4>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Button-5>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Shift-Button-4>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Shift-Button-5>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Control-Button-4>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Control-Button-5>", self._on_correction_mousewheel)
+        self._correction_canvas.bind("<Button-1>", self._on_correction_canvas_press)
+        self._correction_canvas.bind("<B1-Motion>", self._on_correction_canvas_drag)
+        self._correction_canvas.bind("<ButtonRelease-1>", self._on_correction_canvas_release)
+
+    def _build_correction_view_form_markers(self) -> None:
+        marker_controls = widgets.Frame(self._correction_form_panel, style="Surface.TFrame")
+        marker_controls.pack(fill=ui.X, pady=(10, 0))
+
+        widgets.Label(marker_controls, text="Markierungen", style="Muted.TLabel").pack(anchor=ui.W)
+
+        color_row = widgets.Frame(marker_controls, style="Surface.TFrame")
+        color_row.pack(fill=ui.X, pady=(4, 0))
+        widgets.Label(color_row, text="Farbe", style="Muted.TLabel").pack(side=ui.LEFT)
+        color_combo = widgets.Combobox(
+            color_row,
+            textvariable=self._correction_marker_color_name_var,
+            values=tuple(CORRECTION_MARKER_COLORS.keys()),
+            state="readonly",
+            width=12,
+        )
+        color_combo.pack(side=ui.LEFT, padx=(8, 0))
+        color_combo.bind("<<ComboboxSelected>>", self._on_correction_marker_color_changed)
+
+        marker_row = widgets.Frame(marker_controls, style="Surface.TFrame")
+        marker_row.pack(fill=ui.X, pady=(6, 0))
+        for tool_key, glyph, label in CORRECTION_MARKER_TOOLS:
+            marker_button = widgets.Button(
+                marker_row,
+                text=glyph,
+                style="SecondaryAction.TButton",
+                width=3,
+                command=lambda value=tool_key: self._set_correction_marker_tool(value),
+            )
+            marker_button.pack(side=ui.LEFT, padx=(0, 4))
+            self._attach_hover_help(marker_button, label=f"Markierung: {label}")
+
+        self._correction_marker_controls_frame = marker_controls
+
     @staticmethod
     def _marker_tool_lookup(tool_key: str) -> tuple[str, str] | None:
         for key, glyph, label in CORRECTION_MARKER_TOOLS:

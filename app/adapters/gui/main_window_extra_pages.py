@@ -14,6 +14,36 @@ from bw_gui.runtime import ui, widgets
 
 
 class MainWindowExtraPagesMixin:
+    def _build_reading_view_extra_toolbar(self) -> None:
+        self._extra_toolbar = widgets.Frame(self._reading_view, style="Surface.TFrame")
+        self._extra_toolbar.pack(fill=ui.X, pady=(6, 0))
+        prev_extra_page_button = widgets.Button(
+            self._extra_toolbar,
+            text="◀ Extraseite",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_extra_page(-1),
+        )
+        prev_extra_page_button.pack(side=ui.LEFT)
+        self._attach_hover_help(prev_extra_page_button, label="Vorherige Extraseite", shortcut=None)
+
+        next_extra_page_button = widgets.Button(
+            self._extra_toolbar,
+            text="Extraseite ▶",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_extra_page(1),
+        )
+        next_extra_page_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(next_extra_page_button, label="Naechste Extraseite", shortcut=None)
+
+        assign_extra_page_button = widgets.Button(
+            self._extra_toolbar,
+            text="Bereich zuordnen",
+            style="PrimaryAction.TButton",
+            command=self._assign_current_extra_page,
+        )
+        assign_extra_page_button.pack(side=ui.RIGHT)
+        self._attach_hover_help(assign_extra_page_button, label="Aktuelle Extraseite einem Bereich zuordnen", shortcut=None)
+
     @staticmethod
     def _build_extra_sequence(exam: ExamProject) -> list[tuple[int, int]]:
         sequence: list[tuple[int, int]] = []

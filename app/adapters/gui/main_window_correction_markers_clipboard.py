@@ -10,10 +10,80 @@ from app.core.domain.models import PdfAnnotation
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui
+from bw_gui.runtime import ui, widgets
 
 
 class MainWindowCorrectionMarkersClipboardMixin:
+    def _build_correction_view_form_markers_transform(self) -> None:
+        marker_controls = self._correction_marker_controls_frame
+        transform_row = widgets.Frame(marker_controls, style="Surface.TFrame")
+        transform_row.pack(fill=ui.X, pady=(6, 0))
+
+        shrink_button = widgets.Button(
+            transform_row,
+            text="A-",
+            style="SecondaryAction.TButton",
+            width=4,
+            command=lambda: self._resize_selected_correction_annotation(-2.0),
+        )
+        shrink_button.pack(side=ui.LEFT, padx=(0, 4))
+        self._attach_hover_help(shrink_button, label="Ausgewaehlte Markierung verkleinern")
+
+        grow_button = widgets.Button(
+            transform_row,
+            text="A+",
+            style="SecondaryAction.TButton",
+            width=4,
+            command=lambda: self._resize_selected_correction_annotation(2.0),
+        )
+        grow_button.pack(side=ui.LEFT, padx=(0, 4))
+        self._attach_hover_help(grow_button, label="Ausgewaehlte Markierung vergroessern")
+
+        rotate_left_button = widgets.Button(
+            transform_row,
+            text="↺",
+            style="SecondaryAction.TButton",
+            width=4,
+            command=lambda: self._rotate_selected_correction_annotation(90.0),
+        )
+        rotate_left_button.pack(side=ui.LEFT, padx=(8, 4))
+        self._attach_hover_help(rotate_left_button, label="Ausgewaehlte Markierung nach links drehen")
+
+        rotate_right_button = widgets.Button(
+            transform_row,
+            text="↻",
+            style="SecondaryAction.TButton",
+            width=4,
+            command=lambda: self._rotate_selected_correction_annotation(-90.0),
+        )
+        rotate_right_button.pack(side=ui.LEFT, padx=(0, 4))
+        self._attach_hover_help(rotate_right_button, label="Ausgewaehlte Markierung nach rechts drehen")
+
+        sync_button = widgets.Button(
+            transform_row,
+            text="Durchdruecken",
+            style="SecondaryAction.TButton",
+            command=self._toggle_selected_annotation_sync,
+        )
+        sync_button.pack(side=ui.LEFT, padx=(12, 0))
+        self._attach_hover_help(sync_button, label="Auswahl auf alle Personen spiegeln oder wieder lokal machen")
+
+        widgets.Label(
+            marker_controls,
+            textvariable=self._correction_marker_info_var,
+            style="Muted.TLabel",
+        ).pack(anchor=ui.W, pady=(4, 0))
+        widgets.Label(
+            marker_controls,
+            textvariable=self._correction_sync_info_var,
+            style="Muted.TLabel",
+        ).pack(anchor=ui.W, pady=(2, 0))
+        widgets.Label(
+            marker_controls,
+            text="Zwischenablage: Strg+C kopieren, Strg+X ausschneiden, Strg+V einfuegen",
+            style="Muted.TLabel",
+        ).pack(anchor=ui.W, pady=(2, 0))
+
     def _current_correction_annotations(self) -> list[PdfAnnotation]:
         """List annotations for the current student/page, filtered by region_id."""
         if self._current_exam is None:

@@ -6,8 +6,43 @@ from app.adapters.gui.dialog_services import messagebox
 from app.adapters.gui.main_window_types import CorrectionTemplate
 from app.core.domain.score_filter import compute_student_value
 
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui, widgets
+
 
 class MainWindowCorrectionCompletionMixin:
+    def _build_correction_view_form_finished_checkboxes(self) -> None:
+        correction_form = self._correction_form_frame
+        self._correction_finished_check = widgets.Checkbutton(
+            correction_form,
+            text="Fertig korrigiert",
+            variable=self._correction_finished_var,
+            command=self._on_correction_finished_toggled,
+            state="disabled",
+        )
+        self._correction_finished_check.grid(row=3, column=0, columnspan=3, sticky=ui.W, pady=(4, 0))
+        widgets.Label(
+            correction_form,
+            textvariable=self._correction_finished_hint_var,
+            style="Muted.TLabel",
+        ).grid(row=4, column=0, columnspan=3, sticky=ui.W, pady=(2, 0))
+
+        self._correction_finished_all_check = widgets.Checkbutton(
+            correction_form,
+            text="Bereich: alle als fertig markieren",
+            variable=self._correction_finished_all_var,
+            command=self._on_correction_finished_all_toggled,
+            state="disabled",
+        )
+        self._correction_finished_all_check.grid(row=5, column=0, columnspan=3, sticky=ui.W, pady=(8, 0))
+        widgets.Label(
+            correction_form,
+            textvariable=self._correction_finished_all_hint_var,
+            style="Muted.TLabel",
+        ).grid(row=6, column=0, columnspan=3, sticky=ui.W, pady=(2, 0))
+
     @staticmethod
     def _are_all_tasks_scored(
         *, scores: dict[str, dict[str, float]], template: CorrectionTemplate, student_ids: Sequence[str],
