@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterable, Sequence
@@ -32,6 +31,29 @@ from bw_gui.contracts.popup import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, Popup
 from bw_gui.laufkern import aggregate_completion, emit_tracking_artifact, verify_manifest, verify_reachability
 from app.adapters.gui.ui_intents import UiIntent
 from app.adapters.gui.laufkern_manifest_provider import build_runtime_shortcut_manifest
+from app.adapters.gui.main_window_constants import (
+    CORRECTION_ALT_MODIFIER_MASKS,
+    CORRECTION_DEFAULT_COLOR_NAME,
+    CORRECTION_DEFAULT_FONT_SIZE_PT,
+    CORRECTION_EXPORT_SYMBOL_HEIGHT_EM,
+    CORRECTION_EXPORT_SYMBOL_ROT90_X_SHIFT_EM,
+    CORRECTION_EXPORT_SYMBOL_ROT180_Y_CORRECTION_EM,
+    CORRECTION_EXPORT_SYMBOL_Y_SHIFT_EM,
+    CORRECTION_EXPORT_TEXT_HEIGHT_EM,
+    CORRECTION_EXPORT_TEXT_ROT90_Y_CORRECTION_EM,
+    CORRECTION_EXPORT_TEXT_ROT180_Y_CORRECTION_EM,
+    CORRECTION_EXPORT_TEXT_ROT_X_SHIFT_FACTOR,
+    CORRECTION_EXPORT_TEXT_WIDTH_PADDING_EM,
+    CORRECTION_EXPORT_TEXT_Y_SHIFT_EM,
+    CORRECTION_MARKER_COLORS,
+    CORRECTION_MARKER_TOOLS,
+    CORRECTION_ZOOM_MAX_PERCENT,
+    CORRECTION_ZOOM_MIN_PERCENT,
+    SUPERSYMBOL_OPERATOR_BY_LABEL,
+    SUPERSYMBOL_OPERATOR_LABELS,
+    SUPERSYMBOL_SUM_SCOPE_LABEL,
+)
+from app.adapters.gui.main_window_types import CorrectionTemplate, DraftRegion
 from app.adapters.gui.view_models import ExamOverviewRow
 from app.core.domain.annotation_sync import build_annotation_clones
 from app.core.domain.models import ExamProject, PdfAnnotation, StudentExam, TaskDefinition
@@ -58,83 +80,6 @@ from bw_gui.theming._theme_manager import get_theme
 
 if TYPE_CHECKING:
     from app.adapters.gui.ui_intent_controller import UiIntentController
-
-
-@dataclass(slots=True)
-class DraftRegion:
-    draft_id: str
-    student_pdf: str
-    page_number: int
-    box: tuple[float, float, float, float]
-    area_codes: list[str]
-    task_specs: list[tuple[str, float]]
-
-
-@dataclass(slots=True)
-class CorrectionTemplate:
-    """One region as used by Korrekturmodus.
-
-    `region_id` is the stable technical identity (matches
-    `RegionAssignment.region_id`) and is the key used in
-    `MainWindow._correction_templates`. `area_code` is only the current
-    human-visible label for that region — used for the Bereich-Auswahl UI
-    and status text, never as a lookup key.
-    """
-
-    region_id: str
-    area_code: str
-    page_number: int
-    box: tuple[float, float, float, float]
-    tasks: list[TaskDefinition]
-
-
-CORRECTION_ZOOM_MIN_PERCENT = 10
-CORRECTION_ZOOM_MAX_PERCENT = 240
-
-CORRECTION_MARKER_TOOLS: tuple[tuple[str, str, str], ...] = (
-    ("check", "✓", "Richtig"),
-    ("wrong", "✗", "Falsch"),
-    ("follow", "↻", "Folgefehler"),
-    ("partial", "△", "Teilrichtig"),
-    ("swap_h", "⇄", "Vertauschung horizontal"),
-    ("swap_v", "⇅", "Vertauschung vertikal"),
-    ("hint", "!", "Hinweis"),
-    ("question", "?", "Unklar"),
-)
-
-SUPERSYMBOL_OPERATOR_BY_LABEL: dict[str, FilterOperator] = {
-    "<": "<",
-    "≤": "<=",
-    "=": "==",
-    "≥": ">=",
-    ">": ">",
-}
-SUPERSYMBOL_OPERATOR_LABELS: tuple[str, ...] = tuple(SUPERSYMBOL_OPERATOR_BY_LABEL.keys())
-SUPERSYMBOL_SUM_SCOPE_LABEL = "Summe aller Aufgaben"
-
-CORRECTION_MARKER_COLORS: dict[str, str] = {
-    "Rot": "#d62828",
-    "Pink": "#ff4fa3",
-    "Blau": "#1d4ed8",
-    "Gruen": "#2a9d8f",
-    "Orange": "#f77f00",
-    "Violett": "#7b2cbf",
-    "Schwarz": "#111111",
-}
-
-CORRECTION_DEFAULT_COLOR_NAME = "Rot"
-CORRECTION_DEFAULT_FONT_SIZE_PT = 14.0
-CORRECTION_ALT_MODIFIER_MASKS: tuple[int, ...] = (0x0008, 0x20000)
-CORRECTION_EXPORT_TEXT_WIDTH_PADDING_EM = 0.4
-CORRECTION_EXPORT_TEXT_HEIGHT_EM = 1.4
-CORRECTION_EXPORT_TEXT_Y_SHIFT_EM = 0.4
-CORRECTION_EXPORT_TEXT_ROT_X_SHIFT_FACTOR = 0.32
-CORRECTION_EXPORT_TEXT_ROT90_Y_CORRECTION_EM = 0.25
-CORRECTION_EXPORT_TEXT_ROT180_Y_CORRECTION_EM = 0.5
-CORRECTION_EXPORT_SYMBOL_HEIGHT_EM = 1.3
-CORRECTION_EXPORT_SYMBOL_Y_SHIFT_EM = 0.1
-CORRECTION_EXPORT_SYMBOL_ROT90_X_SHIFT_EM = 0.08
-CORRECTION_EXPORT_SYMBOL_ROT180_Y_CORRECTION_EM = 0.15
 
 
 class MainWindow(BwBaseWindow):
