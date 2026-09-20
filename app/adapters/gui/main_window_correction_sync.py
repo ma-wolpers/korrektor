@@ -84,3 +84,30 @@ class MainWindowCorrectionSyncMixin:
         self._current_exam = updated
         self._render_correction_annotations()
         self._status_var.set(f"Durchgedrueckt: {created} Kopien erzeugt")
+
+    def _detach_selected_annotation_from_sync(self) -> None:
+        """"Nur dieses Symbol entkoppeln": leave the sync group, others stay synced.
+
+        Unlike `_toggle_selected_annotation_sync`'s "Durchdruecken
+        deaktivieren" path (dissolves the whole group), this removes only
+        the selected annotation - the remaining members keep propagating
+        colour/size/rotation/position among themselves unchanged.
+        """
+        if self._current_exam is None or self._controller is None:
+            return
+        annotation = self._selected_correction_annotation()
+        if annotation is None:
+            messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswaehlen.")
+            return
+        if not annotation.sync_group_id:
+            messagebox.showinfo("Hinweis", "Diese Markierung ist nicht Teil einer Sync-Gruppe.")
+            return
+
+        updated = self._controller.detach_annotation_from_sync_immediate(
+            exam=self._current_exam, annotation_id=annotation.annotation_id
+        )
+        if updated is None:
+            return
+        self._current_exam = updated
+        self._render_correction_annotations()
+        self._status_var.set("Symbol vom Sync entkoppelt - bei allen anderen bleibt es gesynct")

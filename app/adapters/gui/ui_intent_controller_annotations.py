@@ -302,6 +302,38 @@ class UiIntentControllerAnnotationsMixin:
             rollback=_rollback,
         )
 
+    def detach_annotation_from_sync_immediate(self, *, exam: ExamProject, annotation_id: str) -> ExamProject | None:
+        """Remove only the selected annotation from its sync group; every other member stays synced.
+
+        Distinct from `disable_annotation_sync_immediate` ("Durchdruecken
+        deaktivieren"), which dissolves the *whole* group and deletes every
+        other member: this (Meilenstein 1.3 "nur dieses Symbol entkoppeln")
+        only clears the selected annotation's own `sync_group_id` (and any
+        position-only detachment flag, now moot) - the remaining members
+        keep sharing their `sync_group_id` and keep propagating
+        colour/size/rotation/position among themselves exactly as before.
+        """
+        annotation = self._find_annotation(exam, annotation_id)
+        if annotation is None or not annotation.sync_group_id:
+            return None
+
+        before_payload = exam.to_dict()
+        previous_sync_group_id = annotation.sync_group_id
+        previous_position_detached = annotation.position_detached
+        annotation.sync_group_id = ""
+        annotation.position_detached = False
+
+        def _rollback() -> None:
+            annotation.sync_group_id = previous_sync_group_id
+            annotation.position_detached = previous_position_detached
+
+        return self._save_annotation_mutation_immediate(
+            exam=exam,
+            description="Symbol vom Sync entkoppelt",
+            before_payload=before_payload,
+            rollback=_rollback,
+        )
+
     def commit_annotation_move_immediate(
         self, *, exam: ExamProject, before_payload: dict[str, object]
     ) -> ExamProject | None:

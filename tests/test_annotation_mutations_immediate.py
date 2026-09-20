@@ -241,6 +241,48 @@ def test_enable_and_disable_annotation_sync_immediate_are_each_undoable(tmp_path
     assert len(reloaded.pdf_annotations) == 2
 
 
+def test_detach_annotation_from_sync_immediate_leaves_other_members_synced(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
+    exam.pdf_annotations = [
+        _annotation(annotation_id="ann-1", student_pdf="Alice.pdf", sync_group_id="sg-1"),
+        _annotation(annotation_id="ann-2", student_pdf="Bob.pdf", sync_group_id="sg-1"),
+    ]
+    controller._deps.exam_repository.save_exam(exam)
+
+    updated = controller.detach_annotation_from_sync_immediate(exam=exam, annotation_id="ann-1")
+    assert updated is not None
+    by_id = {a.annotation_id: a for a in updated.pdf_annotations}
+    assert by_id["ann-1"].sync_group_id == ""
+    assert by_id["ann-2"].sync_group_id == "sg-1"
+
+    # A style change now only reaches the still-synced member.
+    updated = controller.recolor_annotation_immediate(exam=updated, annotation_id="ann-2", color_hex="#2a9d8f")
+    assert updated is not None
+    by_id = {a.annotation_id: a for a in updated.pdf_annotations}
+    assert by_id["ann-2"].color_hex == "#2a9d8f"
+    assert by_id["ann-1"].color_hex == "#d62828"
+
+    assert controller.undo() is True
+    reloaded = _reload(controller)
+    by_id = {a.annotation_id: a for a in reloaded.pdf_annotations}
+    assert by_id["ann-2"].color_hex == "#d62828"
+
+    assert controller.undo() is True
+    reloaded = _reload(controller)
+    by_id = {a.annotation_id: a for a in reloaded.pdf_annotations}
+    assert by_id["ann-1"].sync_group_id == "sg-1"
+    assert by_id["ann-2"].sync_group_id == "sg-1"
+
+
+def test_detach_annotation_from_sync_immediate_returns_none_when_not_synced(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
+    exam.pdf_annotations = [_annotation(sync_group_id="")]
+    controller._deps.exam_repository.save_exam(exam)
+
+    assert controller.detach_annotation_from_sync_immediate(exam=exam, annotation_id="ann-1") is None
+    assert controller.can_undo() is False
+
+
 def test_annotation_mutation_rolls_back_in_memory_state_when_save_fails(tmp_path: Path) -> None:
     controller, exam = _setup(tmp_path)
     exam.pdf_annotations = [_annotation(font_size=20.0)]

@@ -76,6 +76,18 @@ class MainWindowCorrectionMarkersTransformMixin:
         sync_button.pack(side=ui.LEFT, padx=(12, 0))
         self._attach_hover_help(sync_button, label="Auswahl auf alle Personen spiegeln oder wieder lokal machen")
 
+        detach_button = widgets.Button(
+            transform_row,
+            text="Entkoppeln",
+            style="SecondaryAction.TButton",
+            command=self._detach_selected_annotation_from_sync,
+        )
+        detach_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(
+            detach_button,
+            label="Nur dieses Symbol aus der Sync-Gruppe loesen - bei allen anderen Personen bleibt es gesynct",
+        )
+
         widgets.Label(
             marker_controls,
             textvariable=self._correction_marker_info_var,
