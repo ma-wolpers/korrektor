@@ -96,12 +96,12 @@ class MainWindowCorrectionCoreMixin:
 
         save_comments_button = widgets.Button(
             correction_buttons,
-            text="PDF ueberschreiben",
+            text="Alle PDFs ueberschreiben",
             style="SecondaryAction.TButton",
             command=self._save_correction_annotations_to_pdfs,
         )
         save_comments_button.pack(side=ui.LEFT)
-        self._attach_hover_help(save_comments_button, label="Original-PDF mit Markierungen ueberschreiben")
+        self._attach_hover_help(save_comments_button, label="Alle Original-PDFs dieser Klausur mit ihren Markierungen ueberschreiben")
 
         prev_correction_student_button = widgets.Button(
             correction_buttons,

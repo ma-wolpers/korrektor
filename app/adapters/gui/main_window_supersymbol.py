@@ -36,6 +36,7 @@ class MainWindowSupersymbolMixin:
             values=(),
         )
         self._supersymbol_scope_combo.pack(side=ui.LEFT, padx=(8, 0))
+        self._supersymbol_scope_combo.bind("<<ComboboxSelected>>", self._on_supersymbol_scope_changed)
 
         supersymbol_row2 = widgets.Frame(supersymbol_controls, style="Surface.TFrame")
         supersymbol_row2.pack(fill=ui.X, pady=(4, 0))
@@ -99,6 +100,30 @@ class MainWindowSupersymbolMixin:
         self._supersymbol_scope_combo["values"] = values
         if self._supersymbol_scope_var.get() not in values:
             self._supersymbol_scope_var.set(values[0])
+        self._prefill_supersymbol_value_for_scope(template)
+
+    def _on_supersymbol_scope_changed(self, _event: ui.Event[ui.Misc]) -> None:
+        """Re-prefill the Punkte field whenever the "Aufgabe(n)"-Auswahl changes by hand."""
+        self._prefill_supersymbol_value_for_scope(self._current_correction_template())
+
+    def _prefill_supersymbol_value_for_scope(self, template: CorrectionTemplate | None) -> None:
+        """Set the Supersymbol-Punktwert to the current scope's Maximalpunktwert-Summe.
+
+        Runs both on Bereich-Wechsel (`_refresh_supersymbol_scope_choices`)
+        and on manual Aufgabe(n)-Auswahl (`_on_supersymbol_scope_changed`),
+        so the field always starts at a sensible default (the maximum
+        achievable value for the current scope) instead of empty - the
+        teacher can still overwrite it before starting the filter, this only
+        saves typing the common case (Filter: "hat volle Punktzahl").
+        """
+        if template is None:
+            return
+        task_codes = self._resolve_supersymbol_task_codes(template)
+        if not task_codes:
+            return
+        max_points_by_code = {task.code: task.max_points for task in template.tasks}
+        total_max_points = sum(max_points_by_code.get(code, 0.0) for code in task_codes)
+        self._supersymbol_value_var.set(f"{total_max_points:g}")
 
     def _resolve_supersymbol_task_codes(self, template: CorrectionTemplate) -> list[str]:
         """Resolve the Supersymbol scope selection to a concrete task_code list.
