@@ -22,33 +22,48 @@ class UiIntentControllerHistoryMixin:
         return self._deps.undo_history.peek_redo()
 
     def undo(self) -> bool:
-        description = self._deps.undo_history.undo()
-        if description is None:
+        action = self._deps.undo_history.undo()
+        if action is None:
             self._app.set_status("Nichts zum Rueckgaengigmachen")
             return False
-        self._refresh_after_history_action()
-        self._app.set_status(f"Rueckgaengig: {description}")
+        self._refresh_after_history_action(context=action.context)
+        self._app.set_status(f"Rueckgaengig: {action.description}")
         return True
 
     def redo(self) -> bool:
-        description = self._deps.undo_history.redo()
-        if description is None:
+        action = self._deps.undo_history.redo()
+        if action is None:
             self._app.set_status("Nichts zum Wiederholen")
             return False
-        self._refresh_after_history_action()
-        self._app.set_status(f"Wiederholt: {description}")
+        self._refresh_after_history_action(context=action.context)
+        self._app.set_status(f"Wiederholt: {action.description}")
         return True
 
-    def _refresh_after_history_action(self) -> None:
-        self.refresh_exam_overview()
-        self._app.sync_current_exam_from_repository()
+    def _refresh_after_history_action(self, *, context: str) -> None:
+        """Refresh the UI after an undo/redo, using the strategy the action's `context` calls for.
 
-    def _record_history_action(self, *, description: str, undo, redo) -> None:
+        `"lifecycle"` (exam created/deleted, index dir changed) keeps the
+        previous behaviour: a full navigation reset back to the
+        overview/detail hub via `sync_current_exam_from_repository()`, since
+        the exam identity itself changed. `"content"` (the default - every
+        mutation on an already-open exam: annotations, scores, regions, ...)
+        instead reloads the exam data in place without resetting the active
+        mode/view/selection, via `_refresh_exam_content_in_place()` - see
+        that method's docstring for what is and isn't preserved.
+        """
+        self.refresh_exam_overview()
+        if context == "lifecycle":
+            self._app.sync_current_exam_from_repository()
+        else:
+            self._app.refresh_exam_content_in_place()
+
+    def _record_history_action(self, *, description: str, undo, redo, context: str = "content") -> None:
         self._deps.undo_history.push(
             HistoryAction(
                 description=description,
                 undo=undo,
                 redo=redo,
+                context=context,
             )
         )
 
@@ -78,6 +93,7 @@ class UiIntentControllerHistoryMixin:
         exam_id: str,
         before_payload: dict[str, object],
         after_payload: dict[str, object],
+        context: str = "content",
     ) -> None:
         """Push one undo/redo entry that replays the given exam JSON snapshots.
 
@@ -86,6 +102,11 @@ class UiIntentControllerHistoryMixin:
         builds new dicts/lists of primitive values with no references back to
         the live exam object, so callers must not deep-copy them again before
         passing them in here.
+
+        `context` defaults to `"content"` (the exam stays open, only its data
+        changed) since every current caller of this method mutates an
+        already-open exam's content — see `HistoryAction.context` for what
+        the two values mean.
         """
         exam_file = self._deps.exam_repository.index_root / f"{exam_id}.json"
 
@@ -93,6 +114,7 @@ class UiIntentControllerHistoryMixin:
             description=description,
             undo=lambda: self._write_exam_payload(exam_file, before_payload),
             redo=lambda: self._write_exam_payload(exam_file, after_payload),
+            context=context,
         )
 
     def save_exam_immediate(self, *, exam: ExamProject) -> ExamProject:

@@ -171,6 +171,50 @@ class MainWindowOverviewMixin:
         exam = self.deps.exam_repository.load_exam(exam_file)
         self.open_exam_detail(exam, exam_file)
 
+    def refresh_exam_content_in_place(self) -> None:
+        """Reload the current exam's data after a "content"-context undo/redo, keeping the active mode intact.
+
+        Unlike `sync_current_exam_from_repository()`/`open_exam_detail()`
+        (used for "lifecycle" undo/redo - the exam itself was created/
+        deleted, or the index directory changed), this must NOT reset
+        `_correction_mode_active`, cursors, the active view, or any
+        selection - those are plain Python attributes the reload leaves
+        untouched on purpose, so `Strg+Z`/`Strg+Y` on a content mutation
+        (annotation placed/moved/..., a score saved, a region edited, a
+        student renamed) stays in whatever mode/view the user was already
+        in. It is a best-effort "keep the editor context" refresh, not a
+        guarantee: if the undone/redone action itself makes a current
+        selection obsolete (e.g. undoing "Markierung gesetzt" removes the
+        annotation that was selected), that selection is expected to
+        disappear - `_selected_correction_annotation()` already guards
+        against a stale `annotation_id` on its own, so no extra handling is
+        needed here for that case.
+
+        Only the Korrekturmodus gets a targeted re-render here (the only
+        mode this milestone's undo/redo-capable mutations - Supersymbol,
+        annotation edits from Meilenstein 0.3/1.3/3.x - actually run in);
+        `_apply_detail_labels`/`_refresh_region_tree` are refreshed
+        unconditionally since they are cheap and harmless regardless of the
+        active view (same two calls `open_exam_detail` already makes).
+        """
+        if self._current_exam is None:
+            return
+
+        exam_file = self.deps.exam_repository.index_root / f"{self._current_exam.exam_id}.json"
+        if not exam_file.exists():
+            self._return_to_overview()
+            return
+
+        self._current_exam = self.deps.exam_repository.load_exam(exam_file)
+        self._apply_detail_labels(self._current_exam)
+        self._refresh_region_tree()
+
+        if self._correction_mode_active:
+            self._render_correction_preview()
+            self._refresh_correction_completion_controls()
+            if hasattr(self, "_refresh_correction_sync_info"):
+                self._refresh_correction_sync_info()
+
     def _apply_detail_labels(self, exam: ExamProject) -> None:
         progress = ProgressCalculator().compute(exam)
 

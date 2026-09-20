@@ -24,6 +24,9 @@ class _FakeApp:
     def sync_current_exam_from_repository(self) -> None:
         pass
 
+    def refresh_exam_content_in_place(self) -> None:
+        pass
+
 
 def _build_exam(exam_folder: Path) -> ExamProject:
     now = utc_now_iso()

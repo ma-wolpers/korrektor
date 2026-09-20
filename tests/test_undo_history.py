@@ -16,13 +16,16 @@ def test_push_undo_redo_cycle() -> None:
     assert state == ["a"]
     assert history.peek_undo() == "append-a"
 
-    undo_label = history.undo()
-    assert undo_label == "append-a"
+    undone = history.undo()
+    assert undone is not None
+    assert undone.description == "append-a"
+    assert undone.context == "content"
     assert state == []
     assert history.peek_redo() == "append-a"
 
-    redo_label = history.redo()
-    assert redo_label == "append-a"
+    redone = history.redo()
+    assert redone is not None
+    assert redone.description == "append-a"
     assert state == ["a"]
 
 

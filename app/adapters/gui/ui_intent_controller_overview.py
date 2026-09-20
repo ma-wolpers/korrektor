@@ -69,6 +69,7 @@ class UiIntentControllerOverviewMixin:
             description=f"Klausur angelegt: {result.exam.exam_name}",
             undo=lambda: exam_file.exists() and exam_file.unlink(),
             redo=lambda: self._write_exam_payload(exam_file, payload),
+            context="lifecycle",
         )
 
         self.refresh_exam_overview()
@@ -125,6 +126,7 @@ class UiIntentControllerOverviewMixin:
             description=f"Klausur geloescht: {selected.exam_name}",
             undo=lambda: self._write_exam_payload(exam_file, payload),
             redo=lambda: exam_file.exists() and exam_file.unlink(),
+            context="lifecycle",
         )
 
         self._app.on_exam_deleted(selected.exam_id)
@@ -148,6 +150,7 @@ class UiIntentControllerOverviewMixin:
             description=f"JSON-Ablagepfad geaendert: {normalized}",
             undo=lambda: self._apply_exam_index_dir(current),
             redo=lambda: self._apply_exam_index_dir(normalized),
+            context="lifecycle",
         )
         self._app.set_status(f"JSON-Ablagepfad aktualisiert: {normalized}")
         return normalized
