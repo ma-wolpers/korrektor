@@ -10,6 +10,7 @@ from app.infrastructure.rendering.competency_chart_renderer import figure_to_png
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
+from bw_gui.dialogs import ScrollablePopupWindow
 from bw_gui.runtime import ui, widgets
 
 _EXPORT_FORMAT_LABELS: tuple[str, ...] = ("PNG", "JPG", "PDF")
@@ -38,10 +39,11 @@ class MainWindowStudentResultMixin:
         if not self._current_exam.students:
             messagebox.showinfo("Hinweis", "Diese Klausur hat keine Schueler:innen.")
             return
-        if self._student_result_popup is None or not self._student_result_popup.winfo_exists():
-            self._build_student_result_popup()
-        else:
-            self._register_popup_window(self._student_result_popup)
+        # ScrollablePopupWindow is one-shot (its close path destroys the
+        # widget tree, unlike the previous withdraw()/deiconify() reuse
+        # pattern) - build fresh on every open instead of retaining a
+        # single hidden Toplevel across openings.
+        self._build_student_result_popup()
         self._student_result_scores = self._controller.load_scores_for_exam(exam=self._current_exam)
         self._student_result_cursor = 0
         self._student_result_export_list.delete(0, ui.END)
@@ -49,18 +51,29 @@ class MainWindowStudentResultMixin:
             self._student_result_export_list.insert(ui.END, student.display_name)
         self._student_result_export_list.select_set(0, ui.END)
         self._refresh_student_result_popup()
-        self._student_result_popup.deiconify()
-        self._student_result_popup.lift()
 
     def _build_student_result_popup(self) -> None:
-        popup = ui.Toplevel(self.root)
-        popup.title("Auswertung")
-        popup.geometry("640x760")
-        popup.transient(self.root)
+        popup = ScrollablePopupWindow(
+            self.root,
+            title="Auswertung",
+            geometry="640x760",
+            minsize=(480, 420),
+            theme_key=self._tooltip_theme_key,
+            request_close_confirmation=self._on_student_result_popup_close_requested,
+        )
         self._register_popup_window(popup)
-        popup.protocol("WM_DELETE_WINDOW", self._close_student_result_popup)
+        # <Left>/<Right> Personen-Navigation (Korrektor-weite Konvention) -
+        # bound on the popup's own Toplevel instance so it is consulted
+        # before the globally bound `bind_all` overview fallback
+        # (`main_window_dispatch.py`), which knows nothing about this
+        # popup. Both Treeviews below are read-only displays (no explicit
+        # focus_set() anywhere), so in practice focus stays on the popup/
+        # its buttons - verified via a real-Tk smoke test that this still
+        # reaches here even with focus explicitly forced onto a Treeview.
+        popup.bind("<Left>", self._on_student_result_left_key)
+        popup.bind("<Right>", self._on_student_result_right_key)
 
-        body = widgets.Frame(popup, padding=10)
+        body = widgets.Frame(popup.content, padding=10)
         body.pack(fill=ui.BOTH, expand=True)
 
         nav = widgets.Frame(body, style="Surface.TFrame")
@@ -153,6 +166,14 @@ class MainWindowStudentResultMixin:
 
         self._student_result_popup = popup
         self._student_result_current_result = None
+
+    def _on_student_result_left_key(self, _event=None) -> str:
+        self._move_student_result_cursor(-1)
+        return "break"
+
+    def _on_student_result_right_key(self, _event=None) -> str:
+        self._move_student_result_cursor(1)
+        return "break"
 
     def _move_student_result_cursor(self, delta: int) -> None:
         if self._current_exam is None or not self._current_exam.students:
@@ -261,9 +282,23 @@ class MainWindowStudentResultMixin:
         else:
             messagebox.showinfo("Export abgeschlossen", f"{len(exported)} Ergebnis(se) exportiert nach:\n{target_dir}")
 
-    def _close_student_result_popup(self) -> None:
-        if self._student_result_popup is not None and self._student_result_popup.winfo_exists():
+    def _on_student_result_popup_close_requested(self) -> bool:
+        """Popup-registry cleanup shared by every close path (Escape, OS close button, "Schliessen").
+
+        ``ScrollablePopupWindow`` funnels all three through
+        ``request_close_confirmation`` before actually closing - this
+        always allows the close (returns ``True``), it only piggybacks the
+        korrektor-specific ``PopupPolicyRegistry`` bookkeeping onto that
+        one funnel point instead of duplicating it per close path (which
+        the previous hand-rolled ``ui.Toplevel`` version needed, since
+        Escape/WM_DELETE_WINDOW/button click were each wired separately).
+        """
+        if self._student_result_popup is not None:
             popup_id = str(self._student_result_popup)
             self._popup_registry.close_popup(popup_id)
             self._tracked_popup_ids.discard(popup_id)
-            self._student_result_popup.withdraw()
+        return True
+
+    def _close_student_result_popup(self) -> None:
+        if self._student_result_popup is not None and self._student_result_popup.winfo_exists():
+            self._student_result_popup._request_close()

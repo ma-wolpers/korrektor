@@ -13,6 +13,7 @@ from app.core.domain.models import ExamProject
 from bw_gui.contracts.hsm import build_ui_hsm_contract
 from bw_gui.contracts.keybinding import KeybindingRegistry
 from bw_gui.contracts.popup import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry
+from bw_gui.dialogs import ScrollablePopupWindow
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
@@ -94,7 +95,7 @@ class MainWindowBase(BwBaseWindow):
         self._task_category_tasks_frame: widgets.Frame | None = None
         self._task_category_categories_frame: widgets.Frame | None = None
         self._task_category_drag_drop = None
-        self._student_result_popup: ui.Toplevel | None = None
+        self._student_result_popup: ScrollablePopupWindow | None = None
         self._student_result_cursor = 0
         self._student_result_scores: dict[str, dict[str, float]] | None = None
         self._student_result_current_result = None
