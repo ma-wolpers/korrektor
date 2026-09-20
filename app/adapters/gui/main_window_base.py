@@ -86,12 +86,12 @@ class MainWindowBase(BwBaseWindow):
         self._extra_popup_info_var: ui.StringVar | None = None
         self._extra_popup_student_index: int | None = None
         self._extra_popup_cursor = 0
-        self._grading_scale_popup: ui.Toplevel | None = None
+        self._grading_scale_popup: ScrollablePopupWindow | None = None
         self._grading_scale_tree: widgets.Treeview | None = None
         self._grading_scale_selected_id: str | None = None
         self._grading_scale_assignment_var: ui.StringVar | None = None
         self._grading_scale_assign_id_by_label: dict[str, str] = {}
-        self._task_category_popup: ui.Toplevel | None = None
+        self._task_category_popup: ScrollablePopupWindow | None = None
         self._task_category_tasks_frame: widgets.Frame | None = None
         self._task_category_categories_frame: widgets.Frame | None = None
         self._task_category_drag_drop = None

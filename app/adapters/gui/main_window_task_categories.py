@@ -6,6 +6,7 @@ from app.core.domain.models import ExamProject
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
+from bw_gui.dialogs import ScrollablePopupWindow
 from bw_gui.runtime import ui, widgets
 from bw_gui.widgets import DragDropController
 
@@ -15,37 +16,37 @@ _UNCATEGORIZED_DROP_ID = "__uncategorized__"
 class MainWindowTaskCategoriesMixin:
     """Kategorien-Zuordnungsseite (Meilenstein 4.3): Aufgaben per Drag-and-Drop auf Kategorien ziehen.
 
-    Popup wie die Notenschluessel-Verwaltung (Meilenstein 2.4) - ein
-    einmalig gebautes `ui.Toplevel`, Inhalt bei jedem Oeffnen/nach jeder
-    Aenderung komplett neu aufgebaut (`_refresh_task_category_popup`):
-    Aufgaben- und Kategorienzahl pro Klausur ist klein genug, dass ein
-    voller Rebuild einfacher und weniger fehleranfaellig ist als
-    inkrementelles Widget-Update. Nutzt `bw_gui.widgets.DragDropController`
-    (Meilenstein 4.2, neu in bw-gui) - eine Aufgaben-Zeile ist eine
-    Drag-Quelle (Payload: `task_code`), jede Kategorie-Box und die
-    "Unkategorisiert"-Box sind Drop-Ziele.
+    Popup wie die Notenschluessel-Verwaltung (Meilenstein 2.4) - nutzt
+    `bw_gui.dialogs.ScrollablePopupWindow` (bw-gui-Standard fuer Popups,
+    siehe `bw-gui/docs/SCROLLABILITY_CONTRACT.md`), Inhalt bei jedem
+    Oeffnen/nach jeder Aenderung komplett neu aufgebaut
+    (`_refresh_task_category_popup`): Aufgaben- und Kategorienzahl pro
+    Klausur ist klein genug, dass ein voller Rebuild einfacher und weniger
+    fehleranfaellig ist als inkrementelles Widget-Update. Nutzt
+    `bw_gui.widgets.DragDropController` (Meilenstein 4.2, neu in bw-gui) -
+    eine Aufgaben-Zeile ist eine Drag-Quelle (Payload: `task_code`), jede
+    Kategorie-Box und die "Unkategorisiert"-Box sind Drop-Ziele.
     """
 
     def _open_task_category_popup(self) -> None:
         if self._controller is None or self._current_exam is None:
             return
-        if self._task_category_popup is None or not self._task_category_popup.winfo_exists():
-            self._build_task_category_popup()
-        else:
-            self._register_popup_window(self._task_category_popup)
+        # ScrollablePopupWindow is one-shot - build fresh on every open.
+        self._build_task_category_popup()
         self._refresh_task_category_popup()
-        self._task_category_popup.deiconify()
-        self._task_category_popup.lift()
 
     def _build_task_category_popup(self) -> None:
-        popup = ui.Toplevel(self.root)
-        popup.title("Kategorien zuordnen")
-        popup.geometry("760x520")
-        popup.transient(self.root)
+        popup = ScrollablePopupWindow(
+            self.root,
+            title="Kategorien zuordnen",
+            geometry="760x520",
+            minsize=(560, 380),
+            theme_key=self._tooltip_theme_key,
+            request_close_confirmation=self._on_task_category_popup_close_requested,
+        )
         self._register_popup_window(popup)
-        popup.protocol("WM_DELETE_WINDOW", self._close_task_category_popup)
 
-        body = widgets.Frame(popup, padding=10)
+        body = widgets.Frame(popup.content, padding=10)
         body.pack(fill=ui.BOTH, expand=True)
 
         tasks_panel = widgets.Frame(body, style="Surface.TFrame", padding=(0, 0, 10, 0))
@@ -68,8 +69,8 @@ class MainWindowTaskCategoriesMixin:
         )
         add_category_button.pack(anchor=ui.W, pady=(6, 0))
 
-        widgets.Button(popup, text="Schliessen", style="SecondaryAction.TButton", command=self._close_task_category_popup).pack(
-            anchor=ui.E, padx=10, pady=(0, 10)
+        widgets.Button(body, text="Schliessen", style="SecondaryAction.TButton", command=self._close_task_category_popup).pack(
+            anchor=ui.E, pady=(10, 0)
         )
 
         self._task_category_drag_drop = DragDropController(popup)
@@ -206,9 +207,15 @@ class MainWindowTaskCategoriesMixin:
         self._current_exam = updated
         self._refresh_task_category_popup()
 
-    def _close_task_category_popup(self) -> None:
-        if self._task_category_popup is not None and self._task_category_popup.winfo_exists():
+    def _on_task_category_popup_close_requested(self) -> bool:
+        """Popup-registry cleanup shared by every close path - see the identical pattern/rationale
+        in `main_window_student_result.py:_on_student_result_popup_close_requested`."""
+        if self._task_category_popup is not None:
             popup_id = str(self._task_category_popup)
             self._popup_registry.close_popup(popup_id)
             self._tracked_popup_ids.discard(popup_id)
-            self._task_category_popup.withdraw()
+        return True
+
+    def _close_task_category_popup(self) -> None:
+        if self._task_category_popup is not None and self._task_category_popup.winfo_exists():
+            self._task_category_popup._request_close()

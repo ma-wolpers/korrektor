@@ -173,6 +173,14 @@ class MainWindowExtraPagesMixin:
             return
 
         if self._extra_popup is None or not self._extra_popup.winfo_exists():
+            # Deliberate exception from the bw-gui default-scrollable popup
+            # convention (`bw-gui/docs/SCROLLABILITY_CONTRACT.md`): a plain
+            # `ui.Toplevel`, not `ScrollablePopupWindow`. This popup is a
+            # single-image PDF-page viewer (fixed-size Canvas sized to the
+            # rendered page, nav buttons below) - structurally the same
+            # "self-contained canvas display, an outer scroll layer adds no
+            # value" shape as Kursplaner's `kompetenzgraph_dialog.py`
+            # (`scrollable=False`), not a growing list of fields/rows.
             popup = ui.Toplevel(self.root)
             popup.title(f"Extraseiten: {student.display_name}")
             popup.geometry("760x860")

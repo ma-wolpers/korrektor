@@ -7,41 +7,47 @@ from app.core.domain.grading_scale import STATUS_ACTIVE, STATUS_ARCHIVED, GradeT
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
+from bw_gui.dialogs import ScrollablePopupWindow
 from bw_gui.runtime import ui, widgets
 
 
 class MainWindowGradingScaleMixin:
     """Notenschluessel-Verwaltung (Meilenstein 2.4): ein Popup fuer die globalen `GradingScale`-Vorlagen.
 
-    Analog zum Extraseiten-Popup (`main_window_extra_pages.py`) ein einmalig
-    gebautes `ui.Toplevel`, ueber `_register_popup_window` in der zentralen
-    Pop-up-Policy registriert. Bewusst kein eigener View-Modus (Uebersicht/
-    Detail/Einlesen/Korrektur) - die Verwaltung ist klausurunabhaengig und
-    passt als modaler Dialog besser zum bestehenden Popup-Mechanismus als zu
-    einem weiteren Top-Level-Modus.
+    Nutzt `bw_gui.dialogs.ScrollablePopupWindow` (bw-gui-Standard fuer
+    Popups, siehe `bw-gui/docs/SCROLLABILITY_CONTRACT.md`) - die Liste
+    (Treeview) hat zusaetzlich ihren eigenen Scrollbar fuer viele
+    Notenschluessel-Eintraege; der aeussere Scroll-Rahmen sorgt dafuer,
+    dass bei kleiner Fensterhoehe trotzdem das komplette Formular
+    (inkl. Notenstufen-Editor und Aktions-Buttons) erreichbar bleibt.
+    Bewusst kein eigener View-Modus (Uebersicht/Detail/Einlesen/Korrektur)
+    - die Verwaltung ist klausurunabhaengig und passt als modaler Dialog
+    besser zum bestehenden Popup-Mechanismus als zu einem weiteren
+    Top-Level-Modus.
     """
 
     def _open_grading_scale_management_popup(self) -> None:
         if self._controller is None:
             return
-        if self._grading_scale_popup is None or not self._grading_scale_popup.winfo_exists():
-            self._build_grading_scale_popup()
-        else:
-            self._register_popup_window(self._grading_scale_popup)
+        # ScrollablePopupWindow is one-shot (closing destroys the widget
+        # tree) - build fresh on every open instead of the previous
+        # withdraw()/deiconify() retain pattern.
+        self._build_grading_scale_popup()
         self._refresh_grading_scale_tree()
         self._clear_grading_scale_form()
-        self._grading_scale_popup.deiconify()
-        self._grading_scale_popup.lift()
 
     def _build_grading_scale_popup(self) -> None:
-        popup = ui.Toplevel(self.root)
-        popup.title("Notenschluessel verwalten")
-        popup.geometry("880x560")
-        popup.transient(self.root)
+        popup = ScrollablePopupWindow(
+            self.root,
+            title="Notenschluessel verwalten",
+            geometry="880x560",
+            minsize=(640, 420),
+            theme_key=self._tooltip_theme_key,
+            request_close_confirmation=self._on_grading_scale_popup_close_requested,
+        )
         self._register_popup_window(popup)
-        popup.protocol("WM_DELETE_WINDOW", self._close_grading_scale_popup)
 
-        body = widgets.Frame(popup, padding=10)
+        body = widgets.Frame(popup.content, padding=10)
         body.pack(fill=ui.BOTH, expand=True)
 
         list_panel = widgets.Frame(body, style="Surface.TFrame", padding=(0, 0, 10, 0))
@@ -343,9 +349,15 @@ class MainWindowGradingScaleMixin:
         self._current_exam = updated
         self._refresh_grading_scale_assignment_choices()
 
-    def _close_grading_scale_popup(self) -> None:
-        if self._grading_scale_popup is not None and self._grading_scale_popup.winfo_exists():
+    def _on_grading_scale_popup_close_requested(self) -> bool:
+        """Popup-registry cleanup shared by every close path - see the identical pattern/rationale
+        in `main_window_student_result.py:_on_student_result_popup_close_requested`."""
+        if self._grading_scale_popup is not None:
             popup_id = str(self._grading_scale_popup)
             self._popup_registry.close_popup(popup_id)
             self._tracked_popup_ids.discard(popup_id)
-            self._grading_scale_popup.withdraw()
+        return True
+
+    def _close_grading_scale_popup(self) -> None:
+        if self._grading_scale_popup is not None and self._grading_scale_popup.winfo_exists():
+            self._grading_scale_popup._request_close()

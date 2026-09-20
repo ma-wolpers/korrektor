@@ -10,7 +10,19 @@ from bw_gui.runtime import ui, widgets
 
 class MainWindowShortcutsDebugMixin:
     def _open_shortcut_runtime_debug_dialog(self) -> None:
-        """Open compact runtime diagnostics table for keybinding evaluation."""
+        """Open compact runtime diagnostics table for keybinding evaluation.
+
+        Deliberate exception from the bw-gui default-scrollable popup
+        convention (`bw-gui/docs/SCROLLABILITY_CONTRACT.md`): a plain
+        `ui.Toplevel`, not `ScrollablePopupWindow`. Its entire body is one
+        `Treeview` that already fills the popup and has its own vertical
+        `Scrollbar` (plus one fixed one-line summary label) - an outer
+        scroll wrapper would add no reachable content an inner scroll
+        doesn't already cover. It also keeps a reuse/`deiconify()` lifecycle
+        (re-shown on repeat opens rather than rebuilt) for a dev-only
+        diagnostics tool, which `ScrollablePopupWindow`'s one-shot-per-open
+        design does not support without extra rework not justified here.
+        """
 
         if self._shortcut_runtime_debug_window is not None and int(self._shortcut_runtime_debug_window.winfo_exists()):
             self._refresh_shortcut_runtime_debug_dialog()

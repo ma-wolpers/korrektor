@@ -145,7 +145,7 @@ FUTURE_GUI_REQUIRED_SHARED_SNIPPETS = (
 GUI_CONTRACT_SCAN_ROOTS = (*FUTURE_GUI_SEARCH_ROOTS, "bw_libs")
 UI_BASECLASS_MODULE_ALIASES = {"ui", "widgets", "tui"}
 LEGACY_UI_BASECLASS_ALLOWLIST: set[str] = set()
-SHARED_PRIMITIVE_CLASS_NAMES = {"TkRootHost", "ScrollablePopupWindow", "WrappedTextField"}
+SHARED_PRIMITIVE_CLASS_NAMES = {"TkRootHost", "ScrollablePopupWindow", "WrappedTextField", "ScrollableFrame"}
 SHARED_PRIMITIVE_CLASS_ALLOWLIST: set[str] = set()
 GUI_MIGRATION_BACKLOG_PATH = "docs/GUI_MIGRATION_BACKLOG.md"
 
