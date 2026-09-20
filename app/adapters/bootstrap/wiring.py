@@ -20,6 +20,7 @@ from app.infrastructure.repositories.csv_score_repository import CsvScoreReposit
 from app.infrastructure.repositories.in_memory_region_repository import InMemoryRegionRepository
 from app.infrastructure.repositories.json_app_settings_repository import AppRuntimeSettings, JsonAppSettingsRepository
 from app.infrastructure.repositories.json_exam_repository import JsonExamRepository
+from app.infrastructure.repositories.json_grading_scale_repository import JsonGradingScaleRepository
 from app.infrastructure.repositories.pymupdf_scan_repository import PyMuPdfScanRepository
 
 
@@ -35,6 +36,7 @@ class GuiDependencies:
     set_reading_complete_usecase: SetReadingCompleteUseCase
     exam_repository: JsonExamRepository
     score_repository: CsvScoreRepository
+    grading_scale_repository: JsonGradingScaleRepository
     settings_repository: JsonAppSettingsRepository
     runtime_settings: AppRuntimeSettings
     undo_history: UndoHistory
@@ -60,6 +62,7 @@ def build_gui_dependencies(base_dir: Path) -> GuiDependencies:
     export_repo = CsvScoreExportRepository()
     scan_repo = PyMuPdfScanRepository()
     region_repo = InMemoryRegionRepository()
+    grading_scale_repo = JsonGradingScaleRepository(app_name=APP_INFO.appdata_folder, base_dir=base_dir)
 
     progress = ProgressCalculator()
 
@@ -74,6 +77,7 @@ def build_gui_dependencies(base_dir: Path) -> GuiDependencies:
         set_reading_complete_usecase=SetReadingCompleteUseCase(exam_repo=exam_repo),
         exam_repository=exam_repo,
         score_repository=score_repo,
+        grading_scale_repository=grading_scale_repo,
         settings_repository=settings_repository,
         runtime_settings=runtime_settings,
         undo_history=undo_history,

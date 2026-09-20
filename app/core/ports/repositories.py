@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 
+from app.core.domain.grading_scale import GradingScale, GradingScaleUsageEntry
 from app.core.domain.models import ExamProject, RegionAssignment
 
 
@@ -53,4 +54,27 @@ class PdfScanRepository(Protocol):
 
 class RegionRepository(Protocol):
     def upsert_region(self, exam: ExamProject, region: RegionAssignment) -> ExamProject:
+        ...
+
+
+class GradingScaleRepository(Protocol):
+    def list_scales(self) -> list[GradingScale]:
+        ...
+
+    def get_scale(self, scale_id: str) -> GradingScale | None:
+        ...
+
+    def save_scale(self, scale: GradingScale) -> GradingScale:
+        ...
+
+    def delete_scale(self, scale_id: str) -> None:
+        ...
+
+    def list_usage(self, scale_id: str | None = None) -> list[GradingScaleUsageEntry]:
+        ...
+
+    def has_usage(self, scale_id: str) -> bool:
+        ...
+
+    def record_usage(self, entry: GradingScaleUsageEntry) -> None:
         ...

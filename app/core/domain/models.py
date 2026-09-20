@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from app.core.domain.grading_scale import GradingScaleSnapshot
+
 
 ISO_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
@@ -281,6 +283,10 @@ class ExamProject:
     # Namensfeld-Bereich (Namenmodus): eine gemeinsame Position fuer alle Schueler:innen-PDFs.
     name_region: RegionBox | None = None
     name_region_page: int = 1
+    # Eingefrorene Kopie des bei Zuordnung effektiven Notenschluessels (Variante B,
+    # siehe ARCHITEKTUR.md "Notenschluessel") - nie eine live grading_scale_id-Referenz,
+    # damit spaetere Aenderungen an der globalen Vorlage diese Klausur nie rueckwirkend treffen.
+    grading_scale_snapshot: GradingScaleSnapshot | None = None
 
     def to_dict(self) -> dict[str, Any]:
         normalized_task_comments: dict[str, dict[str, str]] = {}
@@ -312,6 +318,9 @@ class ExamProject:
             "is_reading_complete": self.is_reading_complete,
             "name_region": self.name_region.to_dict() if self.name_region is not None else None,
             "name_region_page": self.name_region_page,
+            "grading_scale_snapshot": (
+                self.grading_scale_snapshot.to_dict() if self.grading_scale_snapshot is not None else None
+            ),
         }
 
     @classmethod
@@ -362,6 +371,11 @@ class ExamProject:
             is_reading_complete=bool(raw.get("is_reading_complete", False)),
             name_region=RegionBox.from_dict(raw["name_region"]) if raw.get("name_region") else None,
             name_region_page=int(raw.get("name_region_page", 1)),
+            grading_scale_snapshot=(
+                GradingScaleSnapshot.from_dict(raw["grading_scale_snapshot"])
+                if raw.get("grading_scale_snapshot")
+                else None
+            ),
         )
 
     @property
