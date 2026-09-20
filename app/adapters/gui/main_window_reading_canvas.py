@@ -9,6 +9,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import ScrollableFrame
 
 
 class MainWindowReadingCanvasMixin:
@@ -17,7 +18,12 @@ class MainWindowReadingCanvasMixin:
         self._reading_split.pack(fill=ui.BOTH, expand=True, pady=(10, 0))
 
         canvas_panel = widgets.Frame(self._reading_split, style="Surface.TFrame", padding=(0, 0, 8, 0))
-        self._reading_editor_panel = widgets.Frame(self._reading_split, style="Surface.TFrame", padding=(8, 0, 0, 0))
+        # ScrollableFrame (bw-gui scroll SSOT, see bw-gui/docs/SCROLLABILITY_CONTRACT.md):
+        # same rationale as the Korrekturmodus form panel
+        # (main_window_correction_markers.py) - this pane hosts the
+        # Regionen-Editor across Einlesemodus/Extraseiten/Namenmodus and
+        # can outgrow its available height with many regions/tasks.
+        self._reading_editor_panel = ScrollableFrame(self._reading_split, style="Surface.TFrame", padding=(8, 0, 0, 0))
         self._reading_split.add(canvas_panel, weight=3)
         self._reading_split.add(self._reading_editor_panel, weight=2)
 

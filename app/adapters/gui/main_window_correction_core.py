@@ -91,7 +91,7 @@ class MainWindowCorrectionCoreMixin:
         self._attach_hover_help(zoom_out_correction_button, label="Korrektur-Zoom verkleinern", shortcut="Strg+-")
 
     def _build_correction_view_form_save_nav(self) -> None:
-        correction_buttons = widgets.Frame(self._correction_form_panel, style="Surface.TFrame")
+        correction_buttons = widgets.Frame(self._correction_form_panel.content, style="Surface.TFrame")
         correction_buttons.pack(fill=ui.X, pady=(10, 0))
 
         save_comments_button = widgets.Button(

@@ -38,7 +38,7 @@ class MainWindowRegionEditorMixin:
         self._assignment_mode_var.trace_add("write", lambda *_args: self._refresh_task_input_mode())
 
     def _build_reading_view_region_editor(self) -> None:
-        self._regions_editor = widgets.Frame(self._reading_editor_panel, style="Surface.TFrame")
+        self._regions_editor = widgets.Frame(self._reading_editor_panel.content, style="Surface.TFrame")
         self._regions_editor.pack(fill=ui.BOTH, pady=(10, 0))
 
         self._extra_overview_frame = widgets.Frame(self._regions_editor, style="Surface.TFrame")

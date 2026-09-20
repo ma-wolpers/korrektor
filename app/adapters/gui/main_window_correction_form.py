@@ -8,7 +8,7 @@ from bw_gui.runtime import ui, widgets
 
 class MainWindowCorrectionFormMixin:
     def _build_correction_view_form_points_comment(self) -> None:
-        correction_form = widgets.Frame(self._correction_form_panel, style="Surface.TFrame")
+        correction_form = widgets.Frame(self._correction_form_panel.content, style="Surface.TFrame")
         correction_form.pack(fill=ui.X, pady=(8, 0))
         correction_form.columnconfigure(1, weight=1)
         correction_form.columnconfigure(2, weight=0)

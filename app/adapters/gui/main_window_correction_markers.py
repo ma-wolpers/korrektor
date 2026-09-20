@@ -13,6 +13,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import ScrollableFrame
 
 
 class MainWindowCorrectionMarkersMixin:
@@ -21,7 +22,15 @@ class MainWindowCorrectionMarkersMixin:
         correction_split.pack(fill=ui.BOTH, expand=True)
 
         correction_canvas_panel = widgets.Frame(correction_split, style="Surface.TFrame", padding=(0, 0, 8, 0))
-        self._correction_form_panel = widgets.Frame(correction_split, style="Surface.TFrame", padding=(8, 0, 0, 0))
+        # ScrollableFrame (bw-gui scroll SSOT, see bw-gui/docs/SCROLLABILITY_CONTRACT.md):
+        # this pane has grown to six stacked blocks (Punkte/Kommentar, Fertig-
+        # Checkboxen, Markierungswerkzeuge, Transform/Sync, Supersymbol+
+        # Superposition, Speichern/Navigation) - at a small window height the
+        # lower blocks became unreachable without manually resizing the
+        # window. It is a real ttk.Frame, so `correction_split.add(...)`
+        # below works exactly as it did for the plain Frame it replaces;
+        # every builder method below now targets `.content` instead.
+        self._correction_form_panel = ScrollableFrame(correction_split, style="Surface.TFrame", padding=(8, 0, 0, 0))
         correction_split.add(correction_canvas_panel, weight=3)
         correction_split.add(self._correction_form_panel, weight=2)
 
@@ -49,7 +58,7 @@ class MainWindowCorrectionMarkersMixin:
         self._correction_canvas.bind("<ButtonRelease-1>", self._on_correction_canvas_release)
 
     def _build_correction_view_form_markers(self) -> None:
-        marker_controls = widgets.Frame(self._correction_form_panel, style="Surface.TFrame")
+        marker_controls = widgets.Frame(self._correction_form_panel.content, style="Surface.TFrame")
         marker_controls.pack(fill=ui.X, pady=(10, 0))
 
         widgets.Label(marker_controls, text="Markierungen", style="Muted.TLabel").pack(anchor=ui.W)

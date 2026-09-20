@@ -20,7 +20,7 @@ from bw_gui.runtime import ui, widgets
 
 class MainWindowSupersymbolMixin:
     def _build_correction_view_form_supersymbol(self) -> None:
-        supersymbol_controls = widgets.Frame(self._correction_form_panel, style="Surface.TFrame")
+        supersymbol_controls = widgets.Frame(self._correction_form_panel.content, style="Surface.TFrame")
         supersymbol_controls.pack(fill=ui.X, pady=(10, 0))
         widgets.Label(supersymbol_controls, text="Supersymbol (Filter)", style="Muted.TLabel").pack(anchor=ui.W)
 
