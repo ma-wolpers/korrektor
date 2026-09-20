@@ -97,6 +97,8 @@ class MainWindowBase(BwBaseWindow):
         self._student_result_popup: ui.Toplevel | None = None
         self._student_result_cursor = 0
         self._student_result_scores: dict[str, dict[str, float]] | None = None
+        self._student_result_current_result = None
+        self._student_result_chart_photo: ui.PhotoImage | None = None
         self._canvas_image_id: int | None = None
         self._redraw_target_region_kind: str | None = None
         self._redraw_target_region_id: str | None = None

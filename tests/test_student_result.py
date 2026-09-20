@@ -1,6 +1,10 @@
 from app.core.domain.grading_scale import SCALE_TYPE_SCHOOL_1_6, GradeThreshold, GradingScaleSnapshot
 from app.core.domain.models import TaskCategory, TaskDefinition
-from app.core.domain.student_result import compute_student_result
+from app.core.domain.student_result import (
+    category_competency_percentages,
+    compute_student_result,
+    task_competency_percentages,
+)
 
 
 def _tasks() -> list[TaskDefinition]:
@@ -117,6 +121,41 @@ def test_compute_student_result_unassigned_tasks_form_uncategorized_bucket() -> 
     uncategorized = next(c for c in result.category_results if c.name == "Unkategorisiert")
     assert uncategorized.achieved_points == 9.0
     assert uncategorized.max_points == 15.0
+
+
+def test_task_competency_percentages_normalizes_and_skips_unscored() -> None:
+    result = compute_student_result(
+        student_id="alice",
+        display_name="Alice",
+        scores_by_task={"1A": 5.0, "1B": 2.5},  # 2A unscored
+        all_tasks=_tasks(),
+        categories=[],
+        category_assignments={},
+        grading_scale_snapshot=None,
+    )
+
+    percentages = dict(task_competency_percentages(result))
+
+    assert percentages["1A"] == 100.0
+    assert percentages["1B"] == 50.0
+    assert "2A" not in percentages
+
+
+def test_category_competency_percentages_normalizes_and_skips_incomplete() -> None:
+    result = compute_student_result(
+        student_id="alice",
+        display_name="Alice",
+        scores_by_task={"1A": 5.0, "1B": 5.0},  # 2A unscored -> Algebra bucket incomplete
+        all_tasks=_tasks(),
+        categories=_categories(),
+        category_assignments={"1A": "cat-geo", "1B": "cat-geo", "2A": "cat-alg"},
+        grading_scale_snapshot=None,
+    )
+
+    percentages = dict(category_competency_percentages(result))
+
+    assert percentages["Geometrie"] == 100.0
+    assert "Algebra" not in percentages
 
 
 def test_compute_student_result_omits_empty_categories() -> None:

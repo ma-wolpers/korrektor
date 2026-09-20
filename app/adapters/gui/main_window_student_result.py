@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from app.adapters.gui.dialog_services import messagebox
+from app.adapters.gui.main_window_constants import COMPETENCY_CHART_SCOPE_LABELS, COMPETENCY_CHART_TYPE_LABELS
+from app.core.domain.student_result import category_competency_percentages, task_competency_percentages
+from app.infrastructure.rendering.competency_chart_renderer import figure_to_png_bytes, render_bar_chart, render_radar_chart
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
@@ -43,7 +46,7 @@ class MainWindowStudentResultMixin:
     def _build_student_result_popup(self) -> None:
         popup = ui.Toplevel(self.root)
         popup.title("Auswertung")
-        popup.geometry("620x560")
+        popup.geometry("640x760")
         popup.transient(self.root)
         self._register_popup_window(popup)
         popup.protocol("WM_DELETE_WINDOW", self._close_student_result_popup)
@@ -83,11 +86,38 @@ class MainWindowStudentResultMixin:
         self._student_result_categories_tree.column("points", width=120, anchor=ui.CENTER)
         self._student_result_categories_tree.pack(fill=ui.X, pady=(4, 0))
 
+        chart_controls = widgets.Frame(body, style="Surface.TFrame")
+        chart_controls.pack(fill=ui.X, pady=(12, 0))
+        widgets.Label(chart_controls, text="Kompetenzgrad", style="Muted.TLabel").pack(side=ui.LEFT)
+        self._student_result_chart_type_var = ui.StringVar(value=COMPETENCY_CHART_TYPE_LABELS[0])
+        widgets.Combobox(
+            chart_controls,
+            textvariable=self._student_result_chart_type_var,
+            state="readonly",
+            width=12,
+            values=COMPETENCY_CHART_TYPE_LABELS,
+        ).pack(side=ui.LEFT, padx=(8, 0))
+        self._student_result_chart_scope_var = ui.StringVar(value=COMPETENCY_CHART_SCOPE_LABELS[0])
+        chart_scope_combo = widgets.Combobox(
+            chart_controls,
+            textvariable=self._student_result_chart_scope_var,
+            state="readonly",
+            width=14,
+            values=COMPETENCY_CHART_SCOPE_LABELS,
+        )
+        chart_scope_combo.pack(side=ui.LEFT, padx=(8, 0))
+        self._student_result_chart_type_var.trace_add("write", lambda *_args: self._refresh_student_result_chart())
+        self._student_result_chart_scope_var.trace_add("write", lambda *_args: self._refresh_student_result_chart())
+
+        self._student_result_chart_label = widgets.Label(body)
+        self._student_result_chart_label.pack(fill=ui.X, pady=(6, 0))
+
         widgets.Button(body, text="Schliessen", style="SecondaryAction.TButton", command=self._close_student_result_popup).pack(
             anchor=ui.E, pady=(14, 0)
         )
 
         self._student_result_popup = popup
+        self._student_result_current_result = None
 
     def _move_student_result_cursor(self, delta: int) -> None:
         if self._current_exam is None or not self._current_exam.students:
@@ -130,6 +160,31 @@ class MainWindowStudentResultMixin:
             self._student_result_categories_tree.insert(
                 "", ui.END, text=category.name, values=(_format_points(category.achieved_points, category.max_points),)
             )
+
+        self._student_result_current_result = result
+        self._refresh_student_result_chart()
+
+    def _refresh_student_result_chart(self) -> None:
+        """Re-render the Kompetenzgrad-Diagramm for the current student/type/scope selection.
+
+        Only rendering happens here (Meilenstein 6): the percentages
+        themselves come pre-computed from `task_competency_percentages`/
+        `category_competency_percentages` (Domain), this method just picks
+        which of those to call and which renderer to hand them to, then
+        converts the resulting matplotlib `Figure` to a `tk.PhotoImage`.
+        """
+        if self._student_result_current_result is None or not hasattr(self, "_student_result_chart_label"):
+            return
+        result = self._student_result_current_result
+        scope = self._student_result_chart_scope_var.get()
+        chart_type = self._student_result_chart_type_var.get()
+
+        values = category_competency_percentages(result) if scope == "Pro Kategorie" else task_competency_percentages(result)
+        renderer = render_radar_chart if chart_type == "Spinnennetz" else render_bar_chart
+        figure = renderer(values, title=result.display_name)
+
+        self._student_result_chart_photo = ui.PhotoImage(data=figure_to_png_bytes(figure))
+        self._student_result_chart_label.configure(image=self._student_result_chart_photo)
 
     def _close_student_result_popup(self) -> None:
         if self._student_result_popup is not None and self._student_result_popup.winfo_exists():

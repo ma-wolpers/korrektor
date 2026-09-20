@@ -48,6 +48,34 @@ class StudentResult:
     grade_percentage: float | None = None
 
 
+def task_competency_percentages(result: StudentResult) -> list[tuple[str, float]]:
+    """Normalized (0-100) competency per task, as `(task_code, percent)` pairs.
+
+    Only scored tasks with a positive `max_points` are included - an
+    unscored task has no competency value yet (not 0%), and a
+    zero-`max_points` task cannot be normalized. Normalizing lets
+    tasks/Kategorien of different `max_points` be compared on the same
+    scale (Meilenstein 6 der Korrektor-Wunschliste) - this stays a Domain-
+    level computation; the matplotlib rendering layer (Infrastructure)
+    only ever receives these finished percentages, it never computes any
+    fachliche Werte itself.
+    """
+    return [
+        (task.task_code, (task.achieved_points / task.max_points) * 100.0)
+        for task in result.task_results
+        if task.achieved_points is not None and task.max_points > 0
+    ]
+
+
+def category_competency_percentages(result: StudentResult) -> list[tuple[str, float]]:
+    """Normalized (0-100) competency per category, as `(name, percent)` pairs. See `task_competency_percentages`."""
+    return [
+        (category.name, (category.achieved_points / category.max_points) * 100.0)
+        for category in result.category_results
+        if category.achieved_points is not None and category.max_points > 0
+    ]
+
+
 def _summarize(task_results: list[TaskResult]) -> tuple[float, float | None]:
     max_points = sum(task.max_points for task in task_results)
     if any(task.achieved_points is None for task in task_results):

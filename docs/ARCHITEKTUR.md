@@ -4,7 +4,7 @@
 
 - Adapter: GUI und Bootstrap/Wiring
 - Core: Domain, UseCases, Ports
-- Infrastructure: Dateisystem-Persistenz (JSON, CSV), PDF-Scan
+- Infrastructure: Dateisystem-Persistenz (JSON, CSV), PDF-Scan, Chart-Rendering (`app/infrastructure/rendering/`, matplotlib - reines Rendern fertiger Domain-Werte, keine fachliche Berechnung)
 
 ## Grundregeln
 

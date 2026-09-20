@@ -57,3 +57,6 @@ GRADING_SCALE_TYPE_BY_LABEL: dict[str, str] = {
 }
 GRADING_SCALE_TYPE_LABELS: tuple[str, ...] = tuple(GRADING_SCALE_TYPE_BY_LABEL.keys())
 GRADING_SCALE_TYPE_LABEL_BY_VALUE: dict[str, str] = {value: label for label, value in GRADING_SCALE_TYPE_BY_LABEL.items()}
+
+COMPETENCY_CHART_TYPE_LABELS: tuple[str, ...] = ("Spinnennetz", "Balken")
+COMPETENCY_CHART_SCOPE_LABELS: tuple[str, ...] = ("Pro Aufgabe", "Pro Kategorie")
