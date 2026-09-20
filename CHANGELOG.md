@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Die maximale Punktzahl einer Aufgabe kann nicht mehr geaendert werden, sobald mindestens eine Person dafuer bereits Punkte erhalten hat (Einlesemodus-Bereichsbearbeitung) - eine solche Aenderung wird mit klarer Fehlermeldung abgelehnt, damit bereits erfasste Punkte/Noten nicht rueckwirkend verfaelscht werden. Fuer noch nicht bewertete Aufgaben bleibt die Punktzahl frei aenderbar.
 - Neuer Button "Entkoppeln" im Korrekturmodus: loest nur das ausgewaehlte Symbol aus seiner Sync-Gruppe ("Durchdruecken") - bei allen anderen Personen bleibt es weiterhin gesynct (Farbe/Groesse/Rotation/Position). Anders als der bestehende "Durchdruecken"-Knopf, der die gesamte Gruppe aufloest und die Kopien bei allen anderen Personen entfernt. Ist eine einzige, rueckgaengig machbare Aktion.
 - Supersymbol-Filter: der Punktwert wird jetzt automatisch mit dem Maximalpunktwert der gewaehlten Aufgabe(n) vorbefuellt (Summe bei "Summe aller Aufgaben"), sowohl beim Bereichswechsel als auch bei manueller Aufgaben-Auswahl - der Wert kann weiterhin ueberschrieben werden.
 - Button "PDF ueberschreiben" heisst jetzt "Alle PDFs ueberschreiben" - er hat schon immer alle Schueler:innen-PDFs der Klausur ueberschrieben, nicht nur die aktuell angezeigte.

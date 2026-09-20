@@ -25,6 +25,51 @@ class UiIntentControllerRegionsMixin:
             if task.code.strip()
         }
 
+    def _reject_max_points_change_for_scored_tasks(
+        self, *, exam: ExamProject, region_id: str | None, new_tasks: list[TaskDefinition]
+    ) -> bool:
+        """Block editing `max_points` for a task that already has recorded scores; show a clear error.
+
+        Meilenstein 2.7 der Korrektor-Wunschliste: `TaskDefinition.max_points`
+        must stay historically stable once a task has been graded, so an
+        already-computed Note-/Kompetenzwert never silently drifts under
+        someone's feet. `upsert_region_immediate` is the single place
+        `RegionAssignment.tasks` gets (re-)written, so this check runs here
+        rather than duplicated per call site. Only compares against an
+        *existing* region (a brand-new one, `region_id is None`, has no
+        history to protect); only the max_points actually changed matters,
+        not whether the task existed before with the same value. Returns
+        `True` (and shows the error) if the edit must be rejected.
+        """
+        if region_id is None:
+            return False
+        existing_region = next((region for region in exam.regions if region.region_id == region_id), None)
+        if existing_region is None:
+            return False
+        old_max_points_by_code = {task.code: task.max_points for task in existing_region.tasks}
+        changed_codes = [
+            task.code
+            for task in new_tasks
+            if task.code in old_max_points_by_code and task.max_points != old_max_points_by_code[task.code]
+        ]
+        if not changed_codes:
+            return False
+
+        scores = self._deps.score_repository.load_scores(exam=exam)
+        already_scored = sorted(
+            code for code in changed_codes if any(code in student_scores for student_scores in scores.values())
+        )
+        if not already_scored:
+            return False
+
+        joined = ", ".join(already_scored)
+        messagebox.showerror(
+            "Aenderung abgelehnt",
+            f"Die maximale Punktzahl von bereits bewerteten Aufgaben ({joined}) kann nicht mehr geaendert werden, "
+            "damit bereits erfasste Punkte/Noten nicht rueckwirkend verfaelscht werden.",
+        )
+        return True
+
     def upsert_region_immediate(
         self,
         *,
@@ -55,6 +100,10 @@ class UiIntentControllerRegionsMixin:
 
         if not area_codes:
             messagebox.showerror("Ungültige Eingabe", "Bitte mindestens einen Aufgabenbereich angeben, z. B. A.")
+            return None
+
+        blocked = self._reject_max_points_change_for_scored_tasks(exam=exam, region_id=region_id, new_tasks=tasks)
+        if blocked:
             return None
 
         region = RegionAssignment(
