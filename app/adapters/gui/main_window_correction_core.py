@@ -182,9 +182,11 @@ class MainWindowCorrectionCoreMixin:
         self._correction_drag_annotation_id = None
         self._correction_drag_offset_pdf = None
         self._correction_annotation_items.clear()
-        if self._supersymbol_filter_active:
+        if self._supersymbol_filter_active or self._superposition_mode is not None:
             self._supersymbol_filter_active = False
             self._supersymbol_matched_student_ids = []
+            self._superposition_mode = None
+            self._superposition_task_codes = []
             self._supersymbol_preview_button.configure(state="normal")
             self._supersymbol_cancel_button.pack_forget()
             self._supersymbol_info_var.set("")

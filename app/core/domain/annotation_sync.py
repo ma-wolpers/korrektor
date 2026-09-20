@@ -86,3 +86,48 @@ def build_annotation_clones(
         )
         for student in students
     ]
+
+
+def build_scored_annotation_clones(
+    base: PdfAnnotation,
+    students: Sequence[StudentExam],
+    content_by_student_id: dict[str, str],
+    sync_group_id: str,
+) -> list[PdfAnnotation]:
+    """Like `build_annotation_clones`, but each clone's `content` is personalized per student.
+
+    Backs the Punkte-/Noten-Superposition (Meilenstein 3): position and
+    style (`x`/`y`/`color_hex`/`font_size`/`rotation_deg`) are shared from
+    `base` exactly like a normal sync clone, but `content` comes from
+    `content_by_student_id[student.student_id]` instead of `base.content` -
+    each student sees their own points/grade at the same on-page spot.
+    These clones still share one `sync_group_id` (so moving/resizing/
+    rotating the group afterwards keeps working via the existing
+    `sync_group_members` mechanism), but that mechanism only ever touches
+    style attributes, never `content` - see
+    `tests/test_annotation_sync.py` for the invariant this relies on.
+    A student without a `content_by_student_id` entry is silently skipped
+    (never given an empty/placeholder annotation) - callers must resolve
+    every target student's content before calling this, and pass only
+    resolved students here.
+    """
+    return [
+        PdfAnnotation(
+            annotation_id=f"ann-{uuid4().hex[:12]}",
+            student_pdf=student.pdf_filename,
+            page_number=base.page_number,
+            annotation_type=base.annotation_type,
+            content=content_by_student_id[student.student_id],
+            color_hex=base.color_hex,
+            x=base.x,
+            y=base.y,
+            task_code=base.task_code,
+            region_id=base.region_id,
+            font_size=base.font_size,
+            rotation_deg=base.rotation_deg,
+            sync_group_id=sync_group_id,
+            position_detached=False,
+        )
+        for student in students
+        if student.student_id in content_by_student_id
+    ]

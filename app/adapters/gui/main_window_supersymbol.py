@@ -76,6 +76,36 @@ class MainWindowSupersymbolMixin:
         self._supersymbol_cancel_button.pack(side=ui.LEFT, padx=(8, 0))
         self._supersymbol_cancel_button.pack_forget()
 
+        superposition_row = widgets.Frame(supersymbol_controls, style="Surface.TFrame")
+        superposition_row.pack(fill=ui.X, pady=(6, 0))
+        widgets.Label(superposition_row, text="Superposition (alle Personen des Bereichs)", style="Muted.TLabel").pack(
+            anchor=ui.W
+        )
+        superposition_buttons = widgets.Frame(superposition_row, style="Surface.TFrame")
+        superposition_buttons.pack(fill=ui.X, pady=(4, 0))
+        self._superposition_points_button = widgets.Button(
+            superposition_buttons,
+            text="Punkte einfuegen",
+            style="SecondaryAction.TButton",
+            command=self._start_scored_superposition,
+        )
+        self._superposition_points_button.pack(side=ui.LEFT)
+        self._attach_hover_help(
+            self._superposition_points_button,
+            label="Fuegt an einer gemeinsamen Position die jeweils erreichte Punktzahl jeder Person ein",
+        )
+        self._superposition_grade_button = widgets.Button(
+            superposition_buttons,
+            text="Note einfuegen",
+            style="SecondaryAction.TButton",
+            command=self._start_grade_superposition,
+        )
+        self._superposition_grade_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(
+            self._superposition_grade_button,
+            label="Fuegt an einer gemeinsamen Position die jeweilige Note jeder Person ein (Notenschluessel noetig)",
+        )
+
         self._supersymbol_info_var = ui.StringVar(value="")
         widgets.Label(
             supersymbol_controls,
@@ -192,15 +222,98 @@ class MainWindowSupersymbolMixin:
         )
 
     def _cancel_supersymbol_filter(self) -> None:
-        """Leave the Supersymbol filtered preview (with or without having applied it)."""
-        if not self._supersymbol_filter_active:
+        """Leave any active bulk-preview (Supersymbol filter or a Punkte-/Noten-Superposition).
+
+        Shared cancel path for all three "preview a Superseite, click to
+        apply" flows - only one is ever active at a time (starting one
+        preview always goes through here first, via `_render_correction_preview`
+        never having a stale filter/superposition state left behind).
+        """
+        if not self._supersymbol_filter_active and self._superposition_mode is None:
             return
         self._supersymbol_filter_active = False
         self._supersymbol_matched_student_ids = []
+        self._superposition_mode = None
+        self._superposition_task_codes = []
         self._supersymbol_preview_button.configure(state="normal")
         self._supersymbol_cancel_button.pack_forget()
         self._supersymbol_info_var.set("")
         self._render_correction_preview()
+
+    def _start_scored_superposition(self) -> None:
+        self._start_superposition_preview(mode="scored")
+
+    def _start_grade_superposition(self) -> None:
+        if self._current_exam is not None and self._current_exam.grading_scale_snapshot is None:
+            messagebox.showinfo("Hinweis", "Bitte dieser Klausur zuerst einen Notenschluessel zuordnen.")
+            return
+        self._start_superposition_preview(mode="grade")
+
+    def _start_superposition_preview(self, *, mode: str) -> None:
+        """Show the Superseite for every current-Bereich Korrektur-Schueler:in, ready for a placing click.
+
+        Target set is always "all correction students of the active
+        Bereich" (`self._correction_student_indices`, same set
+        "Durchdruecken" uses) - unlike Supersymbol, a Superposition has no
+        filter condition to narrow it down.
+        """
+        if self._current_exam is None or self._controller is None:
+            return
+        template = self._current_correction_template()
+        if template is None:
+            messagebox.showinfo("Hinweis", "Bitte zuerst einen Bereich waehlen.")
+            return
+        task_codes = self._resolve_supersymbol_task_codes(template)
+        if not task_codes:
+            messagebox.showinfo("Hinweis", "Bitte eine Aufgabe oder 'Summe aller Aufgaben' waehlen.")
+            return
+        target_students = [self._current_exam.students[index] for index in self._correction_student_indices]
+        if not target_students:
+            return
+
+        self._superposition_mode = mode
+        self._superposition_task_codes = task_codes
+        self._supersymbol_preview_button.configure(state="disabled")
+        self._supersymbol_cancel_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._render_supersymbol_filtered_page(students=target_students, page_number=template.page_number)
+        label = "Punkte" if mode == "scored" else "Note"
+        self._supersymbol_info_var.set(
+            f"{label}-Superposition-Vorschau ({len(target_students)} Personen) - Klick platziert die Werte."
+        )
+
+    def _apply_superposition_at_canvas_position(self, canvas_x: float, canvas_y: float) -> None:
+        """Resolve every target student's Punkte-/Noten-Wert and place it, via the matching controller method."""
+        if self._current_exam is None or self._controller is None or self._superposition_mode is None:
+            return
+        template = self._current_correction_template()
+        if template is None:
+            return
+        pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y)
+        if pdf_pos is None:
+            return
+
+        student_ids = [self._current_exam.students[index].student_id for index in self._correction_student_indices]
+        apply_method = (
+            self._controller.apply_scored_superposition_immediate
+            if self._superposition_mode == "scored"
+            else self._controller.apply_grade_superposition_immediate
+        )
+        updated = apply_method(
+            exam=self._current_exam,
+            region_id=template.region_id,
+            page_number=template.page_number,
+            task_codes=self._superposition_task_codes,
+            student_ids=student_ids,
+            annotation_type="text",
+            color_hex=self._current_marker_color_hex(),
+            font_size=self._default_annotation_font_size,
+            x=pdf_pos[0],
+            y=pdf_pos[1],
+        )
+        if updated is None:
+            return
+        self._current_exam = updated
+        self._cancel_supersymbol_filter()
 
     def _render_supersymbol_filtered_page(self, *, students: Sequence[StudentExam], page_number: int) -> int:
         """Render the Supersymbol filtered Superseite onto the correction canvas.

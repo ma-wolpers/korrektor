@@ -194,6 +194,10 @@ class MainWindowCorrectionMarkersMixin:
             self._apply_supersymbol_at_canvas_position(canvas_x, canvas_y)
             return "break"
 
+        if self._superposition_mode is not None:
+            self._apply_superposition_at_canvas_position(canvas_x, canvas_y)
+            return "break"
+
         self._correction_drag_alt_override = False
         item_under_cursor = self._correction_canvas.find_withtag("current")
         if item_under_cursor:

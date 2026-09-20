@@ -103,6 +103,8 @@ class MainWindowBase(BwBaseWindow):
         self._correction_marker_tool_key = "check"
         self._supersymbol_filter_active = False
         self._supersymbol_matched_student_ids: list[str] = []
+        self._superposition_mode: str | None = None
+        self._superposition_task_codes: list[str] = []
         settings = self.deps.runtime_settings
         self._default_annotation_color_hex = self._normalize_marker_color_hex(settings.default_annotation_color)
         self._default_annotation_font_size = self._normalize_marker_font_size(settings.default_annotation_pdf_font_size)
