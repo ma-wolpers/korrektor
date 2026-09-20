@@ -238,6 +238,31 @@ def _iter_repo_gui_python_files() -> list[str]:
     return sorted(files)
 
 
+def _iter_facade_family_files(stem_prefix: str) -> list[str]:
+    """Return every `app/adapters/gui/<stem_prefix>*.py` file, facade included, sorted.
+
+    `main_window.py`/`ui_intent_controller.py` are thin facades (see
+    `docs/ARCHITEKTUR.md` "Datei-Organisation"): the actual contract
+    snippets/methods these guardrails look for live scattered across their
+    `main_window_*.py`/`ui_intent_controller_*.py` mixin files, not in the
+    facade itself. Checks that used to read only the facade file now read
+    the concatenation of this whole family instead, so they keep working
+    as mixins are added/split further without needing to track which file
+    each snippet currently lives in.
+    """
+    gui_dir = ROOT / "app/adapters/gui"
+    if not gui_dir.exists():
+        return []
+    return sorted(
+        f"app/adapters/gui/{path.name}"
+        for path in gui_dir.glob(f"{stem_prefix}*.py")
+    )
+
+
+def _read_concatenated(rel_paths: list[str]) -> str:
+    return "\n".join(_read(rel_path) for rel_path in rel_paths if (ROOT / rel_path).exists())
+
+
 def _iter_python_files_under(rel_roots: tuple[str, ...]) -> list[str]:
     files: set[str] = set()
     for rel_root in rel_roots:
@@ -353,10 +378,31 @@ def _collect_process_guidance_warnings() -> list[str]:
     return warnings
 
 
+_FACADE_FAMILY_STEMS = {
+    "app/adapters/gui/main_window.py": "main_window",
+    "app/adapters/gui/ui_intent_controller.py": "ui_intent_controller",
+}
+
+
+def _expand_facade_paths(rel_paths: tuple[str, ...]) -> list[str]:
+    """Expand a known thin-facade path into its whole `*_family.py` mixin family; pass others through unchanged.
+
+    Shared by every marker/substring scan that used to read only
+    `main_window.py`/`ui_intent_controller.py` - both are facades with no
+    method bodies/snippets of their own (see `docs/ARCHITEKTUR.md`
+    "Datei-Organisation").
+    """
+    expanded: list[str] = []
+    for rel_path in rel_paths:
+        stem_prefix = _FACADE_FAMILY_STEMS.get(rel_path)
+        expanded.extend(_iter_facade_family_files(stem_prefix) if stem_prefix else [rel_path])
+    return expanded
+
+
 def _has_any_marker(rel_paths: tuple[str, ...], markers: tuple[str, ...]) -> bool:
     """Return whether any marker appears in at least one existing source file."""
 
-    for rel_path in rel_paths:
+    for rel_path in _expand_facade_paths(rel_paths):
         path = ROOT / rel_path
         if not path.exists():
             continue
@@ -386,31 +432,33 @@ def _collect_shortcut_coverage_warnings() -> list[str]:
 
 
 def _check_runtime_shortcut_integration(errors: list[str]) -> None:
-    """Require explicit runtime shortcut and popup policy integration in main window."""
+    """Require explicit runtime shortcut and popup policy integration somewhere in the main_window family."""
 
-    main_window = _read("app/adapters/gui/main_window.py")
+    main_window_files = _iter_facade_family_files("main_window")
+    main_window = _read_concatenated(main_window_files)
+    label = "app/adapters/gui/main_window*.py"
     _require_substring(
         main_window,
         "self._runtime_shortcuts.evaluate_runtime(",
-        "main_window.py",
+        label,
         errors,
     )
     _require_substring(
         main_window,
         "self._popup_registry = PopupPolicyRegistry()",
-        "main_window.py",
+        label,
         errors,
     )
     _require_substring(
         main_window,
         "self._register_popup_window(window, policy_id=\"dialog.non_blocking\")",
-        "main_window.py",
+        label,
         errors,
     )
     _require_substring(
         main_window,
         "self._popup_registry.close_popup(popup_id)",
-        "main_window.py",
+        label,
         errors,
     )
 
@@ -443,97 +491,133 @@ def _method_calls_self_helper(class_node: ast.ClassDef, method_name: str, helper
     return False
 
 
-def _check_undo_redo_contracts(errors: list[str]) -> None:
-    controller_text = _read("app/adapters/gui/ui_intent_controller.py")
-    intents_text = _read("app/adapters/gui/ui_intents.py")
-    main_window = _read("app/adapters/gui/main_window.py")
+def _function_has_arg(node: ast.FunctionDef, arg_name: str) -> bool:
+    all_args = node.args.args + node.args.posonlyargs + node.args.kwonlyargs
+    return any(arg.arg == arg_name for arg in all_args)
 
-    _require_substring(controller_text, "def undo(self) -> bool:", "app/adapters/gui/ui_intent_controller.py", errors)
-    _require_substring(controller_text, "def redo(self) -> bool:", "app/adapters/gui/ui_intent_controller.py", errors)
-    _require_substring(controller_text, "self._deps.undo_history", "app/adapters/gui/ui_intent_controller.py", errors)
-    _require_substring(controller_text, "def _record_history_action(", "app/adapters/gui/ui_intent_controller.py", errors)
+
+def _check_undo_redo_contracts(errors: list[str]) -> None:
+    """Verify the undo/redo contract across the whole ui_intent_controller*/main_window* mixin families.
+
+    `ui_intent_controller.py`/`main_window.py` are thin facades (no method
+    bodies of their own - see `docs/ARCHITEKTUR.md` "Datei-Organisation"),
+    so every check here operates on the concatenation of the whole family
+    instead of the facade file alone.
+    """
+    controller_files = _iter_facade_family_files("ui_intent_controller")
+    controller_text = _read_concatenated(controller_files)
+    controller_label = "app/adapters/gui/ui_intent_controller*.py"
+    intents_text = _read("app/adapters/gui/ui_intents.py")
+    main_window_files = _iter_facade_family_files("main_window")
+    main_window = _read_concatenated(main_window_files)
+    main_window_label = "app/adapters/gui/main_window*.py"
+
+    _require_substring(controller_text, "def undo(self) -> bool:", controller_label, errors)
+    _require_substring(controller_text, "def redo(self) -> bool:", controller_label, errors)
+    _require_substring(controller_text, "self._deps.undo_history", controller_label, errors)
+    _require_substring(controller_text, "def _record_history_action(", controller_label, errors)
 
     _require_substring(intents_text, "GLOBAL_UNDO", "app/adapters/gui/ui_intents.py", errors)
     _require_substring(intents_text, "GLOBAL_REDO", "app/adapters/gui/ui_intents.py", errors)
-    _require_substring(main_window, "label=\"Bearbeiten\"", "app/adapters/gui/main_window.py", errors)
-    _require_substring(main_window, "<Control-z>", "app/adapters/gui/main_window.py", errors)
-    _require_substring(main_window, "<Control-y>", "app/adapters/gui/main_window.py", errors)
+    _require_substring(main_window, "label=\"Bearbeiten\"", main_window_label, errors)
+    _require_substring(main_window, "<Control-z>", main_window_label, errors)
+    _require_substring(main_window, "<Control-y>", main_window_label, errors)
 
-    try:
-        module = ast.parse(controller_text, filename="app/adapters/gui/ui_intent_controller.py")
-    except Exception as exc:
-        errors.append(f"app/adapters/gui/ui_intent_controller.py: failed to parse Python AST -> {exc}")
-        return
+    # Every "<verb>_immediate" method that mutates a given exam (signature
+    # includes an `exam` parameter) must register undo/redo history -
+    # directly, or via one of the established shared tail-helpers that
+    # themselves call the raw history recorders (see
+    # app/adapters/gui/ui_intent_controller_annotations.py:
+    # _save_annotation_mutation_immediate, and
+    # ui_intent_controller_superposition.py: _apply_superposition_clones).
+    # `_immediate` methods *without* an `exam` parameter (e.g. the global
+    # Notenschluessel-CRUD in ui_intent_controller_grading_scale.py) are
+    # deliberately exempt - they mutate a global store, not an open exam,
+    # and never go through the exam-content undo/redo history by design
+    # (see that file's docstring).
+    baseline_mutators = {"create_exam", "delete_selected_exam", "update_exam_index_dir", "finish_reading_mode"}
+    history_helpers = {"_record_history_action", "_record_exam_payload_action", "_save_annotation_mutation_immediate", "_apply_superposition_clones"}
 
-    class_node = _find_class(module, "UiIntentController")
-    if class_node is None:
-        errors.append("app/adapters/gui/ui_intent_controller.py: missing class UiIntentController")
-        return
+    for rel_path in controller_files:
+        try:
+            module = ast.parse(_read(rel_path), filename=rel_path)
+        except Exception as exc:
+            errors.append(f"{rel_path}: failed to parse Python AST -> {exc}")
+            continue
 
-    tracked_mutators: set[str] = {
-        "create_exam",
-        "delete_selected_exam",
-        "update_exam_index_dir",
-        "save_score_immediate",
-        "upsert_region_immediate",
-        "save_exam_immediate",
-        "delete_region_immediate",
-        "finish_reading_mode",
-        "assign_extra_page_immediate",
-    }
-    for node in class_node.body:
-        if isinstance(node, ast.FunctionDef) and node.name.endswith("_immediate"):
-            tracked_mutators.add(node.name)
-
-    for method_name in sorted(tracked_mutators):
-        if not _method_calls_self_helper(class_node, method_name, {"_record_history_action", "_record_exam_payload_action"}):
-            errors.append(
-                "app/adapters/gui/ui_intent_controller.py: "
-                f"mutator '{method_name}' must register undo/redo history via _record_history_action or _record_exam_payload_action"
-            )
+        for class_node in (node for node in module.body if isinstance(node, ast.ClassDef)):
+            for method_node in (node for node in class_node.body if isinstance(node, ast.FunctionDef)):
+                is_tracked = method_node.name in baseline_mutators or (
+                    method_node.name.endswith("_immediate") and _function_has_arg(method_node, "exam")
+                )
+                if not is_tracked:
+                    continue
+                if not _method_calls_self_helper(class_node, method_node.name, history_helpers):
+                    errors.append(
+                        f"{rel_path}: mutator '{method_node.name}' must register undo/redo history via "
+                        f"_record_history_action/_record_exam_payload_action (directly or via an established tail-helper)"
+                    )
 
 
 def _check_shared_ui_contracts(errors: list[str]) -> None:
-    """Require shared UI imports and block legacy fallback branches."""
+    """Require shared UI imports and block legacy fallback branches, anywhere in the main_window family."""
 
-    main_window = _read("app/adapters/gui/main_window.py")
+    main_window_files = _iter_facade_family_files("main_window")
+    main_window = _read_concatenated(main_window_files)
+    label = "app/adapters/gui/main_window*.py"
 
     required_snippets = (
         "from bw_gui.dialogs import open_tabbed_settings_dialog",
-        "from bw_gui.menu import CustomMenuBar as SharedCustomMenuBar",
+        "from bw_gui.menu import section_spec",
         "from bw_gui.shortcuts import compose_hover_text",
         "from bw_gui.widgets import HoverTooltip as SharedHoverTooltip",
-        "self._menu_bar = SharedCustomMenuBar(",
+        "def build_menu(self) -> list:",
         "tooltip = SharedHoverTooltip(widget, text, theme_key=self._tooltip_theme_key)",
         "open_tabbed_settings_dialog(",
     )
     forbidden_snippets = (
         "except ModuleNotFoundError",
-        "if SharedCustomMenuBar is None",
         "if SharedHoverTooltip is None",
         "if compose_hover_text is None",
         "if open_tabbed_settings_dialog is None",
     )
 
     for snippet in required_snippets:
-        _require_substring(main_window, snippet, "app/adapters/gui/main_window.py", errors)
+        _require_substring(main_window, snippet, label, errors)
     for snippet in forbidden_snippets:
-        _forbid_substring(main_window, snippet, "app/adapters/gui/main_window.py", errors)
+        _forbid_substring(main_window, snippet, label, errors)
 
 
 def _check_future_gui_entry_contracts(errors: list[str]) -> None:
-    """Require shared GUI bootstrap contracts for newly added entrypoint files."""
+    """Require shared GUI bootstrap contracts for newly added entrypoint files.
+
+    `app/adapters/gui/main_window.py` is this repo's established entry
+    file, but it is a thin facade (see `docs/ARCHITEKTUR.md`
+    "Datei-Organisation") - its bootstrap contract lives in its
+    `main_window_*.py` mixin family (mainly `main_window_base.py`), not in
+    the facade file itself, so that one candidate is checked against the
+    concatenated family instead of just its own text. Any *other* future
+    entry-file candidate (a genuinely new GUI entry point, not yet split
+    into a mixin family) is still checked as a single file - that is the
+    scenario this guard exists to catch.
+    """
 
     for rel_path in _iter_future_gui_entry_candidates():
         if rel_path in FUTURE_GUI_ENTRY_BASELINES:
             continue
 
-        text = _read(rel_path)
-        for snippet in FUTURE_GUI_REQUIRED_SHARED_SNIPPETS:
-            _require_substring(text, snippet, rel_path, errors)
+        if rel_path == "app/adapters/gui/main_window.py":
+            text = _read_concatenated(_iter_facade_family_files("main_window"))
+            label = "app/adapters/gui/main_window*.py"
+        else:
+            text = _read(rel_path)
+            label = rel_path
 
-        _forbid_substring(text, "import tkinter", rel_path, errors)
-        _forbid_substring(text, "from tkinter import", rel_path, errors)
+        for snippet in FUTURE_GUI_REQUIRED_SHARED_SNIPPETS:
+            _require_substring(text, snippet, label, errors)
+
+        _forbid_substring(text, "import tkinter", label, errors)
+        _forbid_substring(text, "from tkinter import", label, errors)
 
 
 def _check_repo_wide_gui_contracts(errors: list[str]) -> None:
