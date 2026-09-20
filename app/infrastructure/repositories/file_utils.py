@@ -27,20 +27,22 @@ _WINDOWS_RESERVED_STEMS = {
 _MAX_FILENAME_STEM_LENGTH = 150
 
 
-def build_pdf_filename_from_name(name: str) -> str | None:
-    """Turn an entered student name into a Windows-safe ``<stem>.pdf`` filename.
+def sanitize_filename_stem(name: str, *, replace_spaces_with: str | None = "_") -> str | None:
+    """Turn arbitrary text into a Windows-safe filename stem (no extension).
 
-    Namenmodus rule: spaces become underscores, case is preserved (no
-    lowercasing, no Vorname/Nachname reordering) — this only makes the name
-    filesystem-safe, it does not change what is shown as `display_name`.
-    Pipeline: normalize whitespace/case -> strip invalid characters -> strip
-    trailing dots/spaces -> defuse reserved Windows device names -> truncate
-    to a safe length. Returns ``None`` (never a guessed fallback name) if
+    Shared pipeline behind `build_pdf_filename_from_name` and the
+    Auswertungs-Export (`export_student_results`, one file per Schueler:in
+    named after `display_name`): normalize whitespace/case -> optionally
+    replace spaces (`replace_spaces_with=None` keeps them, e.g. for export
+    filenames where readability matters more than the Namenmodus
+    underscore convention) -> strip invalid characters -> strip trailing
+    dots/spaces -> defuse reserved Windows device names -> truncate to a
+    safe length. Returns ``None`` (never a guessed fallback name) if
     nothing valid remains after normalization — the caller must treat that
     as a validation error, not silently proceed with an arbitrary name.
     """
     collapsed = " ".join(name.strip().split())
-    stem = collapsed.replace(" ", "_")
+    stem = collapsed if replace_spaces_with is None else collapsed.replace(" ", replace_spaces_with)
     stem = _WINDOWS_INVALID_CHARS.sub("", stem)
     stem = stem.rstrip(" .")
     if not stem:
@@ -50,7 +52,15 @@ def build_pdf_filename_from_name(name: str) -> str | None:
         stem = f"{stem}_name"
 
     stem = stem[:_MAX_FILENAME_STEM_LENGTH].rstrip(" .")
-    if not stem:
-        return None
+    return stem or None
 
-    return f"{stem}.pdf"
+
+def build_pdf_filename_from_name(name: str) -> str | None:
+    """Turn an entered student name into a Windows-safe ``<stem>.pdf`` filename.
+
+    Namenmodus rule: spaces become underscores, case is preserved (no
+    lowercasing, no Vorname/Nachname reordering) — this only makes the name
+    filesystem-safe, it does not change what is shown as `display_name`.
+    """
+    stem = sanitize_filename_stem(name)
+    return f"{stem}.pdf" if stem else None

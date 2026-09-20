@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from app.adapters.gui.dialog_services import messagebox
+from pathlib import Path
+
+from app.adapters.gui.dialog_services import filedialog, messagebox
 from app.adapters.gui.main_window_constants import COMPETENCY_CHART_SCOPE_LABELS, COMPETENCY_CHART_TYPE_LABELS
 from app.core.domain.student_result import category_competency_percentages, task_competency_percentages
 from app.infrastructure.rendering.competency_chart_renderer import figure_to_png_bytes, render_bar_chart, render_radar_chart
@@ -9,6 +11,9 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+
+_EXPORT_FORMAT_LABELS: tuple[str, ...] = ("PNG", "JPG", "PDF")
+_EXPORT_EXTENSION_BY_LABEL: dict[str, str] = {"PNG": "png", "JPG": "jpg", "PDF": "pdf"}
 
 
 def _format_points(achieved: float | None, max_points: float) -> str:
@@ -39,6 +44,10 @@ class MainWindowStudentResultMixin:
             self._register_popup_window(self._student_result_popup)
         self._student_result_scores = self._controller.load_scores_for_exam(exam=self._current_exam)
         self._student_result_cursor = 0
+        self._student_result_export_list.delete(0, ui.END)
+        for student in self._current_exam.students:
+            self._student_result_export_list.insert(ui.END, student.display_name)
+        self._student_result_export_list.select_set(0, ui.END)
         self._refresh_student_result_popup()
         self._student_result_popup.deiconify()
         self._student_result_popup.lift()
@@ -111,6 +120,32 @@ class MainWindowStudentResultMixin:
 
         self._student_result_chart_label = widgets.Label(body)
         self._student_result_chart_label.pack(fill=ui.X, pady=(6, 0))
+
+        export_controls = widgets.Frame(body, style="Surface.TFrame")
+        export_controls.pack(fill=ui.X, pady=(12, 0))
+        widgets.Label(export_controls, text="Export", style="Muted.TLabel").pack(anchor=ui.W)
+        self._student_result_export_list = ui.Listbox(export_controls, selectmode=ui.EXTENDED, height=5, exportselection=False)
+        self._student_result_export_list.pack(fill=ui.X, pady=(4, 0))
+        self._attach_hover_help(
+            self._student_result_export_list, label="Auswahl der zu exportierenden Personen (Mehrfachauswahl moeglich)"
+        )
+
+        export_actions = widgets.Frame(export_controls, style="Surface.TFrame")
+        export_actions.pack(fill=ui.X, pady=(6, 0))
+        self._student_result_export_format_var = ui.StringVar(value=_EXPORT_FORMAT_LABELS[0])
+        widgets.Combobox(
+            export_actions,
+            textvariable=self._student_result_export_format_var,
+            state="readonly",
+            width=6,
+            values=_EXPORT_FORMAT_LABELS,
+        ).pack(side=ui.LEFT)
+        widgets.Button(
+            export_actions,
+            text="Exportieren...",
+            style="SecondaryAction.TButton",
+            command=self._export_selected_student_results,
+        ).pack(side=ui.LEFT, padx=(8, 0))
 
         widgets.Button(body, text="Schliessen", style="SecondaryAction.TButton", command=self._close_student_result_popup).pack(
             anchor=ui.E, pady=(14, 0)
@@ -185,6 +220,46 @@ class MainWindowStudentResultMixin:
 
         self._student_result_chart_photo = ui.PhotoImage(data=figure_to_png_bytes(figure))
         self._student_result_chart_label.configure(image=self._student_result_chart_photo)
+
+    def _export_selected_student_results(self) -> None:
+        """Ask for a target folder, then export one full report file per selected student.
+
+        Selection defaults to "all students" (pre-selected when the list
+        is populated) but can be narrowed - matches "ausgewaehlte
+        Ergebnisse" in the Korrektor-Wunschliste, not an all-or-nothing
+        export.
+        """
+        if self._current_exam is None or self._controller is None or self._student_result_scores is None:
+            return
+        selected_indices = self._student_result_export_list.curselection()
+        if not selected_indices:
+            messagebox.showinfo("Hinweis", "Bitte mindestens eine Person auswaehlen.")
+            return
+        students = self._current_exam.students
+        student_ids = [students[index].student_id for index in selected_indices if index < len(students)]
+
+        target_dir = filedialog.askdirectory(title="Zielordner fuer den Export waehlen")
+        if not target_dir:
+            return
+
+        extension = _EXPORT_EXTENSION_BY_LABEL[self._student_result_export_format_var.get()]
+        exported, failed = self._controller.export_student_results(
+            exam=self._current_exam,
+            student_ids=student_ids,
+            scores=self._student_result_scores,
+            chart_type=self._student_result_chart_type_var.get(),
+            chart_scope=self._student_result_chart_scope_var.get(),
+            output_dir=Path(target_dir),
+            file_extension=extension,
+        )
+
+        if failed:
+            messagebox.showwarning(
+                "Export teilweise fehlgeschlagen",
+                f"{len(exported)} exportiert, fehlgeschlagen fuer: {', '.join(failed)}",
+            )
+        else:
+            messagebox.showinfo("Export abgeschlossen", f"{len(exported)} Ergebnis(se) exportiert nach:\n{target_dir}")
 
     def _close_student_result_popup(self) -> None:
         if self._student_result_popup is not None and self._student_result_popup.winfo_exists():

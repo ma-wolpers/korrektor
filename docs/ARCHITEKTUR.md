@@ -4,7 +4,7 @@
 
 - Adapter: GUI und Bootstrap/Wiring
 - Core: Domain, UseCases, Ports
-- Infrastructure: Dateisystem-Persistenz (JSON, CSV), PDF-Scan, Chart-Rendering (`app/infrastructure/rendering/`, matplotlib - reines Rendern fertiger Domain-Werte, keine fachliche Berechnung)
+- Infrastructure: Dateisystem-Persistenz (JSON, CSV), PDF-Scan, Chart-/Report-Rendering (`app/infrastructure/rendering/`, matplotlib - reines Rendern fertiger Domain-Werte, keine fachliche Berechnung; `student_result_report_renderer.py` komponiert die vollstaendige Export-Seite, `competency_chart_renderer.py`s `draw_radar`/`draw_bar` zeichnen nur noch in eine gegebene `Axes`, wiederverwendet von Standalone-Anzeige und Report gleichermassen)
 
 ## Grundregeln
 

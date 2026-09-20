@@ -10,6 +10,7 @@ from app.core.domain.progress import ProgressCalculator
 from app.core.usecases.create_exam_usecase import CreateExamUseCase
 from app.core.usecases.delete_exam_usecase import DeleteExamUseCase
 from app.core.usecases.export_scores_usecase import ExportScoresUseCase
+from app.core.usecases.export_student_result_usecase import ExportStudentResultUseCase
 from app.core.usecases.list_exams_usecase import ListExamsUseCase
 from app.core.usecases.load_exam_usecase import LoadExamUseCase
 from app.core.usecases.save_score_usecase import SaveScoreUseCase
@@ -22,6 +23,9 @@ from app.infrastructure.repositories.json_app_settings_repository import AppRunt
 from app.infrastructure.repositories.json_exam_repository import JsonExamRepository
 from app.infrastructure.repositories.json_grading_scale_repository import JsonGradingScaleRepository
 from app.infrastructure.repositories.pymupdf_scan_repository import PyMuPdfScanRepository
+from app.infrastructure.rendering.matplotlib_student_result_export_repository import (
+    MatplotlibStudentResultExportRepository,
+)
 
 
 @dataclass(frozen=True)
@@ -33,6 +37,7 @@ class GuiDependencies:
     upsert_region_usecase: UpsertRegionUseCase
     save_score_usecase: SaveScoreUseCase
     export_scores_usecase: ExportScoresUseCase
+    export_student_result_usecase: ExportStudentResultUseCase
     set_reading_complete_usecase: SetReadingCompleteUseCase
     exam_repository: JsonExamRepository
     score_repository: CsvScoreRepository
@@ -60,6 +65,7 @@ def build_gui_dependencies(base_dir: Path) -> GuiDependencies:
     exam_repo = JsonExamRepository(index_root=runtime_settings.exam_index_dir)
     score_repo = CsvScoreRepository()
     export_repo = CsvScoreExportRepository()
+    student_result_export_repo = MatplotlibStudentResultExportRepository()
     scan_repo = PyMuPdfScanRepository()
     region_repo = InMemoryRegionRepository()
     grading_scale_repo = JsonGradingScaleRepository(app_name=APP_INFO.appdata_folder, base_dir=base_dir)
@@ -74,6 +80,7 @@ def build_gui_dependencies(base_dir: Path) -> GuiDependencies:
         upsert_region_usecase=UpsertRegionUseCase(exam_repo=exam_repo, region_repo=region_repo),
         save_score_usecase=SaveScoreUseCase(score_repo=score_repo),
         export_scores_usecase=ExportScoresUseCase(export_repo=export_repo),
+        export_student_result_usecase=ExportStudentResultUseCase(export_repo=student_result_export_repo),
         set_reading_complete_usecase=SetReadingCompleteUseCase(exam_repo=exam_repo),
         exam_repository=exam_repo,
         score_repository=score_repo,

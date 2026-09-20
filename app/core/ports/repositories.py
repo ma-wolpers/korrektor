@@ -5,6 +5,7 @@ from typing import Protocol
 
 from app.core.domain.grading_scale import GradingScale, GradingScaleUsageEntry
 from app.core.domain.models import ExamProject, RegionAssignment
+from app.core.domain.student_result import StudentResult
 
 
 class ExamRepository(Protocol):
@@ -77,4 +78,11 @@ class GradingScaleRepository(Protocol):
         ...
 
     def record_usage(self, entry: GradingScaleUsageEntry) -> None:
+        ...
+
+
+class StudentResultExportRepository(Protocol):
+    def export_student_result(
+        self, *, result: StudentResult, chart_type: str, chart_scope: str, output_path: Path
+    ) -> None:
         ...
