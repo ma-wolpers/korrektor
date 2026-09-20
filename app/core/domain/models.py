@@ -137,6 +137,33 @@ class ExtraPageAssignment:
 
 
 @dataclass(slots=True)
+class TaskCategory:
+    """A teacher-defined grouping of tasks for the Auswertung (Meilenstein 4 der Korrektor-Wunschliste).
+
+    `category_id` is the stable technical identity (same pattern as
+    `RegionAssignment.region_id`): renaming only changes `name`, never
+    `category_id`, so `ExamProject.task_category_assignments` (keyed by
+    `task_code`, valued by `category_id`) stays valid across renames.
+    Order in `ExamProject.task_categories` is the display order (Ergebnis-
+    seite/Diagramm-Legende) - a category with no tasks assigned to it is a
+    normal, valid state (created before assigning anything to it yet).
+    """
+
+    category_id: str
+    name: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"category_id": self.category_id, "name": self.name}
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "TaskCategory":
+        return cls(
+            category_id=str(raw.get("category_id", "")).strip(),
+            name=str(raw.get("name", "")).strip(),
+        )
+
+
+@dataclass(slots=True)
 class PersonAreaCompletion:
     """Finished-status for one person on one region.
 
@@ -287,6 +314,10 @@ class ExamProject:
     # siehe ARCHITEKTUR.md "Notenschluessel") - nie eine live grading_scale_id-Referenz,
     # damit spaetere Aenderungen an der globalen Vorlage diese Klausur nie rueckwirkend treffen.
     grading_scale_snapshot: GradingScaleSnapshot | None = None
+    # Kategorien-Anzeigereihenfolge (Meilenstein 4); Zuordnung task_code -> category_id,
+    # ein Task hoechstens einer Kategorie, "kein Eintrag" = unkategorisiert.
+    task_categories: list[TaskCategory] = field(default_factory=list)
+    task_category_assignments: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         normalized_task_comments: dict[str, dict[str, str]] = {}
@@ -321,6 +352,8 @@ class ExamProject:
             "grading_scale_snapshot": (
                 self.grading_scale_snapshot.to_dict() if self.grading_scale_snapshot is not None else None
             ),
+            "task_categories": [category.to_dict() for category in self.task_categories],
+            "task_category_assignments": dict(self.task_category_assignments),
         }
 
     @classmethod
@@ -355,6 +388,17 @@ class ExamProject:
                 if normalized_comments:
                     task_comments[student_id] = normalized_comments
 
+        task_categories = [TaskCategory.from_dict(item) for item in raw.get("task_categories", [])]
+        known_category_ids = {category.category_id for category in task_categories}
+        raw_assignments = raw.get("task_category_assignments", {})
+        task_category_assignments: dict[str, str] = {}
+        if isinstance(raw_assignments, dict):
+            for raw_task_code, raw_category_id in raw_assignments.items():
+                task_code = str(raw_task_code).strip().upper()
+                category_id = str(raw_category_id).strip()
+                if task_code and category_id in known_category_ids:
+                    task_category_assignments[task_code] = category_id
+
         return cls(
             exam_id=str(raw.get("exam_id", "")).strip(),
             exam_name=str(raw.get("exam_name", "")).strip(),
@@ -376,6 +420,8 @@ class ExamProject:
                 if raw.get("grading_scale_snapshot")
                 else None
             ),
+            task_categories=task_categories,
+            task_category_assignments=task_category_assignments,
         )
 
     @property

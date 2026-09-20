@@ -22,6 +22,7 @@ from app.adapters.gui.ui_intent_controller_regions import UiIntentControllerRegi
 from app.adapters.gui.ui_intent_controller_scoring import UiIntentControllerScoringMixin
 from app.adapters.gui.ui_intent_controller_superposition import UiIntentControllerSuperpositionMixin
 from app.adapters.gui.ui_intent_controller_supersymbol import UiIntentControllerSupersymbolMixin
+from app.adapters.gui.ui_intent_controller_task_categories import UiIntentControllerTaskCategoriesMixin
 
 
 class UiIntentController(
@@ -29,6 +30,7 @@ class UiIntentController(
     UiIntentControllerGradingScaleMixin,
     UiIntentControllerSuperpositionMixin,
     UiIntentControllerSupersymbolMixin,
+    UiIntentControllerTaskCategoriesMixin,
     UiIntentControllerNamingMixin,
     UiIntentControllerCompletionMixin,
     UiIntentControllerRegionsMixin,
