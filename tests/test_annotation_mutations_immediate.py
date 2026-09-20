@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from app.adapters.bootstrap.wiring import build_gui_dependencies
+from app.adapters.gui import ui_intent_controller as uic_module
 from app.adapters.gui.ui_intent_controller import UiIntentController
 from app.core.domain.models import (
     ExamProject,
@@ -13,6 +14,20 @@ from app.core.domain.models import (
     TaskDefinition,
     utc_now_iso,
 )
+
+
+@pytest.fixture(autouse=True)
+def _no_real_dialogs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Prevent showerror/showinfo from opening a real (blocking) Tk dialog.
+
+    `_save_annotation_mutation_immediate` calls `messagebox.showerror` on
+    save failure (same pattern as `rename_students_immediate`); `messagebox`
+    is one shared `MessageDialogService` instance re-imported by every
+    `ui_intent_controller_*.py` module, so patching the attribute here via
+    any one of those imports (here `uic_module`) affects all of them.
+    """
+    monkeypatch.setattr(uic_module.messagebox, "showerror", lambda *args, **kwargs: None)
+    monkeypatch.setattr(uic_module.messagebox, "showinfo", lambda *args, **kwargs: None)
 
 
 class _FakeApp:
