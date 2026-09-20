@@ -51,6 +51,7 @@ from app.adapters.gui.main_window_correction_completion import MainWindowCorrect
 from app.adapters.gui.main_window_correction_form import MainWindowCorrectionFormMixin
 from app.adapters.gui.main_window_naming import MainWindowNamingMixin
 from app.adapters.gui.main_window_extra_pages import MainWindowExtraPagesMixin
+from app.adapters.gui.main_window_grading_scale import MainWindowGradingScaleMixin
 from app.adapters.gui.main_window_reading_canvas import MainWindowReadingCanvasMixin
 from app.adapters.gui.main_window_reading import MainWindowReadingMixin
 from app.adapters.gui.main_window_correction_core import MainWindowCorrectionCoreMixin
@@ -61,6 +62,7 @@ from app.adapters.gui.main_window_shortcuts import MainWindowShortcutsMixin
 from app.adapters.gui.main_window_menu import MainWindowMenuMixin
 from app.adapters.gui.main_window_overview import MainWindowOverviewMixin
 from app.adapters.gui.main_window_view_state import MainWindowViewStateMixin
+from app.adapters.gui.main_window_view_transitions import MainWindowViewTransitionsMixin
 from app.adapters.gui.main_window_theme import MainWindowThemeMixin
 
 
@@ -78,6 +80,7 @@ class MainWindow(
     MainWindowCorrectionFormMixin,
     MainWindowNamingMixin,
     MainWindowExtraPagesMixin,
+    MainWindowGradingScaleMixin,
     MainWindowReadingCanvasMixin,
     MainWindowReadingMixin,
     MainWindowCorrectionCoreMixin,
@@ -88,6 +91,7 @@ class MainWindow(
     MainWindowMenuMixin,
     MainWindowOverviewMixin,
     MainWindowViewStateMixin,
+    MainWindowViewTransitionsMixin,
     MainWindowThemeMixin,
     MainWindowBase,
 ):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.core.domain.grading_scale import SCALE_TYPE_POINTS_1_15, SCALE_TYPE_SCHOOL_1_6
 from app.core.domain.score_filter import FilterOperator
 
 CORRECTION_ZOOM_MIN_PERCENT = 10
@@ -49,3 +50,10 @@ CORRECTION_EXPORT_SYMBOL_HEIGHT_EM = 1.3
 CORRECTION_EXPORT_SYMBOL_Y_SHIFT_EM = 0.1
 CORRECTION_EXPORT_SYMBOL_ROT90_X_SHIFT_EM = 0.08
 CORRECTION_EXPORT_SYMBOL_ROT180_Y_CORRECTION_EM = 0.15
+
+GRADING_SCALE_TYPE_BY_LABEL: dict[str, str] = {
+    "Punktnoten (1-15)": SCALE_TYPE_POINTS_1_15,
+    "Schulnoten (sehr gut 1 - ungenuegend 6)": SCALE_TYPE_SCHOOL_1_6,
+}
+GRADING_SCALE_TYPE_LABELS: tuple[str, ...] = tuple(GRADING_SCALE_TYPE_BY_LABEL.keys())
+GRADING_SCALE_TYPE_LABEL_BY_VALUE: dict[str, str] = {value: label for label, value in GRADING_SCALE_TYPE_BY_LABEL.items()}

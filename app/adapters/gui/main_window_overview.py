@@ -136,6 +136,7 @@ class MainWindowOverviewMixin:
 
         self._refresh_correction_area_choices(exam)
         self._apply_detail_labels(exam)
+        self._refresh_grading_scale_assignment_choices()
         self._status_var.set(f"Detailansicht: {exam.exam_name}")
         self._reading_info_var.set("Einlesemodus: bereit")
         self._reading_canvas.delete("all")
@@ -208,6 +209,7 @@ class MainWindowOverviewMixin:
         self._current_exam = self.deps.exam_repository.load_exam(exam_file)
         self._apply_detail_labels(self._current_exam)
         self._refresh_region_tree()
+        self._refresh_grading_scale_assignment_choices()
 
         if self._correction_mode_active:
             self._render_correction_preview()

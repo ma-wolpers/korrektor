@@ -85,6 +85,11 @@ class MainWindowBase(BwBaseWindow):
         self._extra_popup_info_var: ui.StringVar | None = None
         self._extra_popup_student_index: int | None = None
         self._extra_popup_cursor = 0
+        self._grading_scale_popup: ui.Toplevel | None = None
+        self._grading_scale_tree: widgets.Treeview | None = None
+        self._grading_scale_selected_id: str | None = None
+        self._grading_scale_assignment_var: ui.StringVar | None = None
+        self._grading_scale_assign_id_by_label: dict[str, str] = {}
         self._canvas_image_id: int | None = None
         self._redraw_target_region_kind: str | None = None
         self._redraw_target_region_id: str | None = None
