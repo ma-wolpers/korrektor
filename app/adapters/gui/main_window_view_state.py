@@ -92,6 +92,15 @@ class MainWindowViewStateMixin:
         task_category_button.pack(side=ui.RIGHT, padx=(0, 8))
         self._attach_hover_help(task_category_button, label="Aufgaben per Drag-and-Drop Kategorien zuordnen")
 
+        student_result_button = widgets.Button(
+            detail_actions,
+            text="Auswertung",
+            style="SecondaryAction.TButton",
+            command=self._open_student_result_popup,
+        )
+        student_result_button.pack(side=ui.RIGHT, padx=(0, 8))
+        self._attach_hover_help(student_result_button, label="Ergebnisse pro Schueler:in ansehen")
+
         self._detail_name = ui.StringVar(value="-")
         self._detail_pages = ui.StringVar(value="Standardseiten: -")
         self._detail_students = ui.StringVar(value="Schüler:innen: -")

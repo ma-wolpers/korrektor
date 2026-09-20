@@ -94,6 +94,9 @@ class MainWindowBase(BwBaseWindow):
         self._task_category_tasks_frame: widgets.Frame | None = None
         self._task_category_categories_frame: widgets.Frame | None = None
         self._task_category_drag_drop = None
+        self._student_result_popup: ui.Toplevel | None = None
+        self._student_result_cursor = 0
+        self._student_result_scores: dict[str, dict[str, float]] | None = None
         self._canvas_image_id: int | None = None
         self._redraw_target_region_kind: str | None = None
         self._redraw_target_region_id: str | None = None
