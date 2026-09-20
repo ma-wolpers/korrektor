@@ -197,7 +197,14 @@ class MainWindowShortcutsMixin:
             binding_id="global.undo",
             intent=UiIntent.GLOBAL_UNDO,
             modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG, UI_MODE_EDITOR),
-            allow_when_text_input=True,
+            # False (not True like most other allow_when_text_input=True shortcuts
+            # here, e.g. Escape): a focused text field's own native undo (e.g.
+            # WrappedTextField's Text(undo=True)) must win over the app-wide
+            # HistoryAction undo, so correcting a typo never silently undoes an
+            # unrelated app action instead. evaluate_runtime() then blocks this
+            # binding while a text field has focus and _wrapped returns None
+            # (not "break"), letting the keystroke reach the widget normally.
+            allow_when_text_input=False,
         )
         self._bind_runtime_shortcut(
             "<Control-y>",
@@ -205,7 +212,7 @@ class MainWindowShortcutsMixin:
             binding_id="global.redo",
             intent=UiIntent.GLOBAL_REDO,
             modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG, UI_MODE_EDITOR),
-            allow_when_text_input=True,
+            allow_when_text_input=False,
         )
 
     def start(self) -> None:
