@@ -105,6 +105,8 @@ class MainWindowBase(BwBaseWindow):
         self._correction_drag_annotation_id: str | None = None
         self._correction_drag_offset_pdf: tuple[float, float] | None = None
         self._correction_drag_alt_override = False
+        self._correction_drag_before_payload: dict[str, object] | None = None
+        self._correction_drag_moved = False
         self._correction_annotation_items: dict[str, int] = {}
         self._correction_clip_box: tuple[float, float, float, float] | None = None
         self._correction_scale = 1.0

@@ -1,4 +1,4 @@
-from app.core.domain.annotation_sync import build_annotation_clones
+from app.core.domain.annotation_sync import build_annotation_clones, normalize_rotation_deg, sync_group_members
 from app.core.domain.models import PdfAnnotation, StudentExam
 
 
@@ -65,3 +65,44 @@ def test_build_annotation_clones_does_not_mutate_base() -> None:
 
 def test_build_annotation_clones_empty_students_returns_empty_list() -> None:
     assert build_annotation_clones(_base_annotation(), [], "sg-123") == []
+
+
+def _sync_annotation(annotation_id: str, *, sync_group_id: str, position_detached: bool = False) -> PdfAnnotation:
+    base = _base_annotation()
+    base.annotation_id = annotation_id
+    base.sync_group_id = sync_group_id
+    base.position_detached = position_detached
+    return base
+
+
+def test_sync_group_members_returns_only_matching_group_in_order() -> None:
+    a = _sync_annotation("ann-a", sync_group_id="sg-1")
+    b = _sync_annotation("ann-b", sync_group_id="sg-1")
+    other = _sync_annotation("ann-c", sync_group_id="sg-2")
+
+    members = sync_group_members([a, other, b], "sg-1", include_detached=True)
+
+    assert [item.annotation_id for item in members] == ["ann-a", "ann-b"]
+
+
+def test_sync_group_members_excludes_position_detached_when_asked() -> None:
+    a = _sync_annotation("ann-a", sync_group_id="sg-1")
+    detached = _sync_annotation("ann-b", sync_group_id="sg-1", position_detached=True)
+
+    members = sync_group_members([a, detached], "sg-1", include_detached=False)
+
+    assert [item.annotation_id for item in members] == ["ann-a"]
+    assert sync_group_members([a, detached], "sg-1", include_detached=True) == [a, detached]
+
+
+def test_sync_group_members_empty_sync_group_id_returns_empty_list() -> None:
+    a = _sync_annotation("ann-a", sync_group_id="sg-1")
+    assert sync_group_members([a], "", include_detached=True) == []
+
+
+def test_normalize_rotation_deg_snaps_to_nearest_90_and_wraps() -> None:
+    assert normalize_rotation_deg(0.0) == 0.0
+    assert normalize_rotation_deg(89.0) == 90.0
+    assert normalize_rotation_deg(-90.0) == 270.0
+    assert normalize_rotation_deg(360.0) == 0.0
+    assert normalize_rotation_deg(455.0) == 90.0

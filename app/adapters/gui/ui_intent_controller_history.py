@@ -4,7 +4,6 @@ from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
 from app.adapters.undo import HistoryAction
-from app.core.domain.models import ExamProject
 from app.infrastructure.repositories.file_utils import atomic_write_json
 
 
@@ -116,17 +115,3 @@ class UiIntentControllerHistoryMixin:
             redo=lambda: self._write_exam_payload(exam_file, after_payload),
             context=context,
         )
-
-    def save_exam_immediate(self, *, exam: ExamProject) -> ExamProject:
-        before_payload = exam.to_dict()
-        exam_file = self._deps.exam_repository.save_exam(exam)
-        updated = self._deps.exam_repository.load_exam(exam_file)
-        self._record_exam_payload_action(
-            description="Klausur gespeichert",
-            exam_id=updated.exam_id,
-            before_payload=before_payload,
-            after_payload=updated.to_dict(),
-        )
-        self.refresh_exam_overview()
-        self._app.set_status("Aenderungen sofort gespeichert")
-        return updated

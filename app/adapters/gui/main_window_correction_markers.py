@@ -7,6 +7,7 @@ from app.adapters.gui.main_window_constants import (
     CORRECTION_MARKER_COLORS,
     CORRECTION_MARKER_TOOLS,
 )
+from app.core.domain.annotation_sync import normalize_rotation_deg
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
@@ -102,13 +103,19 @@ class MainWindowCorrectionMarkersMixin:
             color_name = CORRECTION_DEFAULT_COLOR_NAME
             self._correction_marker_color_name_var.set(color_name)
 
+        if self._current_exam is None or self._controller is None:
+            return
         annotation = self._selected_correction_annotation()
         if annotation is None:
             return
 
         color_hex = CORRECTION_MARKER_COLORS.get(color_name, CORRECTION_MARKER_COLORS[CORRECTION_DEFAULT_COLOR_NAME])
-        for item in self._sync_group_members(annotation, include_detached=True):
-            item.color_hex = color_hex
+        updated = self._controller.recolor_annotation_immediate(
+            exam=self._current_exam, annotation_id=annotation.annotation_id, color_hex=color_hex
+        )
+        if updated is None:
+            return
+        self._current_exam = updated
         self._render_correction_annotations()
         self._status_var.set("Markierungsfarbe aktualisiert")
 
@@ -161,9 +168,7 @@ class MainWindowCorrectionMarkersMixin:
 
     @staticmethod
     def _normalize_rotation_deg(raw_deg: float) -> float:
-        # PDF freetext rotation is reliable for 90-degree steps.
-        snapped = int(round(float(raw_deg) / 90.0)) * 90
-        return float(snapped % 360)
+        return normalize_rotation_deg(raw_deg)
 
     def _canvas_to_pdf_coords(self, x: float, y: float) -> tuple[float, float] | None:
         if self._correction_clip_box is None or self._correction_scale <= 0:
@@ -201,10 +206,18 @@ class MainWindowCorrectionMarkersMixin:
                 self._correction_selected_annotation_id = annotation_id
                 annotation = self._annotation_by_id(annotation_id)
                 pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y)
-                if annotation is not None and pdf_pos is not None:
+                if annotation is not None and pdf_pos is not None and self._current_exam is not None:
                     self._correction_drag_annotation_id = annotation_id
                     self._correction_drag_offset_pdf = (annotation.x - pdf_pos[0], annotation.y - pdf_pos[1])
                     self._correction_drag_alt_override = self._event_has_alt_modifier(event)
+                    # Snapshot taken here (drag start), before any position
+                    # mutation - see commit_annotation_move_immediate's
+                    # docstring for why this must not be recomputed at
+                    # release time (that was the Meilenstein-0.2 bug in
+                    # save_exam_immediate: a post-mutation "before" snapshot
+                    # makes undo a no-op).
+                    self._correction_drag_before_payload = self._current_exam.to_dict()
+                    self._correction_drag_moved = False
                 self._render_correction_annotations()
                 return "break"
 
@@ -251,13 +264,35 @@ class MainWindowCorrectionMarkersMixin:
             annotation.y = target_y
             if annotation.sync_group_id and self._correction_drag_alt_override:
                 annotation.position_detached = True
+        self._correction_drag_moved = True
         self._render_correction_annotations()
         return "break"
 
     def _on_correction_canvas_release(self, _event: ui.Event[ui.Misc]):
+        """End a drag gesture, committing at most one `HistoryAction` for the whole gesture.
+
+        The live position mutation during `_on_correction_canvas_drag` was
+        never persisted; this is the single point (Meilenstein 0.3) where a
+        moved annotation - or its whole sync group, if it moved together -
+        is saved and pushed onto the undo history, using the snapshot taken
+        at drag start (`_correction_drag_before_payload`). A drag that never
+        actually changed a position (e.g. a plain click-to-select) commits
+        nothing.
+        """
         if not self._correction_mode_active:
             return None
+        moved = self._correction_drag_moved and self._current_exam is not None and self._controller is not None
+        before_payload = self._correction_drag_before_payload
         self._correction_drag_annotation_id = None
         self._correction_drag_offset_pdf = None
         self._correction_drag_alt_override = False
+        self._correction_drag_before_payload = None
+        self._correction_drag_moved = False
+        if moved and before_payload is not None:
+            updated = self._controller.commit_annotation_move_immediate(
+                exam=self._current_exam, before_payload=before_payload
+            )
+            if updated is not None:
+                self._current_exam = updated
+                self._render_correction_annotations()
         return "break"

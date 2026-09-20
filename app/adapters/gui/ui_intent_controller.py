@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from app.adapters.gui.dialog_services import filedialog, messagebox, simpledialog  # noqa: F401 - re-exported: tests patch uic_module.messagebox
 
+from app.adapters.gui.ui_intent_controller_annotations import UiIntentControllerAnnotationsMixin
 from app.adapters.gui.ui_intent_controller_base import UiIntentControllerBase
 from app.adapters.gui.ui_intent_controller_completion import UiIntentControllerCompletionMixin
 from app.adapters.gui.ui_intent_controller_history import UiIntentControllerHistoryMixin
@@ -22,6 +23,7 @@ from app.adapters.gui.ui_intent_controller_supersymbol import UiIntentController
 
 
 class UiIntentController(
+    UiIntentControllerAnnotationsMixin,
     UiIntentControllerSupersymbolMixin,
     UiIntentControllerNamingMixin,
     UiIntentControllerCompletionMixin,

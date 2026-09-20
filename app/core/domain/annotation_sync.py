@@ -6,6 +6,51 @@ from uuid import uuid4
 from app.core.domain.models import PdfAnnotation, StudentExam
 
 
+def normalize_rotation_deg(raw_deg: float) -> float:
+    """Snap a rotation angle to the nearest 90-degree step, wrapped into [0, 360).
+
+    PDF freetext annotation rotation (see the PDF-export code in
+    `main_window_correction_markers_export.py`) is only reliably rendered at
+    90-degree steps, so every write path that sets `PdfAnnotation.rotation_deg`
+    normalizes through this one function - moved here from the GUI
+    (`MainWindow._normalize_rotation_deg`, kept as a thin wrapper for its
+    existing call sites) so the `UiIntentController` annotation-mutation
+    methods (Meilenstein 0.3) can reuse the exact same rule without a
+    GUI-layer dependency.
+    """
+    snapped = int(round(float(raw_deg) / 90.0)) * 90
+    return float(snapped % 360)
+
+
+def sync_group_members(
+    annotations: Sequence[PdfAnnotation],
+    sync_group_id: str,
+    *,
+    include_detached: bool,
+) -> list[PdfAnnotation]:
+    """Return every annotation in `annotations` sharing `sync_group_id`, in their original order.
+
+    Pure lookup, factored out of the GUI (`MainWindow._sync_group_members`)
+    so both the GUI (live rendering/info-label) and the
+    `UiIntentController` annotation-mutation methods (Meilenstein 0.3 -
+    resize/rotate/recolor/detach act on a whole sync group as one atomic
+    action) share one definition of "what counts as a group member" instead
+    of maintaining two copies. `include_detached=False` excludes members
+    whose `position_detached` is set (Alt-Drag-entkoppelte Position - siehe
+    `ARCHITEKTUR.md`), used by position-affecting operations; style
+    attributes (Farbe/Groesse/Rotation) always pass `include_detached=True`
+    since only the *Position*, not der Stil, lokal geloest werden kann.
+    An empty/falsy `sync_group_id` returns an empty list - callers that mean
+    "just this one annotation" handle that singleton case themselves.
+    """
+    if not sync_group_id:
+        return []
+    members = [item for item in annotations if item.sync_group_id == sync_group_id]
+    if include_detached:
+        return members
+    return [item for item in members if not item.position_detached]
+
+
 def build_annotation_clones(
     base: PdfAnnotation,
     students: Sequence[StudentExam],

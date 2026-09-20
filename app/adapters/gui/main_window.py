@@ -43,7 +43,9 @@ from app.adapters.gui.main_window_dispatch import MainWindowDispatchMixin
 from app.adapters.gui.main_window_supersymbol import MainWindowSupersymbolMixin
 from app.adapters.gui.main_window_correction_markers_export import MainWindowCorrectionMarkersExportMixin
 from app.adapters.gui.main_window_correction_markers_clipboard import MainWindowCorrectionMarkersClipboardMixin
+from app.adapters.gui.main_window_correction_markers_transform import MainWindowCorrectionMarkersTransformMixin
 from app.adapters.gui.main_window_correction_markers import MainWindowCorrectionMarkersMixin
+from app.adapters.gui.main_window_correction_sync import MainWindowCorrectionSyncMixin
 from app.adapters.gui.main_window_correction_zoom import MainWindowCorrectionZoomMixin
 from app.adapters.gui.main_window_correction_completion import MainWindowCorrectionCompletionMixin
 from app.adapters.gui.main_window_correction_form import MainWindowCorrectionFormMixin
@@ -68,7 +70,9 @@ class MainWindow(
     MainWindowSupersymbolMixin,
     MainWindowCorrectionMarkersExportMixin,
     MainWindowCorrectionMarkersClipboardMixin,
+    MainWindowCorrectionMarkersTransformMixin,
     MainWindowCorrectionMarkersMixin,
+    MainWindowCorrectionSyncMixin,
     MainWindowCorrectionZoomMixin,
     MainWindowCorrectionCompletionMixin,
     MainWindowCorrectionFormMixin,

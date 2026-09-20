@@ -158,7 +158,6 @@ class MainWindowCorrectionMarkersExportMixin:
             messagebox.showerror("PDF-Speichern fehlgeschlagen", "\n".join(failures))
             return
 
-        self._current_exam = self._controller.save_exam_immediate(exam=self._current_exam)
         self._apply_detail_labels(self._current_exam)
         self._render_correction_preview()
         if skipped_annotations:
