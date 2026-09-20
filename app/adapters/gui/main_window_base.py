@@ -90,6 +90,10 @@ class MainWindowBase(BwBaseWindow):
         self._grading_scale_selected_id: str | None = None
         self._grading_scale_assignment_var: ui.StringVar | None = None
         self._grading_scale_assign_id_by_label: dict[str, str] = {}
+        self._task_category_popup: ui.Toplevel | None = None
+        self._task_category_tasks_frame: widgets.Frame | None = None
+        self._task_category_categories_frame: widgets.Frame | None = None
+        self._task_category_drag_drop = None
         self._canvas_image_id: int | None = None
         self._redraw_target_region_kind: str | None = None
         self._redraw_target_region_id: str | None = None

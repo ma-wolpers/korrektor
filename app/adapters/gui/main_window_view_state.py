@@ -83,6 +83,15 @@ class MainWindowViewStateMixin:
         grading_scale_manage_button.pack(side=ui.RIGHT, padx=(0, 8))
         self._attach_hover_help(grading_scale_manage_button, label="Notenschluessel anlegen/bearbeiten/archivieren")
 
+        task_category_button = widgets.Button(
+            detail_actions,
+            text="Kategorien",
+            style="SecondaryAction.TButton",
+            command=self._open_task_category_popup,
+        )
+        task_category_button.pack(side=ui.RIGHT, padx=(0, 8))
+        self._attach_hover_help(task_category_button, label="Aufgaben per Drag-and-Drop Kategorien zuordnen")
+
         self._detail_name = ui.StringVar(value="-")
         self._detail_pages = ui.StringVar(value="Standardseiten: -")
         self._detail_students = ui.StringVar(value="Schüler:innen: -")
