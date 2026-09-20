@@ -213,3 +213,72 @@ def test_apply_grade_superposition_rejects_entirely_when_one_student_below_lowes
 
     assert updated is None
     assert len(_reload(controller).pdf_annotations) == 0
+
+
+def _build_two_region_exam(exam_folder: Path) -> ExamProject:
+    """Second Bereich, so a Bereich-scoped grade would diverge from the exam-wide Auswertung grade."""
+    now = utc_now_iso()
+    return ExamProject(
+        exam_id="exam-1",
+        exam_name="Mathe",
+        folder_path=str(exam_folder),
+        created_at=now,
+        updated_at=now,
+        standard_page_count=1,
+        students=[
+            StudentExam(student_id="alice", display_name="Alice", pdf_filename="Alice.pdf", page_count=1),
+        ],
+        regions=[
+            RegionAssignment(
+                region_id="r-a",
+                student_pdf="",
+                page_number=1,
+                box=RegionBox(0, 0, 100, 100),
+                tasks=[TaskDefinition(code="1A", name="1A", max_points=10.0)],
+                assigned_area_codes=["A"],
+                is_read_complete=True,
+            ),
+            RegionAssignment(
+                region_id="r-b",
+                student_pdf="",
+                page_number=1,
+                box=RegionBox(0, 100, 100, 200),
+                tasks=[TaskDefinition(code="2A", name="2A", max_points=10.0)],
+                assigned_area_codes=["B"],
+                is_read_complete=True,
+            ),
+        ],
+    )
+
+
+def test_apply_grade_superposition_uses_exam_wide_grade_not_just_the_active_bereich(tmp_path: Path, monkeypatch) -> None:
+    """Regression test: the placed grade must equal the Auswertung's exam-wide grade, not a Bereich-only one.
+
+    Alice scores full points (10/10) in Bereich r-a alone - a Bereich-scoped
+    grade computed only from r-a would place a "1". Her second Bereich (r-b)
+    drags the exam-wide total down to 12/20 (60%), which this Notenschluessel
+    resolves to "2" - exactly the grade the Auswertung shows. Before the fix,
+    this test would have observed content == "1" (the old, wrong, Bereich-
+    scoped behavior) instead of "2".
+    """
+    controller, exam = _setup(tmp_path, monkeypatch)
+    exam = _build_two_region_exam(Path(exam.folder_path))
+    controller._deps.exam_repository.save_exam(exam)
+    _assign_scale(controller, exam)
+    controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=10.0, max_points=10.0)
+    controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="2A", points=2.0, max_points=10.0)
+
+    updated = controller.apply_grade_superposition_immediate(
+        exam=exam, region_id="r-a", page_number=1, task_codes=["1A"], student_ids=["alice"],
+        annotation_type="text", color_hex="#d62828", font_size=14.0, x=10.0, y=10.0,
+    )
+
+    assert updated is not None
+    placed = next(a for a in updated.pdf_annotations if a.student_pdf == "Alice.pdf")
+    assert placed.content == "2"
+
+    result = controller.compute_student_result_for_exam(
+        exam=updated, student_id="alice", scores=controller._deps.score_repository.load_scores(exam=updated)
+    )
+    assert result is not None
+    assert placed.content == result.grade_label
