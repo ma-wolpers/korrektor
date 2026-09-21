@@ -23,6 +23,7 @@ from app.adapters.gui.ui_intent_controller_scoring import UiIntentControllerScor
 from app.adapters.gui.ui_intent_controller_superposition import UiIntentControllerSuperpositionMixin
 from app.adapters.gui.ui_intent_controller_supersymbol import UiIntentControllerSupersymbolMixin
 from app.adapters.gui.ui_intent_controller_student_result import UiIntentControllerStudentResultMixin
+from app.adapters.gui.ui_intent_controller_student_result_pdf_export import UiIntentControllerStudentResultPdfExportMixin
 from app.adapters.gui.ui_intent_controller_task_categories import UiIntentControllerTaskCategoriesMixin
 
 
@@ -31,6 +32,7 @@ class UiIntentController(
     UiIntentControllerGradingScaleMixin,
     UiIntentControllerSuperpositionMixin,
     UiIntentControllerStudentResultMixin,
+    UiIntentControllerStudentResultPdfExportMixin,
     UiIntentControllerSupersymbolMixin,
     UiIntentControllerTaskCategoriesMixin,
     UiIntentControllerNamingMixin,
