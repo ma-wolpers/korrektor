@@ -160,6 +160,8 @@ class MainWindowStudentResultMixin:
             command=self._export_selected_student_results,
         ).pack(side=ui.LEFT, padx=(8, 0))
 
+        self._build_student_result_pdf_export_controls(export_controls)
+
         widgets.Button(body, text="Schliessen", style="SecondaryAction.TButton", command=self._close_student_result_popup).pack(
             anchor=ui.E, pady=(14, 0)
         )
