@@ -14,6 +14,12 @@ class TaskResult:
     task_code: str
     max_points: float
     achieved_points: float | None
+    category_name: str
+    """The task's category name, resolved once here so renderers/GUI never re-derive it.
+
+    Always a concrete display string, never `None` - mirrors `CategoryResult.name`'s
+    "Unkategorisiert" convention for tasks with no (or a stray/unknown) category assignment.
+    """
 
 
 @dataclass(slots=True)
@@ -108,8 +114,14 @@ def compute_student_result(
     missing simply leaves `grade_label`/`grade_percentage` as `None`,
     never a silent fallback grade.
     """
+    category_name_by_id = {category.category_id: category.name for category in categories}
     task_results = [
-        TaskResult(task_code=task.code, max_points=task.max_points, achieved_points=scores_by_task.get(task.code))
+        TaskResult(
+            task_code=task.code,
+            max_points=task.max_points,
+            achieved_points=scores_by_task.get(task.code),
+            category_name=category_name_by_id.get(category_assignments.get(task.code), "Unkategorisiert"),
+        )
         for task in all_tasks
     ]
 

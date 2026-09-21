@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Die "Pro Aufgabe"-Tabelle in der Auswertung (Popup und Statistikseite/Export) zeigt jetzt zu jeder Aufgabe auch ihre Kategorie an, statt nur Aufgabe und Punkte - dadurch ist auf einen Blick klar, welche Aufgabe zu welcher Kategorie gehört.
 - Neu im Auswertungspopup: "An PDF anhängen" fügt die Auswertungs-Report-Seite (Gesamt/Note, Aufgaben-/Kategorien-Tabelle, Kompetenzgrad-Diagramm) als letzte Seite der jeweiligen Klausur-PDF an - für alle in der Exportliste ausgewählten Personen auf einmal. Ein erneuter Klick ersetzt eine zuvor angehängte Statistikseite statt weitere Seiten anzusammeln. "Von PDF entfernen" entfernt sie wieder; beides ist außerdem wie jede andere Aktion per Strg+Z/Strg+Y rückgängig machbar/wiederholbar.
 - Bug behoben: Der rechte Bereich im Korrekturmodus (Punkte/Kommentar, Fertig-Checkboxen, Markierungswerkzeuge, Supersymbol/Superposition, Speichern/Navigation) sowie der rechte Bereich im Einlesemodus/Extraseiten/Namenmodus (Regionen-Editor) waren nicht scrollbar - um bei kleinerer Fensterhoehe alles zu sehen, musste bisher das ganze Fenster manuell vergroessert werden. Beide Bereiche sind jetzt scrollbar.
 - Die Notenschluessel-Verwaltung und die Kategorien-Zuordnung sind jetzt ebenfalls scrollbar (gleicher bw-gui-Standard wie das Auswertungspopup) - bei kleiner Fensterhoehe oder vielen Notenschluesseln/Kategorien bleibt das komplette Formular bzw. alle Aufgaben/Kategorien erreichbar, ohne das Fenster manuell zu vergroessern.

@@ -54,6 +54,28 @@ def test_compute_student_result_full_scores_and_grade() -> None:
     assert by_category["Algebra"].achieved_points == 9.0
     assert by_category["Algebra"].max_points == 10.0
 
+    category_name_by_task = {t.task_code: t.category_name for t in result.task_results}
+    assert category_name_by_task["1A"] == "Geometrie"
+    assert category_name_by_task["1B"] == "Geometrie"
+    assert category_name_by_task["2A"] == "Algebra"
+
+
+def test_task_result_category_name_falls_back_to_unkategorisiert() -> None:
+    """A task with no assignment, and one assigned to a stray/unknown category id, both fall back."""
+    result = compute_student_result(
+        student_id="bob",
+        display_name="Bob",
+        scores_by_task={"1A": 5.0, "1B": 5.0},
+        all_tasks=[TaskDefinition(code="1A", name="1A", max_points=5.0), TaskDefinition(code="1B", name="1B", max_points=5.0)],
+        categories=_categories(),
+        category_assignments={"1B": "cat-unknown"},  # "1A" has no entry at all
+        grading_scale_snapshot=None,
+    )
+
+    category_name_by_task = {t.task_code: t.category_name for t in result.task_results}
+    assert category_name_by_task["1A"] == "Unkategorisiert"
+    assert category_name_by_task["1B"] == "Unkategorisiert"
+
 
 def test_compute_student_result_missing_score_keeps_totals_none_not_zero() -> None:
     result = compute_student_result(

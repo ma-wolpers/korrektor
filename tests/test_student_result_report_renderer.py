@@ -63,6 +63,23 @@ def test_render_student_result_report_saves_as_jpg(tmp_path: Path) -> None:
     assert out_path.read_bytes().startswith(b"\xff\xd8\xff")
 
 
+def test_render_student_result_report_task_table_shows_category_column() -> None:
+    """Each task row must show which category it belongs to, not just its code/points."""
+    fig = render_student_result_report(_result())
+
+    task_axes = fig.axes[1]  # summary, task table, category table, chart - in that add_axes order
+    table = task_axes.tables[0]
+    header_texts = [table[0, col].get_text().get_text() for col in range(3)]
+    assert header_texts == ["Aufgabe", "Kategorie", "Punkte"]
+
+    rows_by_task = {
+        table[row, 0].get_text().get_text(): table[row, 1].get_text().get_text() for row in range(1, 4)
+    }
+    assert rows_by_task["1A"] == "Geometrie"
+    assert rows_by_task["1B"] == "Geometrie"
+    assert rows_by_task["2A"] == "Algebra"
+
+
 def test_render_student_result_report_handles_no_categories_no_grade() -> None:
     result = compute_student_result(
         student_id="bob",

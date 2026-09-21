@@ -48,8 +48,11 @@ def render_student_result_report(
     task_axes.set_title("Pro Aufgabe", fontsize=11, loc="left")
     if result.task_results:
         task_axes.table(
-            cellText=[[task.task_code, _format_points(task.achieved_points, task.max_points)] for task in result.task_results],
-            colLabels=["Aufgabe", "Punkte"],
+            cellText=[
+                [task.task_code, task.category_name, _format_points(task.achieved_points, task.max_points)]
+                for task in result.task_results
+            ],
+            colLabels=["Aufgabe", "Kategorie", "Punkte"],
             loc="upper left",
             cellLoc="left",
         )

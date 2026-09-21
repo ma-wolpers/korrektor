@@ -93,10 +93,14 @@ class MainWindowStudentResultMixin:
         )
 
         widgets.Label(body, text="Pro Aufgabe", style="Muted.TLabel").pack(anchor=ui.W, pady=(12, 0))
-        self._student_result_tasks_tree = widgets.Treeview(body, columns=("points",), show="tree headings", height=8)
+        self._student_result_tasks_tree = widgets.Treeview(
+            body, columns=("category", "points"), show="tree headings", height=8
+        )
         self._student_result_tasks_tree.heading("#0", text="Aufgabe")
+        self._student_result_tasks_tree.heading("category", text="Kategorie")
         self._student_result_tasks_tree.heading("points", text="Punkte")
         self._student_result_tasks_tree.column("#0", width=140)
+        self._student_result_tasks_tree.column("category", width=140)
         self._student_result_tasks_tree.column("points", width=120, anchor=ui.CENTER)
         self._student_result_tasks_tree.pack(fill=ui.X, pady=(4, 0))
 
@@ -210,7 +214,10 @@ class MainWindowStudentResultMixin:
         self._student_result_tasks_tree.delete(*self._student_result_tasks_tree.get_children())
         for task in result.task_results:
             self._student_result_tasks_tree.insert(
-                "", ui.END, text=task.task_code, values=(_format_points(task.achieved_points, task.max_points),)
+                "",
+                ui.END,
+                text=task.task_code,
+                values=(task.category_name, _format_points(task.achieved_points, task.max_points)),
             )
 
         self._student_result_categories_tree.delete(*self._student_result_categories_tree.get_children())
