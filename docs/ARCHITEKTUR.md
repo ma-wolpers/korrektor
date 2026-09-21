@@ -4,7 +4,7 @@
 
 - Adapter: GUI und Bootstrap/Wiring
 - Core: Domain, UseCases, Ports
-- Infrastructure: Dateisystem-Persistenz (JSON, CSV), PDF-Scan, Chart-/Report-Rendering (`app/infrastructure/rendering/`, matplotlib - reines Rendern fertiger Domain-Werte, keine fachliche Berechnung; `student_result_report_renderer.py` komponiert die vollstaendige Export-Seite, `competency_chart_renderer.py`s `draw_radar`/`draw_bar` zeichnen nur noch in eine gegebene `Axes`, wiederverwendet von Standalone-Anzeige und Report gleichermassen)
+- Infrastructure: Dateisystem-Persistenz (JSON, CSV), PDF-Scan, Chart-/Report-Rendering (`app/infrastructure/rendering/`, matplotlib - reines Rendern fertiger Domain-Werte, keine fachliche Berechnung; `student_result_report_renderer.py` komponiert die vollstaendige Export-Seite, `competency_chart_renderer.py`s `draw_radar`/`draw_bar` zeichnen nur noch in eine gegebene `Axes`, wiederverwendet von Standalone-Anzeige und Report gleichermassen), PDF-Datei-Mutation (`app/infrastructure/pdf/pdf_document_writer.py` - `rewrite_pdf_atomically` ist die alleinige technische SSOT fuers sichere PDF-Umschreiben, genutzt sowohl von der Korrekturmarkierungs-Einbrenn-Funktion als auch vom Statistikseiten-Anhaengen; rein mechanisch, keine fachlichen Entscheidungen wie "ist ein Ersetzen gerade zulaessig")
 
 ## Grundregeln
 
