@@ -99,6 +99,20 @@ def figure_to_png_bytes(fig: Figure) -> bytes:
     return buffer.getvalue()
 
 
+def figure_to_pdf_bytes(fig: Figure) -> bytes:
+    """Render `fig` to single-page PDF bytes (no file written).
+
+    Used to produce an insertable Statistikseite for
+    `app.infrastructure.pdf.pdf_document_writer.append_marked_stats_page`
+    without writing an intermediate file to disk.
+    """
+    import io
+
+    buffer = io.BytesIO()
+    fig.savefig(buffer, format="pdf")
+    return buffer.getvalue()
+
+
 def save_figure(fig: Figure, path: Path) -> None:
     """Save `fig` to `path`; the format is inferred from the file extension (.png/.jpg/.pdf)."""
     fig.savefig(path)

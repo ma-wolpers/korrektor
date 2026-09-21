@@ -266,6 +266,18 @@ class StudentExam:
     pdf_filename: str
     page_count: int
     extra_pages: list[int] = field(default_factory=list)
+    stats_report_appended: bool = False
+    """Whether the Auswertungs-Statistikseite is currently appended as the last page of `pdf_filename`.
+
+    Does **not** count towards `page_count` - that field bounds the exam's
+    real Standardseiten (used for Bereichs-/Namenserfassungs-Navigation
+    across the Reading/Naming/Region-Editor views), and an appended
+    Statistikseite is not one. This flag alone is not treated as proof of
+    the PDF's actual physical state - see
+    `app/infrastructure/pdf/pdf_document_writer.py`'s marker mechanism,
+    which the append/remove controller cross-checks this flag against
+    before ever mutating the file.
+    """
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -274,6 +286,7 @@ class StudentExam:
             "pdf_filename": self.pdf_filename,
             "page_count": self.page_count,
             "extra_pages": list(self.extra_pages),
+            "stats_report_appended": self.stats_report_appended,
         }
 
     @classmethod
@@ -284,6 +297,7 @@ class StudentExam:
             pdf_filename=str(raw.get("pdf_filename", "")).strip(),
             page_count=int(raw.get("page_count", 0)),
             extra_pages=[int(page) for page in raw.get("extra_pages", [])],
+            stats_report_appended=bool(raw.get("stats_report_appended", False)),
         )
 
 

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.infrastructure.rendering.competency_chart_renderer import (
+    figure_to_pdf_bytes,
     figure_to_png_bytes,
     render_bar_chart,
     render_radar_chart,
@@ -45,6 +46,15 @@ def test_save_figure_writes_png_file(tmp_path: Path) -> None:
 
     assert out_path.exists()
     assert out_path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_figure_to_pdf_bytes_produces_valid_single_page_pdf() -> None:
+    fig = render_radar_chart([("1A", 80.0), ("1B", 40.0)], title="Testergebnis")
+
+    pdf_bytes = figure_to_pdf_bytes(fig)
+
+    assert pdf_bytes.startswith(b"%PDF")
+    assert len(pdf_bytes) > 100
 
 
 def test_save_figure_writes_pdf_file(tmp_path: Path) -> None:
