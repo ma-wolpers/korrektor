@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import fitz
@@ -19,6 +18,7 @@ from app.adapters.gui.main_window_constants import (
     CORRECTION_EXPORT_TEXT_Y_SHIFT_EM,
 )
 from app.core.domain.models import PdfAnnotation
+from app.infrastructure.pdf.pdf_document_writer import rewrite_pdf_atomically
 
 
 class MainWindowCorrectionMarkersExportMixin:
@@ -101,10 +101,7 @@ class MainWindowCorrectionMarkersExportMixin:
                 except Exception:
                     pass
 
-            temp_path = pdf_path.with_name(f"{pdf_path.stem}.korrektor.tmp.pdf")
-            document: fitz.Document | None = None
-            try:
-                document = fitz.open(pdf_path)
+            def _mutate(document: fitz.Document) -> None:
                 for page_index in range(document.page_count):
                     page = document.load_page(page_index)
                     existing = list(page.annots() or [])
@@ -136,23 +133,10 @@ class MainWindowCorrectionMarkersExportMixin:
                     )
                     annot.update()
 
-                document.save(temp_path, garbage=4, deflate=True)
-                document.close()
-                document = None
-                os.replace(temp_path, pdf_path)
+            try:
+                rewrite_pdf_atomically(pdf_path, _mutate)
             except Exception as exc:
                 failures.append(f"{student_pdf}: {exc}")
-                try:
-                    if temp_path.exists():
-                        temp_path.unlink()
-                except Exception:
-                    pass
-            finally:
-                if document is not None:
-                    try:
-                        document.close()
-                    except Exception:
-                        pass
 
         if failures:
             messagebox.showerror("PDF-Speichern fehlgeschlagen", "\n".join(failures))
