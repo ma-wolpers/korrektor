@@ -126,6 +126,11 @@ class MainWindowCorrectionCoreMixin:
         if not self._current_exam:
             messagebox.showinfo("Hinweis", "Bitte zuerst eine Klausur öffnen.")
             return
+        # Bereichs-Combobox wurde beim Oeffnen der Klausur befuellt und wird
+        # seitdem nicht bei jeder Regionen-Aenderung im Einlesemodus aktualisiert -
+        # hier vor dem Start sicherstellen, dass alle aktuell gespeicherten
+        # Bereiche zur Auswahl stehen (sonst bleibt z. B. nur "A" sichtbar).
+        self._refresh_correction_area_choices(self._current_exam)
         templates = self._build_correction_templates(self._current_exam)
         if not templates:
             messagebox.showinfo("Keine Bereiche", "Bitte zuerst Standardbereiche im Einlesemodus markieren und speichern.")

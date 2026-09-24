@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Bug behoben: Die Bereichs-Auswahl im Korrekturmodus zeigte teils nur "A" an, obwohl im Einlesemodus mehrere Bereiche markiert und gespeichert waren - die Liste wurde nur einmal beim Oeffnen der Klausur befuellt und danach nicht mehr aktualisiert. Die Bereichs-Auswahl wird jetzt bei jedem Start des Korrekturmodus neu aus den aktuell gespeicherten Bereichen aufgebaut.
 - Die "Pro Aufgabe"-Tabelle in der Auswertung (Popup und Statistikseite/Export) zeigt jetzt zu jeder Aufgabe auch ihre Kategorie an, statt nur Aufgabe und Punkte - dadurch ist auf einen Blick klar, welche Aufgabe zu welcher Kategorie gehört.
 - Neu im Auswertungspopup: "An PDF anhängen" fügt die Auswertungs-Report-Seite (Gesamt/Note, Aufgaben-/Kategorien-Tabelle, Kompetenzgrad-Diagramm) als letzte Seite der jeweiligen Klausur-PDF an - für alle in der Exportliste ausgewählten Personen auf einmal. Ein erneuter Klick ersetzt eine zuvor angehängte Statistikseite statt weitere Seiten anzusammeln. "Von PDF entfernen" entfernt sie wieder; beides ist außerdem wie jede andere Aktion per Strg+Z/Strg+Y rückgängig machbar/wiederholbar.
 - Bug behoben: Der rechte Bereich im Korrekturmodus (Punkte/Kommentar, Fertig-Checkboxen, Markierungswerkzeuge, Supersymbol/Superposition, Speichern/Navigation) sowie der rechte Bereich im Einlesemodus/Extraseiten/Namenmodus (Regionen-Editor) waren nicht scrollbar - um bei kleinerer Fensterhoehe alles zu sehen, musste bisher das ganze Fenster manuell vergroessert werden. Beide Bereiche sind jetzt scrollbar.
