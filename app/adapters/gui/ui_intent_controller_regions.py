@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from app.adapters.gui.dialog_services import messagebox
 from app.core.domain.models import ExamProject, ExtraPageAssignment, RegionAssignment, RegionBox, TaskDefinition
+from app.core.domain.validation import ExamConflictError
 
 
 class UiIntentControllerRegionsMixin:
@@ -117,7 +118,11 @@ class UiIntentControllerRegionsMixin:
             is_corrected=False,
             is_extra_page=False,
         )
-        updated = self._deps.upsert_region_usecase.execute(exam=exam, region=region)
+        try:
+            updated = self._deps.upsert_region_usecase.execute(exam=exam, region=region)
+        except ExamConflictError as exc:
+            messagebox.showerror("Speichern abgebrochen", str(exc))
+            return None
         self._record_exam_payload_action(
             description=f"Bereich gespeichert: {region.assigned_area_codes[0]}",
             exam_id=updated.exam_id,
@@ -140,7 +145,9 @@ class UiIntentControllerRegionsMixin:
         """
         before_payload = exam.to_dict()
         exam.regions = [region for region in exam.regions if region.region_id != region_id]
-        exam_file = self._deps.exam_repository.save_exam(exam)
+        exam_file = self._save_exam_guarded(exam)
+        if exam_file is None:
+            return exam
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
             description="Bereich geloescht",
@@ -157,7 +164,9 @@ class UiIntentControllerRegionsMixin:
         exam.extra_page_assignments = [
             assignment for assignment in exam.extra_page_assignments if assignment.assignment_id != assignment_id
         ]
-        exam_file = self._deps.exam_repository.save_exam(exam)
+        exam_file = self._save_exam_guarded(exam)
+        if exam_file is None:
+            return exam
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
             description="Extraseiten-Zuordnung geloescht",
@@ -188,7 +197,11 @@ class UiIntentControllerRegionsMixin:
             if not proceed:
                 return exam
 
-        updated = self._deps.set_reading_complete_usecase.execute(exam=exam, is_complete=True)
+        try:
+            updated = self._deps.set_reading_complete_usecase.execute(exam=exam, is_complete=True)
+        except ExamConflictError as exc:
+            messagebox.showerror("Speichern abgebrochen", str(exc))
+            return exam
         self._record_exam_payload_action(
             description="Einlesemodus abgeschlossen",
             exam_id=updated.exam_id,
@@ -265,7 +278,9 @@ class UiIntentControllerRegionsMixin:
         if not replaced:
             exam.extra_page_assignments.append(assignment)
 
-        exam_file = self._deps.exam_repository.save_exam(exam)
+        exam_file = self._save_exam_guarded(exam)
+        if exam_file is None:
+            return None
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
             description="Extraseite zugeordnet",
@@ -297,7 +312,9 @@ class UiIntentControllerRegionsMixin:
         before_payload = exam.to_dict()
         exam.name_region = RegionBox(x0=box[0], y0=box[1], x1=box[2], y1=box[3])
         exam.name_region_page = page_number
-        exam_file = self._deps.exam_repository.save_exam(exam)
+        exam_file = self._save_exam_guarded(exam)
+        if exam_file is None:
+            return exam
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
             description="Namensbereich gesetzt",

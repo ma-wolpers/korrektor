@@ -3,6 +3,19 @@ from __future__ import annotations
 from app.core.domain.models import ExamProject
 
 
+class ExamConflictError(Exception):
+    """Raised by `ExamRepository.save_exam` when the on-disk file changed since `exam` was loaded.
+
+    Protects against silently losing edits made elsewhere (e.g. the same
+    Exam-Indexordner opened on a second computer via cloud sync, or a second
+    process) between this `exam`'s load/last save and now: without this
+    check, `save_exam` would just overwrite the newer on-disk version with
+    this stale in-memory one, discarding the other change with no warning.
+    Callers show `str(exc)` to the user and must not retry the same write -
+    the exam has to be reloaded first to pick up the newer version.
+    """
+
+
 class ExamStructureError(Exception):
     """A loaded `ExamProject` violates a structural identity invariant.
 

@@ -59,7 +59,9 @@ class UiIntentControllerSupersymbolMixin:
             return None
         exam.pdf_annotations.extend(clones)
 
-        exam_file = self._deps.exam_repository.save_exam(exam)
+        exam_file = self._save_exam_guarded(exam)
+        if exam_file is None:
+            return None
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
             description=f"Supersymbol gesetzt ({len(clones)} Personen)",

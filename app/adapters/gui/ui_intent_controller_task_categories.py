@@ -32,7 +32,9 @@ class UiIntentControllerTaskCategoriesMixin:
             category.name = name
             description = f"Kategorie umbenannt: {name}"
 
-        exam_file = self._deps.exam_repository.save_exam(exam)
+        exam_file = self._save_exam_guarded(exam)
+        if exam_file is None:
+            return None
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
             description=description,
@@ -57,7 +59,9 @@ class UiIntentControllerTaskCategoriesMixin:
             for task_code, assigned_category_id in exam.task_category_assignments.items()
             if assigned_category_id != category_id
         }
-        exam_file = self._deps.exam_repository.save_exam(exam)
+        exam_file = self._save_exam_guarded(exam)
+        if exam_file is None:
+            return None
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
             description=f"Kategorie geloescht: {category.name}",
@@ -84,7 +88,9 @@ class UiIntentControllerTaskCategoriesMixin:
 
         before_payload = exam.to_dict()
         exam.task_categories = reordered
-        exam_file = self._deps.exam_repository.save_exam(exam)
+        exam_file = self._save_exam_guarded(exam)
+        if exam_file is None:
+            return None
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
             description="Kategorien-Reihenfolge geaendert",
@@ -114,7 +120,9 @@ class UiIntentControllerTaskCategoriesMixin:
             category = next(item for item in exam.task_categories if item.category_id == category_id)
             description = f"Aufgabe {task_code} zu Kategorie '{category.name}' zugeordnet"
 
-        exam_file = self._deps.exam_repository.save_exam(exam)
+        exam_file = self._save_exam_guarded(exam)
+        if exam_file is None:
+            return None
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
             description=description,

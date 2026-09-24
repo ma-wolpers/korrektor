@@ -156,6 +156,35 @@ class MainWindowGradingScaleMixin:
         )
         self._gs_delete_button.pack(side=ui.LEFT, padx=(8, 0))
 
+        transfer_row = widgets.Frame(form_panel, style="Surface.TFrame")
+        transfer_row.pack(fill=ui.X, pady=(16, 0))
+        widgets.Label(
+            transfer_row,
+            text="Notenschluessel leben lokal auf diesem Rechner - auf einem anderen Rechner"
+            " (z. B. anderer Exam-Indexordner) fehlen sie, bis sie hier ex-/importiert wurden.",
+            style="Muted.TLabel",
+            justify=ui.LEFT,
+            wraplength=280,
+        ).pack(anchor=ui.W)
+        transfer_buttons = widgets.Frame(transfer_row, style="Surface.TFrame")
+        transfer_buttons.pack(fill=ui.X, pady=(6, 0))
+        export_button = widgets.Button(
+            transfer_buttons,
+            text="Exportieren...",
+            style="SecondaryAction.TButton",
+            command=self._export_grading_scales,
+        )
+        export_button.pack(side=ui.LEFT)
+        self._attach_hover_help(export_button, label="Alle Notenschluessel in eine Datei exportieren")
+        import_button = widgets.Button(
+            transfer_buttons,
+            text="Importieren...",
+            style="SecondaryAction.TButton",
+            command=self._import_grading_scales,
+        )
+        import_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(import_button, label="Notenschluessel aus einer zuvor exportierten Datei uebernehmen")
+
         widgets.Button(form_panel, text="Schliessen", style="SecondaryAction.TButton", command=self._close_grading_scale_popup).pack(
             anchor=ui.E, pady=(14, 0)
         )
@@ -348,6 +377,33 @@ class MainWindowGradingScaleMixin:
             return
         self._current_exam = updated
         self._refresh_grading_scale_assignment_choices()
+
+    def _export_grading_scales(self) -> None:
+        if self._controller is None:
+            return
+        self._controller.export_grading_scales_to_file()
+
+    def _import_grading_scales(self) -> None:
+        if self._controller is None:
+            return
+        summary = self._controller.import_grading_scales_from_file()
+        if summary is None or summary.is_empty:
+            return
+
+        self._refresh_grading_scale_tree()
+        self._refresh_grading_scale_assignment_choices()
+
+        lines = []
+        if summary.added:
+            lines.append(f"Neu hinzugefuegt ({len(summary.added)}): {', '.join(summary.added)}")
+        if summary.skipped_identical:
+            lines.append(f"Bereits vorhanden, uebersprungen ({len(summary.skipped_identical)}): {', '.join(summary.skipped_identical)}")
+        if summary.skipped_conflict:
+            lines.append(
+                f"Konflikt - gleicher Notenschluessel existiert bereits mit anderem Inhalt, "
+                f"nicht ueberschrieben ({len(summary.skipped_conflict)}): {', '.join(summary.skipped_conflict)}"
+            )
+        messagebox.showinfo("Notenschluessel-Import", "\n".join(lines))
 
     def _on_grading_scale_popup_close_requested(self) -> bool:
         """Popup-registry cleanup shared by every close path - see the identical pattern/rationale

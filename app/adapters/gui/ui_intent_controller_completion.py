@@ -127,7 +127,9 @@ class UiIntentControllerCompletionMixin:
                 for student_id in target_ids
             )
 
-        exam_file = self._deps.exam_repository.save_exam(exam)
+        exam_file = self._save_exam_guarded(exam)
+        if exam_file is None:
+            return None
         updated = self._deps.exam_repository.load_exam(exam_file)
         if len(target_ids) == 1:
             description = (

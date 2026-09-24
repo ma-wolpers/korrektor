@@ -101,7 +101,9 @@ class UiIntentControllerGradingScaleMixin:
         before_payload = exam.to_dict()
         assigned_at = utc_now_iso()
         exam.grading_scale_snapshot = scale.to_snapshot(assigned_at=assigned_at)
-        exam_file = self._deps.exam_repository.save_exam(exam)
+        exam_file = self._save_exam_guarded(exam)
+        if exam_file is None:
+            return None
         updated = self._deps.exam_repository.load_exam(exam_file)
 
         self._deps.grading_scale_repository.record_usage(

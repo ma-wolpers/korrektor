@@ -262,7 +262,12 @@ def test_apply_grade_superposition_uses_exam_wide_grade_not_just_the_active_bere
     scoped behavior) instead of "2".
     """
     controller, exam = _setup(tmp_path, monkeypatch)
+    # Replacing the whole exam under the same exam_id right after _setup's own
+    # save - carry over its updated_at so this is recognized as building on
+    # that save, not as an unrelated stale write (see ExamConflictError).
+    current_updated_at = exam.updated_at
     exam = _build_two_region_exam(Path(exam.folder_path))
+    exam.updated_at = current_updated_at
     controller._deps.exam_repository.save_exam(exam)
     _assign_scale(controller, exam)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=10.0, max_points=10.0)

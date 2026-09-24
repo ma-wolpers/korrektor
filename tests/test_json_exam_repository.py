@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from app.core.domain.models import ExamProject, StudentExam, utc_now_iso
-from app.core.domain.validation import ExamStructureError
+from app.core.domain.validation import ExamConflictError, ExamStructureError
 from app.infrastructure.repositories.json_exam_repository import JsonExamRepository
 
 
@@ -71,6 +71,50 @@ def test_set_index_root_switches_storage_location(tmp_path: Path) -> None:
 
     assert second_file.parent == second_index.resolve()
     assert second_file.exists()
+
+
+def test_save_exam_rejects_stale_write_after_concurrent_change(tmp_path: Path) -> None:
+    """Two independent in-memory copies of the same exam (e.g. two computers sharing
+    the index folder via cloud sync) must not silently clobber each other's save."""
+    index_root = tmp_path / "index"
+    exam_folder = tmp_path / "exam"
+    exam_folder.mkdir(parents=True)
+
+    repo = JsonExamRepository(index_root=index_root)
+    original = _build_exam(exam_folder)
+    repo.save_exam(original)
+
+    stale_copy = repo.load_exam(index_root / "exam-1.json")
+    fresh_copy = repo.load_exam(index_root / "exam-1.json")
+
+    fresh_copy.exam_name = "Mathe (bearbeitet auf PC 2)"
+    repo.save_exam(fresh_copy)
+
+    stale_copy.exam_name = "Mathe (bearbeitet auf PC 1)"
+    with pytest.raises(ExamConflictError, match="Mathe"):
+        repo.save_exam(stale_copy)
+
+    # The conflicting write must not have touched the file at all.
+    on_disk = repo.load_exam(index_root / "exam-1.json")
+    assert on_disk.exam_name == "Mathe (bearbeitet auf PC 2)"
+
+
+def test_save_exam_allows_sequential_saves_from_the_same_session(tmp_path: Path) -> None:
+    index_root = tmp_path / "index"
+    exam_folder = tmp_path / "exam"
+    exam_folder.mkdir(parents=True)
+
+    repo = JsonExamRepository(index_root=index_root)
+    exam = _build_exam(exam_folder)
+    repo.save_exam(exam)
+
+    exam.exam_name = "Mathe (Runde 2)"
+    repo.save_exam(exam)  # must not raise: `exam.updated_at` was refreshed by the first save
+
+    exam.exam_name = "Mathe (Runde 3)"
+    repo.save_exam(exam)
+
+    assert repo.load_exam(index_root / "exam-1.json").exam_name == "Mathe (Runde 3)"
 
 
 def test_load_exam_rejects_legacy_schema_without_extra_assignments(tmp_path: Path) -> None:

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from app.core.domain.models import ExamProject, utc_now_iso
-from app.core.domain.validation import validate_regions
+from app.core.domain.validation import ExamConflictError, validate_regions
 from app.core.ports.repositories import ExamRepository
 from app.infrastructure.repositories.file_utils import atomic_write_json
 from app.infrastructure.repositories.legacy_migration import migrate_legacy_area_code_references
@@ -47,10 +47,43 @@ class JsonExamRepository(ExamRepository):
         return exam
 
     def save_exam(self, exam: ExamProject) -> Path:
-        exam.updated_at = utc_now_iso()
+        """Persist `exam`, refusing to overwrite a newer on-disk version.
+
+        `exam.updated_at` still holds whatever value this in-memory copy was
+        loaded/last saved with (this method is the only place that ever
+        changes it). If the file already on disk has a *different*
+        `updated_at`, something else wrote it since - most likely the same
+        Exam-Indexordner opened on another computer via cloud sync - so this
+        save is rejected with `ExamConflictError` instead of silently
+        discarding that other change. A brand-new exam (no file yet) or a
+        file whose `updated_at` cannot be read (corrupt/legacy) is not
+        blocked by this check.
+        """
         target = self._index_root / f"{exam.exam_id}.json"
+        on_disk_updated_at = self._read_on_disk_updated_at(target)
+        if on_disk_updated_at is not None and on_disk_updated_at != exam.updated_at:
+            raise ExamConflictError(
+                f"Klausur '{exam.exam_name}' wurde seit dem Laden an anderer Stelle veraendert "
+                "(z. B. auf einem anderen Rechner ueber denselben Exam-Indexordner) - Speichern "
+                "abgebrochen, um diese Aenderung nicht zu verlieren. Bitte die Klausur schliessen "
+                "und neu oeffnen, um den aktuellen Stand zu laden, und die eigene Aenderung danach "
+                "erneut vornehmen."
+            )
+        exam.updated_at = utc_now_iso()
         atomic_write_json(target, exam.to_dict())
         return target
+
+    @staticmethod
+    def _read_on_disk_updated_at(target: Path) -> str | None:
+        if not target.exists():
+            return None
+        try:
+            with target.open("r", encoding="utf-8") as handle:
+                raw = json.load(handle)
+        except Exception:
+            return None
+        value = str(raw.get("updated_at", "")).strip()
+        return value or None
 
     def delete_exam(self, exam_file: Path) -> None:
         candidate = exam_file.resolve()

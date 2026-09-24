@@ -150,7 +150,10 @@ class UiIntentControllerStudentResultPdfExportMixin:
         for student, _before_bytes, _after_bytes in applied:
             student.stats_report_appended = True
 
-        exam_file = self._deps.exam_repository.save_exam(exam)
+        exam_file = self._save_exam_guarded(exam)
+        if exam_file is None:
+            _rollback_applied()
+            return None
         updated = self._deps.exam_repository.load_exam(exam_file)
         after_payload = updated.to_dict()
 
@@ -247,7 +250,10 @@ class UiIntentControllerStudentResultPdfExportMixin:
         for student, _bytes in applied:
             student.stats_report_appended = False
 
-        exam_file = self._deps.exam_repository.save_exam(exam)
+        exam_file = self._save_exam_guarded(exam)
+        if exam_file is None:
+            _rollback_applied()
+            return None
         updated = self._deps.exam_repository.load_exam(exam_file)
         after_payload = updated.to_dict()
 
