@@ -287,3 +287,69 @@ def test_apply_grade_superposition_uses_exam_wide_grade_not_just_the_active_bere
     )
     assert result is not None
     assert placed.content == result.grade_label
+
+
+def test_apply_scored_superposition_shows_achieved_only_by_default(tmp_path: Path, monkeypatch) -> None:
+    controller, exam = _setup(tmp_path, monkeypatch)
+    controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
+
+    updated = controller.apply_scored_superposition_immediate(
+        exam=exam, region_id="r-a", page_number=1, task_codes=["1A"], student_ids=["alice"],
+        annotation_type="text", color_hex="#d62828", font_size=14.0, x=10.0, y=10.0,
+    )
+
+    assert updated is not None
+    placed = next(a for a in updated.pdf_annotations if a.student_pdf == "Alice.pdf")
+    assert placed.content == "8"
+
+
+def test_apply_scored_superposition_shows_achieved_over_max_when_requested(tmp_path: Path, monkeypatch) -> None:
+    controller, exam = _setup(tmp_path, monkeypatch)
+    controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
+
+    updated = controller.apply_scored_superposition_immediate(
+        exam=exam, region_id="r-a", page_number=1, task_codes=["1A"], student_ids=["alice"],
+        annotation_type="text", color_hex="#d62828", font_size=14.0, x=10.0, y=10.0,
+        max_points=10.0, show_max_points=True,
+    )
+
+    assert updated is not None
+    placed = next(a for a in updated.pdf_annotations if a.student_pdf == "Alice.pdf")
+    assert placed.content == "8/10"
+
+
+def test_apply_grade_superposition_rejects_entirely_when_page_missing_for_one_student(tmp_path: Path, monkeypatch) -> None:
+    """Regression: a page navigated to independent of the Bereich must exist for every target student."""
+    controller, exam = _setup(tmp_path, monkeypatch)
+    _assign_scale(controller, exam)
+    exam.students[0].page_count = 2  # Alice has 2 pages
+    # Bob keeps page_count=1 from _build_exam - does not have page 2
+    controller._deps.exam_repository.save_exam(exam)
+    controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=9.0, max_points=10.0)
+    controller._deps.score_repository.save_score(exam=exam, student_id="bob", task_code="1A", points=9.0, max_points=10.0)
+
+    updated = controller.apply_grade_superposition_immediate(
+        exam=exam, region_id="r-a", page_number=2, task_codes=["1A"], student_ids=["alice", "bob"],
+        annotation_type="text", color_hex="#d62828", font_size=14.0, x=10.0, y=10.0,
+    )
+
+    assert updated is None
+    assert len(_reload(controller).pdf_annotations) == 0
+
+
+def test_apply_grade_superposition_places_when_page_exists_for_all(tmp_path: Path, monkeypatch) -> None:
+    controller, exam = _setup(tmp_path, monkeypatch)
+    _assign_scale(controller, exam)
+    exam.students[0].page_count = 2
+    exam.students[1].page_count = 2
+    controller._deps.exam_repository.save_exam(exam)
+    controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=9.0, max_points=10.0)
+    controller._deps.score_repository.save_score(exam=exam, student_id="bob", task_code="1A", points=9.0, max_points=10.0)
+
+    updated = controller.apply_grade_superposition_immediate(
+        exam=exam, region_id="r-a", page_number=2, task_codes=["1A"], student_ids=["alice", "bob"],
+        annotation_type="text", color_hex="#d62828", font_size=14.0, x=10.0, y=10.0,
+    )
+
+    assert updated is not None
+    assert len(updated.pdf_annotations) == 2

@@ -159,19 +159,33 @@ class MainWindowRegionEditorMixin:
         self._refresh_task_input_mode()
 
     def _build_superposed_pixmap(
-        self, *, students: Sequence[StudentExam], page_number: int, target_width: float = 520.0
+        self,
+        *,
+        students: Sequence[StudentExam],
+        page_number: int,
+        target_width: float = 520.0,
+        clip: fitz.Rect | None = None,
     ) -> tuple[fitz.Pixmap, fitz.Rect, int] | None:
         """Composite one page across many students' PDFs into a dark-wins grayscale pixmap.
 
         The shared technical mechanism behind every Superseite use (Einlesemodus,
-        Namenmodus region alignment, Supersymbol's filtered view): pure
-        computation over "which students, which page" with no canvas/Tkinter
-        side effects, so each caller can display the result on its own canvas
-        with its own coordinate/scale convention (see `_render_superposed_page`
+        Namenmodus region alignment, Supersymbol's filtered view, Punkte-
+        Superposition's Bereich-cropped preview): pure computation over
+        "which students, which page" with no canvas/Tkinter side effects,
+        so each caller can display the result on its own canvas with its
+        own coordinate/scale convention (see `_render_superposed_page`
         for the Einlesemodus/Namenmodus reading-canvas display, and
         `_render_supersymbol_filtered_page` for the Korrekturmodus
         correction-canvas display - the two already use different coordinate
         systems and must not be forced to share display code, only this math).
+
+        `clip`, if given, crops every student's page to that box (same
+        intersect-with-page-and-fall-back-to-full-page defensiveness as
+        the normal single-student Korrektur-Vorschau,
+        `main_window_correction_core.py`) instead of rendering the whole
+        page - used by the Punkte-Superposition preview to show only the
+        current Bereich.
+
         Returns `None` if no page of any student could be rendered.
         """
         if self._current_exam is None:
@@ -200,12 +214,20 @@ class MainWindowRegionEditorMixin:
             except Exception:
                 continue
 
+            effective_clip: fitz.Rect | None = None
+            if clip is not None:
+                effective_clip = clip.intersect(page.rect)
+                if effective_clip.is_empty:
+                    effective_clip = None
+
             if reference_rect is None:
-                reference_rect = page.rect
+                reference_rect = effective_clip if effective_clip is not None else page.rect
             scale = target_width / max(reference_rect.width, 1.0)
 
             try:
-                pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), colorspace=fitz.csGRAY, alpha=False)
+                pix = page.get_pixmap(
+                    matrix=fitz.Matrix(scale, scale), clip=effective_clip, colorspace=fitz.csGRAY, alpha=False
+                )
             except Exception:
                 continue
 

@@ -74,6 +74,8 @@ class UiIntentControllerSuperpositionMixin:
         font_size: float,
         x: float,
         y: float,
+        max_points: float = 0.0,
+        show_max_points: bool = False,
     ) -> ExamProject | None:
         """Place each target student's own points-sum at one shared position, as one undoable action.
 
@@ -81,6 +83,14 @@ class UiIntentControllerSuperpositionMixin:
         live filter - later points changes never retroactively move or
         recompute already-placed Superposition annotations. Re-running the
         action (with the same/updated targets) applies fresh values again.
+
+        `max_points`/`show_max_points` control the inserted text format
+        (Korrektor-Wunschliste): `show_max_points=False` (default,
+        unchanged behavior) inserts just the achieved value (e.g. "7");
+        `True` inserts "7/10" using `max_points` as the denominator - the
+        GUI resolves `max_points` from the single currently-selected
+        Punkte-Formular-Aufgabe (`_selected_correction_task()`) and passes
+        it straight through, no region/task lookup needed here.
         """
         resolved = self._resolve_superposition_targets_or_none(
             exam=exam, region_id=region_id, task_codes=task_codes, student_ids=student_ids
@@ -89,7 +99,8 @@ class UiIntentControllerSuperpositionMixin:
             return None
         target_students, values_by_student_id = resolved
         content_by_student_id = {
-            student_id: f"{value:g}" for student_id, value in values_by_student_id.items()
+            student_id: (f"{value:g}/{max_points:g}" if show_max_points else f"{value:g}")
+            for student_id, value in values_by_student_id.items()
         }
 
         return self._apply_superposition_clones(
@@ -142,15 +153,23 @@ class UiIntentControllerSuperpositionMixin:
 
         Requires an assigned Notenschluessel-Snapshot; without one the
         action is rejected outright before resolving any student data.
-        For each target student, exactly one of three distinguishable
-        reasons aborts the whole action (all-or-nothing, matching
-        `apply_scored_superposition_immediate`'s validate-then-execute
-        contract): the exam-wide Auswertung is incomplete for that student
-        (`total_achieved_points is None`), the exam has no bewertbare
-        Aufgaben at all (`total_max_points <= 0`), or the student's
-        percentage falls below the lowest Notenschluessel-Schwelle
-        (`grade_label is None` despite a complete, positive total - the
-        `GradingError` case, already caught inside `compute_student_result`).
+        `page_number` may come from a preview navigated independent of the
+        Bereich (see `main_window_supersymbol.py:_change_superposition_page`)
+        - this method additionally validates that **every** target student
+        actually has that page (`page_number <= student.page_count`) before
+        placing anything; a page only some of them have is rejected
+        outright (all-or-nothing, no annotations, no `HistoryAction`), with
+        a diagnostic naming each affected person and their actual page
+        count. For each target student, exactly one of three further
+        distinguishable reasons aborts the whole action (all-or-nothing,
+        matching `apply_scored_superposition_immediate`'s validate-then-
+        execute contract): the exam-wide Auswertung is incomplete for that
+        student (`total_achieved_points is None`), the exam has no
+        bewertbare Aufgaben at all (`total_max_points <= 0`), or the
+        student's percentage falls below the lowest Notenschluessel-
+        Schwelle (`grade_label is None` despite a complete, positive total
+        - the `GradingError` case, already caught inside
+        `compute_student_result`).
         """
         if exam.grading_scale_snapshot is None:
             messagebox.showerror(
@@ -161,6 +180,19 @@ class UiIntentControllerSuperpositionMixin:
         students_by_id = {student.student_id: student for student in exam.students}
         target_students = [students_by_id[sid] for sid in student_ids if sid in students_by_id]
         if not target_students:
+            return None
+
+        missing_page_students = [
+            f"{student.display_name} ({student.page_count} Seiten)"
+            for student in target_students
+            if page_number > student.page_count
+        ]
+        if missing_page_students:
+            messagebox.showerror(
+                "Superposition nicht moeglich",
+                f"Die Note kann nicht auf Seite {page_number} eingefuegt werden, weil bei "
+                f"{', '.join(missing_page_students)} nicht so viele Seiten vorhanden sind.",
+            )
             return None
 
         scores = self._deps.score_repository.load_scores(exam=exam)

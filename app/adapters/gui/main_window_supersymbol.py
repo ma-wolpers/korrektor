@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Sequence
 
+import fitz
+
 from app.adapters.gui.dialog_services import messagebox
 from app.adapters.gui.main_window_constants import (
     SUPERSYMBOL_OPERATOR_BY_LABEL,
@@ -105,6 +107,44 @@ class MainWindowSupersymbolMixin:
             self._superposition_grade_button,
             label="Fuegt an einer gemeinsamen Position die jeweilige Note jeder Person ein (Notenschluessel noetig)",
         )
+
+        show_max_points_check = widgets.Checkbutton(
+            superposition_row,
+            text="Gesamtpunktzahl anzeigen",
+            variable=self._superposition_show_max_points_var,
+        )
+        show_max_points_check.pack(anchor=ui.W, pady=(4, 0))
+        self._attach_hover_help(
+            show_max_points_check,
+            label="Punkte-Superposition zeigt z. B. '7/10' statt nur '7'",
+        )
+
+        superposition_page_nav = widgets.Frame(superposition_row, style="Surface.TFrame")
+        self._superposition_page_nav_frame = superposition_page_nav
+        self._superposition_page_prev_button = widgets.Button(
+            superposition_page_nav,
+            text="◀ Seite",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_superposition_page(-1),
+        )
+        self._superposition_page_prev_button.pack(side=ui.LEFT)
+        self._superposition_page_next_button = widgets.Button(
+            superposition_page_nav,
+            text="Seite ▶",
+            style="SecondaryAction.TButton",
+            command=lambda: self._change_superposition_page(1),
+        )
+        self._superposition_page_next_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(
+            self._superposition_page_prev_button,
+            label="Noten-Superposition: eine Seite zurueck (unabhaengig vom Bereich)",
+        )
+        self._attach_hover_help(
+            self._superposition_page_next_button,
+            label="Noten-Superposition: eine Seite vor (unabhaengig vom Bereich)",
+        )
+        superposition_page_nav.pack(anchor=ui.W, pady=(4, 0))
+        superposition_page_nav.pack_forget()
 
         self._supersymbol_info_var = ui.StringVar(value="")
         widgets.Label(
@@ -235,8 +275,11 @@ class MainWindowSupersymbolMixin:
         self._supersymbol_matched_student_ids = []
         self._superposition_mode = None
         self._superposition_task_codes = []
+        self._superposition_page_number = None
+        self._superposition_max_points = 0.0
         self._supersymbol_preview_button.configure(state="normal")
         self._supersymbol_cancel_button.pack_forget()
+        self._superposition_page_nav_frame.pack_forget()
         self._supersymbol_info_var.set("")
         self._render_correction_preview()
 
@@ -256,6 +299,22 @@ class MainWindowSupersymbolMixin:
         Bereich" (`self._correction_student_indices`, same set
         "Durchdruecken" uses) - unlike Supersymbol, a Superposition has no
         filter condition to narrow it down.
+
+        The two modes intentionally source their task/page/clip data
+        differently, per the Korrektor-Wunschliste:
+        - "scored" always uses the single task currently selected in the
+          Punkte-Formular (`_selected_correction_task()`), independent of
+          the Supersymbol-Filter's own "Aufgabe(n)"-Auswahl (that field is
+          for the filter's target population, not for what a Superposition
+          inserts - the previous shared use of it was an accidental
+          coupling). The preview is cropped to the current Bereich's box
+          (`clip`), and stays tied to the Bereich's page.
+        - "grade" is unchanged: `task_codes` no longer influences the
+          Notenwert at all (`apply_grade_superposition_immediate` computes
+          it exam-weit), the preview shows the whole page, and
+          `self._superposition_page_number` lets the teacher navigate to
+          any page of the exam via `_change_superposition_page`,
+          independent of the Bereich.
         """
         if self._current_exam is None or self._controller is None:
             return
@@ -263,23 +322,61 @@ class MainWindowSupersymbolMixin:
         if template is None:
             messagebox.showinfo("Hinweis", "Bitte zuerst einen Bereich waehlen.")
             return
-        task_codes = self._resolve_supersymbol_task_codes(template)
-        if not task_codes:
-            messagebox.showinfo("Hinweis", "Bitte eine Aufgabe oder 'Summe aller Aufgaben' waehlen.")
-            return
         target_students = [self._current_exam.students[index] for index in self._correction_student_indices]
         if not target_students:
             return
+
+        clip: fitz.Rect | None = None
+        if mode == "scored":
+            task_code, max_points = self._selected_correction_task()
+            if task_code is None:
+                messagebox.showinfo("Hinweis", "Bitte zuerst eine Aufgabe im Punkte-Formular auswaehlen.")
+                return
+            task_codes = [task_code]
+            self._superposition_max_points = max_points
+            clip = fitz.Rect(*template.box)
+            page_number = template.page_number
+        else:
+            task_codes = self._resolve_supersymbol_task_codes(template)
+            if not task_codes:
+                messagebox.showinfo("Hinweis", "Bitte eine Aufgabe oder 'Summe aller Aufgaben' waehlen.")
+                return
+            self._superposition_page_number = template.page_number
+            page_number = self._superposition_page_number
 
         self._superposition_mode = mode
         self._superposition_task_codes = task_codes
         self._supersymbol_preview_button.configure(state="disabled")
         self._supersymbol_cancel_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._render_supersymbol_filtered_page(students=target_students, page_number=template.page_number)
+        if mode == "grade":
+            self._superposition_page_nav_frame.pack(anchor=ui.W, pady=(4, 0))
+        self._render_supersymbol_filtered_page(students=target_students, page_number=page_number, clip=clip)
         label = "Punkte" if mode == "scored" else "Note"
         self._supersymbol_info_var.set(
             f"{label}-Superposition-Vorschau ({len(target_students)} Personen) - Klick platziert die Werte."
         )
+
+    def _change_superposition_page(self, delta: int) -> None:
+        """Move the Noten-Superposition preview by one page, independent of the current Bereich.
+
+        Navigation is bounded by the largest `page_count` among target
+        students (Praezedenz: `main_window_reading.py`s
+        `max(student.page_count, 1)`), but that only governs what can be
+        *looked at* - `apply_grade_superposition_immediate` separately
+        validates, before placing anything, that every target student
+        actually has the currently shown page (see its docstring); a page
+        only some of them have can be viewed but never written to.
+        """
+        if self._superposition_mode != "grade" or self._current_exam is None:
+            return
+        target_students = [self._current_exam.students[index] for index in self._correction_student_indices]
+        if not target_students:
+            return
+        max_page = max((student.page_count for student in target_students), default=1)
+        max_page = max(max_page, 1)
+        current = self._superposition_page_number or 1
+        self._superposition_page_number = max(1, min(max_page, current + delta))
+        self._render_supersymbol_filtered_page(students=target_students, page_number=self._superposition_page_number)
 
     def _apply_superposition_at_canvas_position(self, canvas_x: float, canvas_y: float) -> None:
         """Resolve every target student's Punkte-/Noten-Wert and place it, via the matching controller method."""
@@ -292,16 +389,30 @@ class MainWindowSupersymbolMixin:
         if pdf_pos is None:
             return
 
+        # "grade" mode's preview can be navigated to any page independent of
+        # the Bereich (see _change_superposition_page) - the annotation must
+        # land on whatever page is currently shown, not the Bereich's own
+        # page. "scored" stays tied to the Bereich's page as before.
+        page_number = (
+            self._superposition_page_number
+            if self._superposition_mode == "grade" and self._superposition_page_number is not None
+            else template.page_number
+        )
         student_ids = [self._current_exam.students[index].student_id for index in self._correction_student_indices]
         apply_method = (
             self._controller.apply_scored_superposition_immediate
             if self._superposition_mode == "scored"
             else self._controller.apply_grade_superposition_immediate
         )
+        extra_kwargs = (
+            {"max_points": self._superposition_max_points, "show_max_points": self._superposition_show_max_points_var.get()}
+            if self._superposition_mode == "scored"
+            else {}
+        )
         updated = apply_method(
             exam=self._current_exam,
             region_id=template.region_id,
-            page_number=template.page_number,
+            page_number=page_number,
             task_codes=self._superposition_task_codes,
             student_ids=student_ids,
             annotation_type="text",
@@ -309,23 +420,31 @@ class MainWindowSupersymbolMixin:
             font_size=self._default_annotation_font_size,
             x=pdf_pos[0],
             y=pdf_pos[1],
+            **extra_kwargs,
         )
         if updated is None:
             return
         self._current_exam = updated
         self._cancel_supersymbol_filter()
 
-    def _render_supersymbol_filtered_page(self, *, students: Sequence[StudentExam], page_number: int) -> int:
+    def _render_supersymbol_filtered_page(
+        self, *, students: Sequence[StudentExam], page_number: int, clip: fitz.Rect | None = None
+    ) -> int:
         """Render the Supersymbol filtered Superseite onto the correction canvas.
 
-        Full page (uncropped), unlike the normal single-student Korrektur
-        preview: it sets `_correction_clip_box` to the whole reference page
-        (origin at 0,0) rather than `template.box`, so the existing
-        `_canvas_to_pdf_coords` conversion already yields correct absolute
-        PDF coordinates - a click lands at the identical position for every
-        matched student without any new coordinate-conversion code.
+        Full page (uncropped) by default, matching the Supersymbol-Filter
+        and the Noten-Superposition (which deliberately keeps the whole
+        page, see `_start_superposition_preview`'s docstring): sets
+        `_correction_clip_box` to the whole reference page (origin at
+        0,0), so the existing `_canvas_to_pdf_coords` conversion already
+        yields correct absolute PDF coordinates. When `clip` is given (the
+        Punkte-Superposition's Bereich crop), the rendered image instead
+        represents just that box - `_correction_clip_box` is set to the
+        clip's own origin, exactly like the normal single-student
+        Korrektur-Vorschau (`main_window_correction_core.py`), so a click
+        still converts to the correct absolute PDF position.
         """
-        built = self._build_superposed_pixmap(students=students, page_number=page_number)
+        built = self._build_superposed_pixmap(students=students, page_number=page_number, clip=clip)
         if built is None:
             self._correction_canvas.delete("all")
             self._correction_info_var.set("Supersymbol: keine renderbaren Seiten fuer die Treffer")
@@ -335,7 +454,15 @@ class MainWindowSupersymbolMixin:
         pgm_header = f"P5 {pixmap.width} {pixmap.height} 255\n".encode("ascii")
         self._correction_photo = ui.PhotoImage(data=pgm_header + pixmap.samples, format="ppm")
         scale = pixmap.width / max(reference_rect.width, 1.0)
-        self._correction_clip_box = (0.0, 0.0, float(reference_rect.width), float(reference_rect.height))
+        if clip is not None:
+            self._correction_clip_box = (
+                float(reference_rect.x0),
+                float(reference_rect.y0),
+                float(reference_rect.x1),
+                float(reference_rect.y1),
+            )
+        else:
+            self._correction_clip_box = (0.0, 0.0, float(reference_rect.width), float(reference_rect.height))
         self._correction_scale = scale
         self._correction_canvas.delete("all")
         self._correction_canvas.create_image(0, 0, anchor=ui.NW, image=self._correction_photo)

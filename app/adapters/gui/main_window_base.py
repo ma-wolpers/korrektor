@@ -115,6 +115,8 @@ class MainWindowBase(BwBaseWindow):
         self._supersymbol_matched_student_ids: list[str] = []
         self._superposition_mode: str | None = None
         self._superposition_task_codes: list[str] = []
+        self._superposition_max_points = 0.0
+        self._superposition_page_number: int | None = None
         settings = self.deps.runtime_settings
         self._default_annotation_color_hex = self._normalize_marker_color_hex(settings.default_annotation_color)
         self._default_annotation_font_size = self._normalize_marker_font_size(settings.default_annotation_pdf_font_size)
@@ -213,6 +215,7 @@ class MainWindowBase(BwBaseWindow):
         self._correction_finished_hint_var = ui.StringVar(value="Fertigstatus nicht aktiv")
         self._correction_finished_all_var = ui.BooleanVar(value=False)
         self._correction_finished_all_hint_var = ui.StringVar(value="")
+        self._superposition_show_max_points_var = ui.BooleanVar(value=False)
         self._shortcut_debug_offline_var = ui.BooleanVar(value=False)
         self._shortcut_runtime_debug_context_var = ui.StringVar(value="")
         self._shortcut_runtime_debug_summary_var = ui.StringVar(value="")
