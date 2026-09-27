@@ -86,6 +86,17 @@ class MainWindowBase(BwBaseWindow):
         self._extra_popup_info_var: ui.StringVar | None = None
         self._extra_popup_student_index: int | None = None
         self._extra_popup_cursor = 0
+        self._import_split_popup: ui.Toplevel | None = None
+        self._import_split_canvas: ui.Canvas | None = None
+        self._import_split_photo: ui.PhotoImage | None = None
+        self._import_split_info_var: ui.StringVar | None = None
+        self._import_split_boundary_var: ui.BooleanVar | None = None
+        self._import_split_count_var: ui.StringVar | None = None
+        self._import_split_boundary_check: widgets.Checkbutton | None = None
+        self._import_split_document: fitz.Document | None = None
+        self._import_split_source_path: Path | None = None
+        self._import_split_page_index = 0
+        self._import_split_boundary_pages: set[int] = set()
         self._grading_scale_popup: ScrollablePopupWindow | None = None
         self._grading_scale_tree: widgets.Treeview | None = None
         self._grading_scale_selected_id: str | None = None

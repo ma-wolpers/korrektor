@@ -51,6 +51,7 @@ from app.adapters.gui.main_window_correction_completion import MainWindowCorrect
 from app.adapters.gui.main_window_correction_form import MainWindowCorrectionFormMixin
 from app.adapters.gui.main_window_naming import MainWindowNamingMixin
 from app.adapters.gui.main_window_extra_pages import MainWindowExtraPagesMixin
+from app.adapters.gui.main_window_import_split import MainWindowImportSplitMixin
 from app.adapters.gui.main_window_grading_scale import MainWindowGradingScaleMixin
 from app.adapters.gui.main_window_task_categories import MainWindowTaskCategoriesMixin
 from app.adapters.gui.main_window_student_result import MainWindowStudentResultMixin
@@ -83,6 +84,7 @@ class MainWindow(
     MainWindowCorrectionFormMixin,
     MainWindowNamingMixin,
     MainWindowExtraPagesMixin,
+    MainWindowImportSplitMixin,
     MainWindowGradingScaleMixin,
     MainWindowTaskCategoriesMixin,
     MainWindowStudentResultMixin,

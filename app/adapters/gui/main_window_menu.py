@@ -66,6 +66,9 @@ class MainWindowMenuMixin:
             SharedMenuItem(type="command", label="Neue Klausur (Strg+N)", command=self._menu_create_exam),
             SharedMenuItem(type="command", label="Ausgewaehlte Klausur oeffnen", command=self._menu_open_selected_exam),
             SharedMenuItem(type="command", label="Punkte exportieren (Strg+E)", command=self._menu_export_scores),
+            SharedMenuItem(
+                type="command", label="PDF importieren && aufteilen...", command=self._open_import_split_wizard
+            ),
             SharedMenuItem(type="separator"),
             SharedMenuItem(type="command", label="Beenden", command=self.destroy),
         )
