@@ -101,6 +101,15 @@ class MainWindowViewStateMixin:
         student_result_button.pack(side=ui.RIGHT, padx=(0, 8))
         self._attach_hover_help(student_result_button, label="Ergebnisse pro Schueler:in ansehen")
 
+        batch_export_button = widgets.Button(
+            detail_actions,
+            text="Sammelexport",
+            style="SecondaryAction.TButton",
+            command=self._open_batch_export_popup,
+        )
+        batch_export_button.pack(side=ui.RIGHT, padx=(0, 8))
+        self._attach_hover_help(batch_export_button, label="Alle ausgewaehlten Schueler:innen-PDFs in einem Rutsch exportieren")
+
         self._detail_name = ui.StringVar(value="-")
         self._detail_pages = ui.StringVar(value="Standardseiten: -")
         self._detail_students = ui.StringVar(value="Schüler:innen: -")

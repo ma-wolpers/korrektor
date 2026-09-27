@@ -56,6 +56,7 @@ from app.adapters.gui.main_window_grading_scale import MainWindowGradingScaleMix
 from app.adapters.gui.main_window_task_categories import MainWindowTaskCategoriesMixin
 from app.adapters.gui.main_window_student_result import MainWindowStudentResultMixin
 from app.adapters.gui.main_window_student_result_pdf_export import MainWindowStudentResultPdfExportMixin
+from app.adapters.gui.main_window_batch_export import MainWindowBatchExportMixin
 from app.adapters.gui.main_window_reading_canvas import MainWindowReadingCanvasMixin
 from app.adapters.gui.main_window_reading import MainWindowReadingMixin
 from app.adapters.gui.main_window_correction_core import MainWindowCorrectionCoreMixin
@@ -89,6 +90,7 @@ class MainWindow(
     MainWindowTaskCategoriesMixin,
     MainWindowStudentResultMixin,
     MainWindowStudentResultPdfExportMixin,
+    MainWindowBatchExportMixin,
     MainWindowReadingCanvasMixin,
     MainWindowReadingMixin,
     MainWindowCorrectionCoreMixin,
