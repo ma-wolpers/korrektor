@@ -50,3 +50,40 @@ def test_execute_allows_a_second_exam_for_a_different_folder(tmp_path: Path) -> 
     result_b = usecase.execute(folder_path=folder_b, exam_name="Mathe 10b")
 
     assert result_b.exam.exam_name == "Mathe 10b"
+
+
+def test_execute_persists_optional_school_class_and_subject(tmp_path: Path) -> None:
+    index_root = tmp_path / "index"
+    exam_folder = tmp_path / "exam"
+    exam_folder.mkdir(parents=True)
+
+    usecase = CreateExamUseCase(
+        exam_repo=JsonExamRepository(index_root=index_root),
+        pdf_scan_repo=_FakePdfScanRepository(),
+    )
+
+    result = usecase.execute(
+        folder_path=exam_folder, exam_name="Mathe 10a", school_class="10a", subject="Mathematik"
+    )
+
+    assert result.exam.school_class == "10a"
+    assert result.exam.subject == "Mathematik"
+    reloaded = JsonExamRepository(index_root=index_root).load_exam(result.exam_file)
+    assert reloaded.school_class == "10a"
+    assert reloaded.subject == "Mathematik"
+
+
+def test_execute_defaults_school_class_and_subject_to_empty(tmp_path: Path) -> None:
+    index_root = tmp_path / "index"
+    exam_folder = tmp_path / "exam"
+    exam_folder.mkdir(parents=True)
+
+    usecase = CreateExamUseCase(
+        exam_repo=JsonExamRepository(index_root=index_root),
+        pdf_scan_repo=_FakePdfScanRepository(),
+    )
+
+    result = usecase.execute(folder_path=exam_folder, exam_name="Mathe 10a")
+
+    assert result.exam.school_class == ""
+    assert result.exam.subject == ""

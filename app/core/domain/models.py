@@ -332,6 +332,10 @@ class ExamProject:
     # ein Task hoechstens einer Kategorie, "kein Eintrag" = unkategorisiert.
     task_categories: list[TaskCategory] = field(default_factory=list)
     task_category_assignments: dict[str, str] = field(default_factory=dict)
+    # Optionale Klausur-Metadaten fuer den zentralen Exportmodus (Namensschema-Platzhalter
+    # {Klasse}/{Fach}) - einmalig bei der Klausur-Anlage eingetragen, leer erlaubt.
+    school_class: str = ""
+    subject: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         normalized_task_comments: dict[str, dict[str, str]] = {}
@@ -368,6 +372,8 @@ class ExamProject:
             ),
             "task_categories": [category.to_dict() for category in self.task_categories],
             "task_category_assignments": dict(self.task_category_assignments),
+            "school_class": self.school_class,
+            "subject": self.subject,
         }
 
     @classmethod
@@ -436,6 +442,8 @@ class ExamProject:
             ),
             task_categories=task_categories,
             task_category_assignments=task_category_assignments,
+            school_class=str(raw.get("school_class", "")).strip(),
+            subject=str(raw.get("subject", "")).strip(),
         )
 
     @property

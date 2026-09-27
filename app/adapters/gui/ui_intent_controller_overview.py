@@ -56,9 +56,15 @@ class UiIntentControllerOverviewMixin:
         exam_name = simpledialog.askstring("Neue Klausur", "Name der Klausur:", initialvalue=suggested)
         if exam_name is None:
             return
+        # Optional, leer lassen erlaubt - nur Platzhalter fuers Namensschema
+        # des zentralen Exportmodus ({Klasse}/{Fach}), keine Pflichtangabe.
+        school_class = simpledialog.askstring("Neue Klausur", "Klasse (optional):", initialvalue="") or ""
+        subject = simpledialog.askstring("Neue Klausur", "Fach (optional):", initialvalue="") or ""
 
         try:
-            result = self._deps.create_exam_usecase.execute(folder_path=Path(folder), exam_name=exam_name)
+            result = self._deps.create_exam_usecase.execute(
+                folder_path=Path(folder), exam_name=exam_name, school_class=school_class, subject=subject
+            )
         except Exception as exc:  # pragma: no cover - UI messaging
             messagebox.showerror("Fehler", str(exc))
             return

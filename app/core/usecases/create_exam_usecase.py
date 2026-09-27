@@ -20,7 +20,14 @@ class CreateExamUseCase:
         self._exam_repo = exam_repo
         self._pdf_scan_repo = pdf_scan_repo
 
-    def execute(self, *, folder_path: Path, exam_name: str | None = None) -> CreateExamResult:
+    def execute(
+        self,
+        *,
+        folder_path: Path,
+        exam_name: str | None = None,
+        school_class: str = "",
+        subject: str = "",
+    ) -> CreateExamResult:
         resolved_folder = folder_path.resolve()
         existing_name = self._find_exam_name_for_folder(resolved_folder)
         if existing_name is not None:
@@ -66,6 +73,8 @@ class CreateExamUseCase:
             extra_page_assignments=[],
             person_area_completions=[],
             is_reading_complete=False,
+            school_class=school_class.strip(),
+            subject=subject.strip(),
         )
         exam_file = self._exam_repo.save_exam(exam)
         return CreateExamResult(exam=exam, exam_file=exam_file)
