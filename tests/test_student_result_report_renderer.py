@@ -4,7 +4,10 @@ from app.core.domain.grading_scale import SCALE_TYPE_SCHOOL_1_6, GradeThreshold,
 from app.core.domain.models import TaskCategory, TaskDefinition
 from app.core.domain.student_result import compute_student_result
 from app.infrastructure.rendering.competency_chart_renderer import save_figure
-from app.infrastructure.rendering.student_result_report_renderer import render_student_result_report
+from app.infrastructure.rendering.student_result_report_renderer import (
+    ALL_REPORT_SECTIONS,
+    render_student_result_report,
+)
 
 
 def _result():
@@ -94,3 +97,57 @@ def test_render_student_result_report_handles_no_categories_no_grade() -> None:
     fig = render_student_result_report(result)
 
     assert fig is not None
+
+
+def test_render_student_result_report_empty_sections_renders_only_title() -> None:
+    """Zentraler Exportmodus: `sections == frozenset()` must not crash the renderer itself -
+    that invalid *state* is rejected one layer up (Batch-Export-Controller/GUI), not here."""
+    fig = render_student_result_report(_result(), sections=frozenset())
+
+    assert fig.axes == []
+    assert fig._suptitle.get_text() == "Alice"
+
+
+def test_render_student_result_report_summary_only_has_one_axes() -> None:
+    fig = render_student_result_report(_result(), sections=frozenset({"summary"}))
+
+    assert len(fig.axes) == 1
+    (summary_axes,) = fig.axes
+    assert "Gesamt:" in summary_axes.texts[0].get_text()
+
+
+def test_render_student_result_report_chart_only_has_one_axes() -> None:
+    fig = render_student_result_report(_result(), sections=frozenset({"chart"}))
+
+    assert len(fig.axes) == 1
+
+
+def test_render_student_result_report_tasks_only_omits_category_table() -> None:
+    fig = render_student_result_report(_result(), sections=frozenset({"tasks"}))
+
+    assert len(fig.axes) == 1
+    (task_axes,) = fig.axes
+    assert task_axes.get_title(loc="left") == "Pro Aufgabe"
+
+
+def test_render_student_result_report_categories_only_omits_task_table() -> None:
+    fig = render_student_result_report(_result(), sections=frozenset({"categories"}))
+
+    assert len(fig.axes) == 1
+    (category_axes,) = fig.axes
+    assert category_axes.get_title(loc="left") == "Pro Kategorie"
+
+
+def test_render_student_result_report_tasks_and_categories_side_by_side() -> None:
+    fig = render_student_result_report(_result(), sections=frozenset({"tasks", "categories"}))
+
+    assert len(fig.axes) == 2
+    task_axes, category_axes = fig.axes
+    assert task_axes.get_position().x0 < category_axes.get_position().x0
+
+
+def test_render_student_result_report_all_sections_constant_matches_default() -> None:
+    fig_default = render_student_result_report(_result())
+    fig_explicit = render_student_result_report(_result(), sections=ALL_REPORT_SECTIONS)
+
+    assert len(fig_default.axes) == len(fig_explicit.axes) == 4
