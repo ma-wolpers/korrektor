@@ -18,54 +18,92 @@ correction annotations (`main_window_correction_markers_export.py`).
 """
 
 
-def rewrite_pdf_atomically(pdf_path: Path, mutate: Callable[[fitz.Document], None]) -> None:
-    """Open `pdf_path`, let `mutate` edit it in place, then atomically replace the original.
+def _save_and_replace_atomically(document: fitz.Document, target_path: Path) -> None:
+    """Save `document` to a sibling temp file next to `target_path`, then atomically replace it.
 
-    The technical SSOT for every safe PDF rewrite in this codebase (both
-    the correction-annotation burn-in and the Statistikseite append/
-    remove flows build on this). Lifecycle is deliberately explicit,
-    because Windows keeps an open file handle locked - `os.replace` must
-    never run while the original `fitz.Document` is still open:
+    The shared core behind `rewrite_pdf_atomically` (target = the file the
+    document was itself opened from) and `write_pdf_copy_atomically`
+    (target = a different, new export destination) - both need the exact
+    same "temp file next to the target, close before replace, clean up on
+    error" mechanics, only the target path differs. Windows keeps an open
+    file handle locked, so `os.replace` must never run while `document` is
+    still open.
 
-        open original -> mutate(...) -> save to a sibling temp file
-        -> close the original document -> os.replace(temp, original)
-
-    On any exception raised by `mutate` or `document.save`, the (still
-    open) document is closed, the temp file is removed if it exists, the
-    original is left completely untouched, and the exception is
-    re-raised - this function never swallows errors; callers decide how
-    to report/roll back (see `main_window_correction_markers_export.py`'s
-    `failures` collection, or the Statistikseite controller's batch
-    rollback).
+    On any exception, `document` is closed if still open, the temp file is
+    removed if it exists, `target_path` is left completely untouched, and
+    the exception is re-raised - this function never swallows errors.
     """
-    temp_path = pdf_path.with_name(f"{pdf_path.stem}.korrektor.tmp.pdf")
-    document: fitz.Document | None = None
+    temp_path = target_path.with_name(f"{target_path.stem}.korrektor.tmp.pdf")
     try:
-        document = fitz.open(pdf_path)
-        mutate(document)
         document.save(temp_path, garbage=4, deflate=True)
         document.close()
-        document = None
-        os.replace(temp_path, pdf_path)
+        os.replace(temp_path, target_path)
     except Exception:
-        if document is not None:
-            try:
-                document.close()
-            except Exception:
-                pass
-            document = None
+        try:
+            document.close()
+        except Exception:
+            pass
         try:
             if temp_path.exists():
                 temp_path.unlink()
         except Exception:
             pass
         raise
-    finally:
-        if document is not None:
-            try:
-                document.close()
-            except Exception:
-                pass
+
+
+def rewrite_pdf_atomically(pdf_path: Path, mutate: Callable[[fitz.Document], None]) -> None:
+    """Open `pdf_path`, let `mutate` edit it in place, then atomically replace the original.
+
+    The technical SSOT for every safe PDF rewrite in this codebase (both
+    the correction-annotation burn-in and the Statistikseite append/
+    remove flows build on this). Lifecycle is deliberately explicit:
+
+        open original -> mutate(...) -> save to a sibling temp file
+        -> close the original document -> os.replace(temp, original)
+
+    (`_save_and_replace_atomically` performs the save/close/replace half;
+    see its docstring for the error-handling contract, which applies here
+    unchanged.) If `mutate` itself raises, the freshly opened document is
+    closed and the exception re-raised before any temp file is even
+    written - callers decide how to report/roll back (see
+    `main_window_correction_markers_export.py`'s `failures` collection, or
+    the Statistikseite controller's batch rollback).
+    """
+    document = fitz.open(pdf_path)
+    try:
+        mutate(document)
+    except Exception:
+        document.close()
+        raise
+    _save_and_replace_atomically(document, pdf_path)
+
+
+def write_pdf_copy_atomically(
+    source_path: Path, destination_path: Path, mutate: Callable[[fitz.Document], None] | None = None
+) -> None:
+    """Write a (optionally mutated) copy of `source_path` to `destination_path`, atomically.
+
+    `source_path` is only ever read from - this function never writes
+    back to it, unlike `rewrite_pdf_atomically` where source and target
+    are the same file. Used by the zentraler Exportmodus
+    (`ui_intent_controller_batch_export.py`): the Klausur's working PDF is
+    the source, a freshly chosen export path is the destination, and
+    `mutate` (when given) applies the export-specific Statistikseite
+    replacement before the copy is written. Shares
+    `_save_and_replace_atomically` with `rewrite_pdf_atomically` - no
+    second, diverging write strategy. Creates `destination_path`'s parent
+    directory (e.g. a per-student export subfolder) if it does not exist
+    yet.
+    """
+    destination_path.parent.mkdir(parents=True, exist_ok=True)
+    document = fitz.open(source_path)
+    try:
+        if mutate is not None:
+            mutate(document)
+    except Exception:
+        document.close()
+        raise
+    _save_and_replace_atomically(document, destination_path)
 
 
 def read_trailing_page_bytes(pdf_path: Path) -> bytes | None:
@@ -112,29 +150,39 @@ def read_trailing_page_marker(pdf_path: Path) -> str | None:
         document.close()
 
 
-def append_marked_stats_page(pdf_path: Path, page_pdf_bytes: bytes, *, replace_existing: bool) -> None:
-    """Append `page_pdf_bytes` as the last page, stamped with the Korrektor marker.
+def stamp_marked_stats_page(document: fitz.Document, page_pdf_bytes: bytes, *, replace_existing: bool) -> None:
+    """Insert `page_pdf_bytes` as `document`'s new last page, stamped with the Korrektor marker.
 
     Purely mechanical: if `replace_existing`, the current last page is
     deleted first; the new page is always inserted at the end and stamped
-    with `KORREKTOR_STATS_PAGE_MARKER`. This function does not decide
-    *whether* replacing is currently safe - the caller must already have
+    with `KORREKTOR_STATS_PAGE_MARKER`. Does not decide *whether*
+    replacing is currently safe - the caller must already have
     established that (via `read_trailing_page_marker`) before calling
-    this.
+    this. Shared between `append_marked_stats_page` (rewrites the
+    Klausur-PDF itself) and the zentraler Exportmodus's export-copy
+    mutation (`ui_intent_controller_batch_export.py`) - both need the
+    identical "replace-or-append, then stamp" mechanics so an export copy
+    carries the exact same marker convention as a PDF the append/remove
+    feature itself produced.
     """
+    if replace_existing and document.page_count > 0:
+        document.delete_page(document.page_count - 1)
+    source = fitz.open(stream=page_pdf_bytes, filetype="pdf")
+    try:
+        document.insert_pdf(source, from_page=0, to_page=0, start_at=-1)
+    finally:
+        source.close()
+    page = document.load_page(document.page_count - 1)
+    annot = page.add_text_annot(fitz.Point(2, 2), "")
+    annot.set_info(title="Korrektor", subject=KORREKTOR_STATS_PAGE_MARKER, content="")
+    annot.update()
+
+
+def append_marked_stats_page(pdf_path: Path, page_pdf_bytes: bytes, *, replace_existing: bool) -> None:
+    """Append `page_pdf_bytes` as the last page of `pdf_path`, stamped with the Korrektor marker."""
 
     def _mutate(document: fitz.Document) -> None:
-        if replace_existing and document.page_count > 0:
-            document.delete_page(document.page_count - 1)
-        source = fitz.open(stream=page_pdf_bytes, filetype="pdf")
-        try:
-            document.insert_pdf(source, from_page=0, to_page=0, start_at=-1)
-        finally:
-            source.close()
-        page = document.load_page(document.page_count - 1)
-        annot = page.add_text_annot(fitz.Point(2, 2), "")
-        annot.set_info(title="Korrektor", subject=KORREKTOR_STATS_PAGE_MARKER, content="")
-        annot.update()
+        stamp_marked_stats_page(document, page_pdf_bytes, replace_existing=replace_existing)
 
     rewrite_pdf_atomically(pdf_path, _mutate)
 

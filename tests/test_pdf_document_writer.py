@@ -10,6 +10,8 @@ from app.infrastructure.pdf.pdf_document_writer import (
     read_trailing_page_marker,
     remove_trailing_page,
     rewrite_pdf_atomically,
+    stamp_marked_stats_page,
+    write_pdf_copy_atomically,
 )
 
 
@@ -135,6 +137,93 @@ def test_append_marked_stats_page_replace_existing_keeps_page_count(tmp_path: Pa
     finally:
         document.close()
     assert read_trailing_page_marker(pdf_path) == KORREKTOR_STATS_PAGE_MARKER
+
+
+def test_write_pdf_copy_atomically_copies_without_touching_source(tmp_path: Path) -> None:
+    source_path = tmp_path / "exam.pdf"
+    destination_path = tmp_path / "export" / "Alice.pdf"
+    _build_pdf(source_path, page_count=2)
+    source_bytes_before = source_path.read_bytes()
+
+    write_pdf_copy_atomically(source_path, destination_path)
+
+    assert destination_path.exists()
+    document = fitz.open(destination_path)
+    try:
+        assert document.page_count == 2
+    finally:
+        document.close()
+    assert source_path.read_bytes() == source_bytes_before
+
+
+def test_write_pdf_copy_atomically_applies_mutation_to_the_copy_only(tmp_path: Path) -> None:
+    source_path = tmp_path / "exam.pdf"
+    destination_path = tmp_path / "Alice.pdf"
+    _build_pdf(source_path, page_count=1)
+
+    write_pdf_copy_atomically(
+        source_path, destination_path, mutate=lambda document: document.new_page(width=200, height=300)
+    )
+
+    document = fitz.open(destination_path)
+    try:
+        assert document.page_count == 2
+    finally:
+        document.close()
+    source_document = fitz.open(source_path)
+    try:
+        assert source_document.page_count == 1
+    finally:
+        source_document.close()
+
+
+def test_write_pdf_copy_atomically_leaves_no_destination_or_temp_file_on_mutation_error(tmp_path: Path) -> None:
+    source_path = tmp_path / "exam.pdf"
+    destination_path = tmp_path / "Alice.pdf"
+    _build_pdf(source_path, page_count=1)
+
+    def _failing_mutate(document: fitz.Document) -> None:
+        raise RuntimeError("boom")
+
+    with pytest.raises(RuntimeError):
+        write_pdf_copy_atomically(source_path, destination_path, mutate=_failing_mutate)
+
+    assert not destination_path.exists()
+    assert not destination_path.with_name("Alice.korrektor.tmp.pdf").exists()
+
+
+def test_write_pdf_copy_atomically_does_not_overwrite_destination_on_mutation_error(tmp_path: Path) -> None:
+    """A pre-existing destination file (e.g. from a prior successful export) must survive a failed re-export."""
+    source_path = tmp_path / "exam.pdf"
+    destination_path = tmp_path / "Alice.pdf"
+    _build_pdf(source_path, page_count=1)
+    _build_pdf(destination_path, page_count=5)
+
+    def _failing_mutate(document: fitz.Document) -> None:
+        raise RuntimeError("boom")
+
+    with pytest.raises(RuntimeError):
+        write_pdf_copy_atomically(source_path, destination_path, mutate=_failing_mutate)
+
+    document = fitz.open(destination_path)
+    try:
+        assert document.page_count == 5
+    finally:
+        document.close()
+
+
+def test_stamp_marked_stats_page_replace_existing_swaps_last_page(tmp_path: Path) -> None:
+    document = fitz.open()
+    document.new_page(width=200, height=300).insert_text((20, 20), "body")
+    document.new_page(width=200, height=300).insert_text((20, 20), "v1")
+
+    stamp_marked_stats_page(document, _one_page_pdf_bytes("v2"), replace_existing=True)
+
+    assert document.page_count == 2
+    text = document.load_page(1).get_text()
+    assert "v2" in text
+    assert "v1" not in text
+    document.close()
 
 
 def test_remove_trailing_page(tmp_path: Path) -> None:
