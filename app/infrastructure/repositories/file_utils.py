@@ -55,6 +55,50 @@ def sanitize_filename_stem(name: str, *, replace_spaces_with: str | None = "_") 
     return stem or None
 
 
+_FILENAME_TEMPLATE_PLACEHOLDER = re.compile(r"\{(\w+)\}")
+
+
+def render_filename_template(
+    template: str,
+    *,
+    display_name: str,
+    school_class: str,
+    subject: str,
+    index: int,
+) -> str | None:
+    """Render a zentraler-Exportmodus filename template into a Windows-safe stem (no extension).
+
+    Placeholders: `{Name}` (`display_name`), `{Klasse}` (`school_class`),
+    `{Fach}` (`subject`), `{Nr}` (`index`, zero-padded to at least two
+    digits). An unknown placeholder (e.g. a typo) is left literally in the
+    output instead of raising - this is a filename preview field the
+    teacher edits interactively, not a strict template language.
+
+    `{Nr}`-Vertrag (bindend, siehe Aufrufer in der Batch-Export-Fassade):
+    `index` muss die stabile Position der Person in `exam.students`
+    referenzieren, niemals die Position innerhalb einer aktuell gewählten
+    Export-Teilauswahl - sonst würde sich dieselbe Person je nach
+    Auswahl unterschiedliche Nummern bekommen.
+
+    Runs the substituted text through `sanitize_filename_stem` (spaces
+    kept, not underscored - export filenames favour readability over the
+    Namenmodus underscore convention) before returning it, so callers
+    never need a second normalization pass.
+    """
+    values = {
+        "Name": display_name,
+        "Klasse": school_class,
+        "Fach": subject,
+        "Nr": f"{index:02d}",
+    }
+
+    def _substitute(match: re.Match[str]) -> str:
+        return values.get(match.group(1), match.group(0))
+
+    rendered = _FILENAME_TEMPLATE_PLACEHOLDER.sub(_substitute, template)
+    return sanitize_filename_stem(rendered, replace_spaces_with=None)
+
+
 def build_pdf_filename_from_name(name: str) -> str | None:
     """Turn an entered student name into a Windows-safe ``<stem>.pdf`` filename.
 
