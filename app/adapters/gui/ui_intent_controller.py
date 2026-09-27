@@ -13,6 +13,7 @@ from app.adapters.gui.dialog_services import filedialog, messagebox, simpledialo
 
 from app.adapters.gui.ui_intent_controller_annotations import UiIntentControllerAnnotationsMixin
 from app.adapters.gui.ui_intent_controller_base import UiIntentControllerBase
+from app.adapters.gui.ui_intent_controller_batch_export import UiIntentControllerBatchExportMixin
 from app.adapters.gui.ui_intent_controller_completion import UiIntentControllerCompletionMixin
 from app.adapters.gui.ui_intent_controller_grading_scale import UiIntentControllerGradingScaleMixin
 from app.adapters.gui.ui_intent_controller_grading_scale_transfer import UiIntentControllerGradingScaleTransferMixin
@@ -30,6 +31,7 @@ from app.adapters.gui.ui_intent_controller_task_categories import UiIntentContro
 
 class UiIntentController(
     UiIntentControllerAnnotationsMixin,
+    UiIntentControllerBatchExportMixin,
     UiIntentControllerGradingScaleMixin,
     UiIntentControllerGradingScaleTransferMixin,
     UiIntentControllerSuperpositionMixin,
