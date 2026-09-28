@@ -19,6 +19,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import BwBaseWindow, ui, widgets
+from bw_gui.widgets import Checkbox, Switch
 from bw_gui.menu import section_spec
 from bw_gui.theming import normalize_theme_key
 
@@ -92,7 +93,7 @@ class MainWindowBase(BwBaseWindow):
         self._import_split_info_var: ui.StringVar | None = None
         self._import_split_boundary_var: ui.BooleanVar | None = None
         self._import_split_count_var: ui.StringVar | None = None
-        self._import_split_boundary_check: widgets.Checkbutton | None = None
+        self._import_split_boundary_check: Checkbox | None = None
         self._import_split_document: fitz.Document | None = None
         self._import_split_source_path: Path | None = None
         self._import_split_page_index = 0
@@ -146,8 +147,8 @@ class MainWindowBase(BwBaseWindow):
         self._correction_clip_box: tuple[float, float, float, float] | None = None
         self._correction_scale = 1.0
         self._annotation_clipboard: dict[str, object] | None = None
-        self._correction_finished_check: widgets.Checkbutton | None = None
-        self._correction_finished_all_check: widgets.Checkbutton | None = None
+        self._correction_finished_check: Switch | None = None
+        self._correction_finished_all_check: Switch | None = None
         self._save_correction_button: widgets.Button | None = None
         self._runtime_shortcuts = KeybindingRegistry()
         self._shortcut_runtime_debug_window: ui.Toplevel | None = None

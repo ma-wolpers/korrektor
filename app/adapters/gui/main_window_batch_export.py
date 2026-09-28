@@ -11,6 +11,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 ensure_bw_gui_on_path()
 from bw_gui.dialogs import ScrollablePopupWindow
 from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Checkbox
 
 _SECTION_LABELS: tuple[tuple[str, str], ...] = (
     ("summary", "Gesamt/Note"),
@@ -77,8 +78,11 @@ class MainWindowBatchExportMixin:
         for key, label in _SECTION_LABELS:
             var = ui.BooleanVar(value=True)
             self._batch_export_section_vars[key] = var
-            widgets.Checkbutton(
-                sections_frame, text=label, variable=var, command=self._update_batch_export_export_button_state
+            Checkbox(
+                sections_frame,
+                text=label,
+                variable=var,
+                on_select=lambda _selected: self._update_batch_export_export_button_state(),
             ).pack(anchor=ui.W)
 
         chart_controls = widgets.Frame(body, style="Surface.TFrame")
@@ -102,11 +106,11 @@ class MainWindowBatchExportMixin:
         ).pack(side=ui.LEFT, padx=(8, 0))
 
         self._batch_export_per_student_folders_var = ui.BooleanVar(value=False)
-        widgets.Checkbutton(
+        Checkbox(
             body,
             text="Pro Schüler:in eigener Ordner",
             variable=self._batch_export_per_student_folders_var,
-            command=self._update_batch_export_preview,
+            on_select=lambda _selected: self._update_batch_export_preview(),
         ).pack(anchor=ui.W, pady=(12, 0))
 
         naming_frame = widgets.Frame(body, style="Surface.TFrame")

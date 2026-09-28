@@ -18,6 +18,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Checkbox
 
 
 class MainWindowSupersymbolMixin:
@@ -108,7 +109,7 @@ class MainWindowSupersymbolMixin:
             label="Fuegt an einer gemeinsamen Position die jeweilige Note jeder Person ein (Notenschluessel noetig)",
         )
 
-        show_max_points_check = widgets.Checkbutton(
+        show_max_points_check = Checkbox(
             superposition_row,
             text="Gesamtpunktzahl anzeigen",
             variable=self._superposition_show_max_points_var,

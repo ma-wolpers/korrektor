@@ -6,6 +6,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Switch
 
 
 class MainWindowShortcutsDebugMixin:
@@ -44,11 +45,11 @@ class MainWindowShortcutsDebugMixin:
             fill=ui.X,
             expand=True,
         )
-        offline_check = widgets.Checkbutton(
+        offline_check = Switch(
             toolbar,
             text="Offline simulieren",
             variable=self._shortcut_debug_offline_var,
-            command=self._refresh_shortcut_runtime_debug_dialog,
+            on_change=lambda _offline: self._refresh_shortcut_runtime_debug_dialog(),
         )
         offline_check.pack(side=ui.LEFT, padx=(12, 0))
         self._attach_hover_help(offline_check, label="Offline-Simulation fuer Runtime-Resolver umschalten", shortcut="Ctrl+Shift+O")

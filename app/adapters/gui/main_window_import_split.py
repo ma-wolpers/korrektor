@@ -12,6 +12,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Checkbox
 
 
 class MainWindowImportSplitMixin:
@@ -92,11 +93,12 @@ class MainWindowImportSplitMixin:
         self._attach_hover_help(next_button, label="Naechste Seite", shortcut="Rechts")
 
         self._import_split_boundary_var = ui.BooleanVar(value=True)
-        self._import_split_boundary_check = widgets.Checkbutton(
+        # Checkbox: only collects boundaries locally; the split runs on "Aufteilen...".
+        self._import_split_boundary_check = Checkbox(
             nav,
             text="Hier beginnt neue Abgabe",
             variable=self._import_split_boundary_var,
-            command=self._on_import_split_boundary_toggled,
+            on_select=lambda _selected: self._on_import_split_boundary_toggled(),
         )
         self._import_split_boundary_check.pack(side=ui.LEFT, padx=(16, 0))
 

@@ -9,6 +9,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Switch
 
 
 class MainWindowReadingMixin:
@@ -75,11 +76,11 @@ class MainWindowReadingMixin:
         next_reading_student_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(next_reading_student_button, label="Naechste Person im Einlesen", shortcut=None)
 
-        self._superpage_toggle = widgets.Checkbutton(
+        self._superpage_toggle = Switch(
             self._reading_toolbar,
             text="Superseite",
             variable=self._superpage_var,
-            command=self._on_superpage_toggle,
+            on_change=lambda _on: self._on_superpage_toggle(),
         )
         self._superpage_toggle.pack(side=ui.RIGHT)
         self._attach_hover_help(

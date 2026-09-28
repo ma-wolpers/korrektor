@@ -191,8 +191,8 @@ class MainWindowDispatchMixin:
             return "break"
         if str(self._correction_finished_check.cget("state")) == "disabled":
             return "break"
-        self._correction_finished_var.set(not bool(self._correction_finished_var.get()))
-        self._on_correction_finished_toggled()
+        # Simulated user interaction: same contract sequence as a click.
+        self._correction_finished_check.invoke()
         return "break"
 
     def _on_ctrl_e_key(self, _event: ui.Event[ui.Misc]):

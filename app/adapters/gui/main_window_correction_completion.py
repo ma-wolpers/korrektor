@@ -10,16 +10,17 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Switch
 
 
 class MainWindowCorrectionCompletionMixin:
     def _build_correction_view_form_finished_checkboxes(self) -> None:
         correction_form = self._correction_form_frame
-        self._correction_finished_check = widgets.Checkbutton(
+        self._correction_finished_check = Switch(
             correction_form,
             text="Fertig korrigiert",
             variable=self._correction_finished_var,
-            command=self._on_correction_finished_toggled,
+            on_change=self._on_correction_finished_toggled,
             state="disabled",
         )
         self._correction_finished_check.grid(row=3, column=0, columnspan=3, sticky=ui.W, pady=(4, 0))
@@ -29,11 +30,14 @@ class MainWindowCorrectionCompletionMixin:
             style="Muted.TLabel",
         ).grid(row=4, column=0, columnspan=3, sticky=ui.W, pady=(2, 0))
 
-        self._correction_finished_all_check = widgets.Checkbutton(
+        # Mixed while some (not all) people are finished; a click from mixed or
+        # "all" requests a reset (False), a click from "none" requests True.
+        self._correction_finished_all_check = Switch(
             correction_form,
             text="Bereich: alle als fertig markieren",
             variable=self._correction_finished_all_var,
-            command=self._on_correction_finished_all_toggled,
+            on_change=self._on_correction_finished_all_toggled,
+            mixed_click_target=False,
             state="disabled",
         )
         self._correction_finished_all_check.grid(row=5, column=0, columnspan=3, sticky=ui.W, pady=(8, 0))
@@ -183,7 +187,7 @@ class MainWindowCorrectionCompletionMixin:
             or template is None
         ):
             self._correction_finished_all_var.set(False)
-            self._correction_finished_all_check.state(["!alternate"])
+            self._correction_finished_all_check.set_mixed(False)
             self._correction_finished_all_check.configure(state="disabled")
             self._correction_finished_all_hint_var.set("")
             return
@@ -202,15 +206,16 @@ class MainWindowCorrectionCompletionMixin:
         enabled = any_finished or (all_scored and not all_finished)
 
         self._correction_finished_all_var.set(all_finished)
-        if 0 < finished_count < total:
-            self._correction_finished_all_check.state(["alternate"])
-        else:
-            self._correction_finished_all_check.state(["!alternate"])
+        self._correction_finished_all_check.set_mixed(0 < finished_count < total)
         self._correction_finished_all_check.configure(state="normal" if enabled else "disabled")
         self._correction_finished_all_hint_var.set(f"{finished_count}/{total} Personen fertig")
 
-    def _on_correction_finished_toggled(self) -> None:
-        """Persist the finished-checkbox state for the current student/region."""
+    def _on_correction_finished_toggled(self, requested: bool) -> None:
+        """Persist the requested finished state for the current student/region (Switch).
+
+        Args:
+            requested: The state the user asked for (from the Switch or Ctrl+Space).
+        """
         if not self._correction_mode_active or self._controller is None or self._current_exam is None:
             return
 
@@ -219,7 +224,6 @@ class MainWindowCorrectionCompletionMixin:
         if student is None or template is None:
             return
 
-        requested = bool(self._correction_finished_var.get())
         if requested and not self._all_tasks_scored_for_current_area():
             self._correction_finished_var.set(False)
             messagebox.showinfo("Hinweis", "Bitte zuerst alle Aufgaben im Bereich bewerten.")
@@ -240,24 +244,20 @@ class MainWindowCorrectionCompletionMixin:
         self._apply_detail_labels(updated)
         self._refresh_correction_completion_controls()
 
-    def _on_correction_finished_all_toggled(self) -> None:
+    def _on_correction_finished_all_toggled(self, requested: bool) -> None:
         """Set/reset the finished flag for every person of the current region at once.
 
-        Click semantics (tri-state, not a plain toggle of the raw checkbox
-        value): nobody finished yet (0/N, unchecked) -> a click marks
-        everyone finished, and requires every person to have scored every
-        task first; anybody already finished (mixed N', alternate, or N/N,
-        checked) -> a click resets everyone to "not finished", always
-        allowed regardless of scoring completeness. So the only two cases
-        are `finished_count == 0` (set) and `finished_count > 0` (reset) -
-        deliberately not `finished_count != total`, which would wrongly
-        treat a mixed state the same as the empty state and try to set
-        instead of reset.
+        Click semantics come from the mixed Switch (`mixed_click_target=False`):
+        nobody finished yet (0/N, off) -> `requested` is True: mark everyone
+        finished, which requires every person to have scored every task first;
+        anybody already finished (mixed, or N/N on) -> `requested` is False:
+        reset everyone to "not finished", always allowed regardless of scoring
+        completeness. `_refresh_correction_completion_controls` keeps value and
+        mixed flag in sync with the persisted state, so `requested` carries the
+        intent unambiguously - no need to re-derive it from `finished_count`.
 
-        Reads the actual `ExamProject`/persistence state to decide intent,
-        not the Tkinter variable's own (already-flipped-by-Tk) value - the
-        tri-state "alternate" display has no unambiguous single-bit
-        "requested" meaning to read back from the widget itself.
+        Args:
+            requested: The state the user asked for.
         """
         if not self._correction_mode_active or self._controller is None or self._current_exam is None:
             self._refresh_correction_completion_controls()
@@ -279,11 +279,6 @@ class MainWindowCorrectionCompletionMixin:
             return
 
         scores = self._controller.load_scores_for_exam(exam=self._current_exam)
-        finished_count = self._controller.count_persons_area_finished(
-            exam=self._current_exam, region_id=template.region_id, student_ids=student_ids
-        )
-        requested = finished_count == 0
-
         if requested and not self._are_all_tasks_scored(scores=scores, template=template, student_ids=student_ids):
             messagebox.showinfo("Hinweis", "Bitte zuerst alle Aufgaben aller Personen im Bereich bewerten.")
             self._refresh_correction_completion_controls()
