@@ -115,9 +115,11 @@ class MainWindowMenuMixin:
                 command=self._open_shortcut_runtime_debug_dialog,
             ),
             SharedMenuItem(
-                type="command",
-                label="Offline simulieren umschalten (Strg+Shift+O)",
-                command=self._toggle_runtime_offline,
+                type="switch",
+                label="Offline simulieren (Strg+Shift+O)",
+                checked=bool(self._shortcut_debug_offline_var.get()),
+                # The handler toggles itself; the requested value is always "not checked".
+                on_toggle=lambda _offline: self._toggle_runtime_offline(),
             ),
         )
 
