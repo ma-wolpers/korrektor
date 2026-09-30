@@ -1,6 +1,7 @@
 # Development Log
 
 ## [Unreleased]
+- `main_window_supersymbol.py` unter die 300-Zeilen-Grenze aufgeteilt (2026-10-01, 368 → 270 Code-Zeilen, reine Verschiebung): Punkte-/Noten-Superposition (`_start_scored_superposition`, `_start_grade_superposition`, `_start_superposition_preview`, `_change_superposition_page`, `_apply_superposition_at_canvas_position`) liegt jetzt in `main_window_superposition.py` (`MainWindowSuperpositionMixin`, Basis von `MainWindowSupersymbolMixin`; keine andere Klasse definiert diese Namen).
 - Modifier-Auswertung über den bw-gui-Keybinding-Contract (2026-09-27):
   - **Mausrad:** `main_window_correction_zoom.py::_on_correction_mousewheel` fragt Shift/Strg jetzt über `bw_gui.contracts.modifiers_from_event` ab, statt `event.state` selbst zu bitmaskieren. Das Verhalten bleibt gleich; ein unbekannter Zustand bedeutet normales Scrollen.
   - **Guard:** `tests/test_no_raw_tk_state_bitmasks.py` nutzt den zentralen AST-Guard `bw_gui.testing.tk_state_guard`, der auch die hier verwendete Zwischenvariable `state = getattr(event, "state", 0)` erkennt.
