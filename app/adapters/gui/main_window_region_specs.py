@@ -81,13 +81,13 @@ class MainWindowRegionSpecsMixin:
         for item in items:
             parts = [part.strip() for part in item.split(":")]
             if len(parts) != 2:
-                messagebox.showerror("Ungueltiges Format", "Nutze CODE:Punkte, z. B. A1:3")
+                messagebox.showerror("Ungültiges Format", "Nutze CODE:Punkte, z. B. A1:3")
                 return None
             code, points_text = parts
             try:
                 max_points = float(points_text.replace(",", "."))
             except ValueError:
-                messagebox.showerror("Ungueltige Punkte", f"'{points_text}' ist keine Zahl.")
+                messagebox.showerror("Ungültige Punkte", f"'{points_text}' ist keine Zahl.")
                 return None
             parsed.append((code.upper(), max_points))
         return parsed

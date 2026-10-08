@@ -25,7 +25,7 @@ class MainWindowCorrectionCoreMixin:
 
         correction_back_button = widgets.Button(
             correction_actions,
-            text="Zurueck zur Klausur",
+            text="Zurück zur Klausur",
             style="SecondaryAction.TButton",
             command=self._stop_correction_mode,
         )
@@ -78,7 +78,7 @@ class MainWindowCorrectionCoreMixin:
             width=3,
         )
         zoom_in_correction_button.pack(side=ui.RIGHT, padx=(8, 0))
-        self._attach_hover_help(zoom_in_correction_button, label="Korrektur-Zoom vergroessern", shortcut="Strg++")
+        self._attach_hover_help(zoom_in_correction_button, label="Korrektur-Zoom vergrößern", shortcut="Strg++")
 
         zoom_out_correction_button = widgets.Button(
             correction_zoom_actions,
@@ -96,12 +96,12 @@ class MainWindowCorrectionCoreMixin:
 
         save_comments_button = widgets.Button(
             correction_buttons,
-            text="Alle PDFs ueberschreiben",
+            text="Alle PDFs überschreiben",
             style="SecondaryAction.TButton",
             command=self._save_correction_annotations_to_pdfs,
         )
         save_comments_button.pack(side=ui.LEFT)
-        self._attach_hover_help(save_comments_button, label="Alle Original-PDFs dieser Klausur mit ihren Markierungen ueberschreiben")
+        self._attach_hover_help(save_comments_button, label="Alle Original-PDFs dieser Klausur mit ihren Markierungen überschreiben")
 
         prev_correction_student_button = widgets.Button(
             correction_buttons,
@@ -119,7 +119,7 @@ class MainWindowCorrectionCoreMixin:
             command=lambda: self._change_correction_student(1),
         )
         next_correction_student_button.pack(side=ui.RIGHT, padx=(0, 8))
-        self._attach_hover_help(next_correction_student_button, label="Naechste Person in Korrektur", shortcut="Rechts")
+        self._attach_hover_help(next_correction_student_button, label="Nächste Person in Korrektur", shortcut="Rechts")
 
     def _start_correction_mode(self) -> None:
         """Enter Korrekturmodus, building the region_id-keyed templates/label map."""

@@ -31,7 +31,7 @@ CORRECTION_MARKER_COLORS: dict[str, str] = {
     "Rot": "#d62828",
     "Pink": "#ff4fa3",
     "Blau": "#1d4ed8",
-    "Gruen": "#2a9d8f",
+    "Grün": "#2a9d8f",
     "Orange": "#f77f00",
     "Violett": "#7b2cbf",
     "Schwarz": "#111111",
@@ -53,7 +53,7 @@ CORRECTION_EXPORT_SYMBOL_ROT180_Y_CORRECTION_EM = 0.15
 
 GRADING_SCALE_TYPE_BY_LABEL: dict[str, str] = {
     "Punktnoten (1-15)": SCALE_TYPE_POINTS_1_15,
-    "Schulnoten (sehr gut 1 - ungenuegend 6)": SCALE_TYPE_SCHOOL_1_6,
+    "Schulnoten (sehr gut 1 - ungenügend 6)": SCALE_TYPE_SCHOOL_1_6,
 }
 GRADING_SCALE_TYPE_LABELS: tuple[str, ...] = tuple(GRADING_SCALE_TYPE_BY_LABEL.keys())
 GRADING_SCALE_TYPE_LABEL_BY_VALUE: dict[str, str] = {value: label for label, value in GRADING_SCALE_TYPE_BY_LABEL.items()}

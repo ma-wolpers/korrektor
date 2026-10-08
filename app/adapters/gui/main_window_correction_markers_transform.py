@@ -35,7 +35,7 @@ class MainWindowCorrectionMarkersTransformMixin:
             command=lambda: self._resize_selected_correction_annotation(-2.0),
         )
         shrink_button.pack(side=ui.LEFT, padx=(0, 4))
-        self._attach_hover_help(shrink_button, label="Ausgewaehlte Markierung verkleinern")
+        self._attach_hover_help(shrink_button, label="Ausgewählte Markierung verkleinern")
 
         grow_button = widgets.Button(
             transform_row,
@@ -45,7 +45,7 @@ class MainWindowCorrectionMarkersTransformMixin:
             command=lambda: self._resize_selected_correction_annotation(2.0),
         )
         grow_button.pack(side=ui.LEFT, padx=(0, 4))
-        self._attach_hover_help(grow_button, label="Ausgewaehlte Markierung vergroessern")
+        self._attach_hover_help(grow_button, label="Ausgewählte Markierung vergrößern")
 
         rotate_left_button = widgets.Button(
             transform_row,
@@ -55,7 +55,7 @@ class MainWindowCorrectionMarkersTransformMixin:
             command=lambda: self._rotate_selected_correction_annotation(90.0),
         )
         rotate_left_button.pack(side=ui.LEFT, padx=(8, 4))
-        self._attach_hover_help(rotate_left_button, label="Ausgewaehlte Markierung nach links drehen")
+        self._attach_hover_help(rotate_left_button, label="Ausgewählte Markierung nach links drehen")
 
         rotate_right_button = widgets.Button(
             transform_row,
@@ -65,11 +65,11 @@ class MainWindowCorrectionMarkersTransformMixin:
             command=lambda: self._rotate_selected_correction_annotation(-90.0),
         )
         rotate_right_button.pack(side=ui.LEFT, padx=(0, 4))
-        self._attach_hover_help(rotate_right_button, label="Ausgewaehlte Markierung nach rechts drehen")
+        self._attach_hover_help(rotate_right_button, label="Ausgewählte Markierung nach rechts drehen")
 
         sync_button = widgets.Button(
             transform_row,
-            text="Durchdruecken",
+            text="Durchdrücken",
             style="SecondaryAction.TButton",
             command=self._toggle_selected_annotation_sync,
         )
@@ -85,7 +85,7 @@ class MainWindowCorrectionMarkersTransformMixin:
         detach_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(
             detach_button,
-            label="Nur dieses Symbol aus der Sync-Gruppe loesen - bei allen anderen Personen bleibt es gesynct",
+            label="Nur dieses Symbol aus der Sync-Gruppe lösen - bei allen anderen Personen bleibt es gesynct",
         )
 
         widgets.Label(
@@ -100,7 +100,7 @@ class MainWindowCorrectionMarkersTransformMixin:
         ).pack(anchor=ui.W, pady=(2, 0))
         widgets.Label(
             marker_controls,
-            text="Zwischenablage: Strg+C kopieren, Strg+X ausschneiden, Strg+V einfuegen",
+            text="Zwischenablage: Strg+C kopieren, Strg+X ausschneiden, Strg+V einfügen",
             style="Muted.TLabel",
         ).pack(anchor=ui.W, pady=(2, 0))
 
@@ -119,9 +119,9 @@ class MainWindowCorrectionMarkersTransformMixin:
         self._current_exam = updated
         self._render_correction_annotations()
         if is_group:
-            self._status_var.set("Sync-Gruppe geloescht")
+            self._status_var.set("Sync-Gruppe gelöscht")
         else:
-            self._status_var.set("Markierung geloescht")
+            self._status_var.set("Markierung gelöscht")
         return True
 
     def _resize_selected_correction_annotation(self, delta: float) -> None:
@@ -129,7 +129,7 @@ class MainWindowCorrectionMarkersTransformMixin:
             return
         annotation = self._selected_correction_annotation()
         if annotation is None:
-            messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswaehlen.")
+            messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswählen.")
             return
         updated = self._controller.resize_annotation_immediate(
             exam=self._current_exam, annotation_id=annotation.annotation_id, delta=delta
@@ -138,14 +138,14 @@ class MainWindowCorrectionMarkersTransformMixin:
             return
         self._current_exam = updated
         self._render_correction_annotations()
-        self._status_var.set("Markierungsgroesse aktualisiert")
+        self._status_var.set("Markierungsgröße aktualisiert")
 
     def _rotate_selected_correction_annotation(self, delta_deg: float) -> None:
         if self._current_exam is None or self._controller is None:
             return
         annotation = self._selected_correction_annotation()
         if annotation is None:
-            messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswaehlen.")
+            messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswählen.")
             return
         current = self._normalize_rotation_deg(annotation.rotation_deg)
         next_rotation = self._normalize_rotation_deg(current + delta_deg)
@@ -177,7 +177,7 @@ class MainWindowCorrectionMarkersTransformMixin:
             content=comment,
         )
         if created:
-            self._status_var.set("Kommentar in Vorschau-Mitte eingefuegt")
+            self._status_var.set("Kommentar in Vorschau-Mitte eingefügt")
 
     def _place_annotation_from_canvas(
         self,

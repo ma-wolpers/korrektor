@@ -43,13 +43,13 @@ class UiIntentControllerGradingScaleTransferMixin:
         """Write every currently stored scale (active and archived) to a chosen JSON file."""
         scales = self._deps.grading_scale_repository.list_scales()
         if not scales:
-            messagebox.showinfo("Keine Notenschluessel", "Es sind noch keine Notenschluessel angelegt.")
+            messagebox.showinfo("Keine Notenschlüssel", "Es sind noch keine Notenschlüssel angelegt.")
             return False
 
         output_path_raw = filedialog.asksaveasfilename(
-            title="Notenschluessel exportieren",
+            title="Notenschlüssel exportieren",
             defaultextension=".json",
-            filetypes=[("Notenschluessel-Export", "*.json"), ("Alle Dateien", "*.*")],
+            filetypes=[("Notenschlüssel-Export", "*.json"), ("Alle Dateien", "*.*")],
             initialfile="notenschluessel_export.json",
         )
         if not output_path_raw:
@@ -65,7 +65,7 @@ class UiIntentControllerGradingScaleTransferMixin:
             messagebox.showerror("Export fehlgeschlagen", str(exc))
             return False
 
-        self._app.set_status(f"{len(scales)} Notenschluessel exportiert: {Path(output_path_raw).name}")
+        self._app.set_status(f"{len(scales)} Notenschlüssel exportiert: {Path(output_path_raw).name}")
         return True
 
     def import_grading_scales_from_file(self) -> GradingScaleImportSummary | None:
@@ -78,8 +78,8 @@ class UiIntentControllerGradingScaleTransferMixin:
         rename before re-importing) rather than the import guessing.
         """
         source_path_raw = filedialog.askopenfilename(
-            title="Notenschluessel importieren",
-            filetypes=[("Notenschluessel-Export", "*.json"), ("Alle Dateien", "*.*")],
+            title="Notenschlüssel importieren",
+            filetypes=[("Notenschlüssel-Export", "*.json"), ("Alle Dateien", "*.*")],
         )
         if not source_path_raw:
             return None
@@ -93,17 +93,17 @@ class UiIntentControllerGradingScaleTransferMixin:
 
         if EXPORT_FORMAT_KEY not in raw:
             messagebox.showerror(
-                "Import fehlgeschlagen", "Diese Datei ist kein Notenschluessel-Export von Korrektor."
+                "Import fehlgeschlagen", "Diese Datei ist kein Notenschlüssel-Export von Korrektor."
             )
             return None
 
         summary = self._merge_imported_grading_scales(raw.get("scales", []))
         if summary.is_empty:
-            messagebox.showinfo("Import", "Die Datei enthielt keine gueltigen Notenschluessel.")
+            messagebox.showinfo("Import", "Die Datei enthielt keine gültigen Notenschlüssel.")
             return summary
 
         self._app.set_status(
-            f"Notenschluessel-Import: {len(summary.added)} neu, "
+            f"Notenschlüssel-Import: {len(summary.added)} neu, "
             f"{len(summary.skipped_identical)} bereits vorhanden, "
             f"{len(summary.skipped_conflict)} Konflikt(e)"
         )

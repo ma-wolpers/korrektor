@@ -16,7 +16,7 @@ class MainWindowRegionRedrawMixin:
 
     def _arm_redraw_selected_region(self) -> None:
         if self._selected_region_id is None or self._selected_region_kind not in {"region", "extra"}:
-            messagebox.showinfo("Hinweis", "Bitte zuerst einen bestehenden Bereich auswaehlen (kein Draft).")
+            messagebox.showinfo("Hinweis", "Bitte zuerst einen bestehenden Bereich auswählen (kein Draft).")
             return
         if self._extra_mode_active and self._selected_region_kind != "extra":
             messagebox.showinfo("Hinweis", "Im Extraseitenmodus kann nur eine Extraseiten-Zuordnung neu gezogen werden.")
@@ -27,7 +27,7 @@ class MainWindowRegionRedrawMixin:
         self._redraw_target_region_kind = self._selected_region_kind
         self._redraw_target_region_id = self._selected_region_id
         self._redraw_on_next_box = True
-        self._status_var.set("Neuziehen aktiv: Die naechste gezogene Box ueberschreibt den ausgewaehlten Bereich.")
+        self._status_var.set("Neuziehen aktiv: Die nächste gezogene Box überschreibt den ausgewählten Bereich.")
 
     def _clear_pending_redraw(self) -> None:
         self._redraw_target_region_kind = None
@@ -54,7 +54,7 @@ class MainWindowRegionRedrawMixin:
             )
             if assignment is None:
                 self._clear_pending_redraw()
-                messagebox.showerror("Bereich fehlt", "Die ausgewaehlte Extraseiten-Zuordnung konnte nicht gefunden werden.")
+                messagebox.showerror("Bereich fehlt", "Die ausgewählte Extraseiten-Zuordnung konnte nicht gefunden werden.")
                 return False
 
             updated = self._controller.assign_extra_page_immediate(
@@ -74,7 +74,7 @@ class MainWindowRegionRedrawMixin:
             self._select_region_by_id(assignment.assignment_id)
             self._apply_detail_labels(updated)
             area_text = assignment.assigned_area_codes[0] if assignment.assigned_area_codes else assignment.assignment_id
-            self._status_var.set(f"Extraseiten-Bereich {area_text} neu gezogen und ueberschrieben.")
+            self._status_var.set(f"Extraseiten-Bereich {area_text} neu gezogen und überschrieben.")
             return True
 
         region = next(
@@ -83,7 +83,7 @@ class MainWindowRegionRedrawMixin:
         )
         if region is None:
             self._clear_pending_redraw()
-            messagebox.showerror("Bereich fehlt", "Der ausgewaehlte Bereich konnte nicht mehr gefunden werden.")
+            messagebox.showerror("Bereich fehlt", "Der ausgewählte Bereich konnte nicht mehr gefunden werden.")
             return False
 
         task_specs = [(task.code, float(task.max_points)) for task in region.tasks]
@@ -105,5 +105,5 @@ class MainWindowRegionRedrawMixin:
         self._select_region_by_id(region.region_id)
         self._apply_detail_labels(updated)
         area_text = region.assigned_area_codes[0] if region.assigned_area_codes else region.region_id
-        self._status_var.set(f"Bereich {area_text} neu gezogen und ueberschrieben.")
+        self._status_var.set(f"Bereich {area_text} neu gezogen und überschrieben.")
         return True

@@ -21,7 +21,7 @@ def compute_split_ranges(total_pages: int, boundary_pages: set[int]) -> list[tup
     for page in boundary_pages:
         if not (1 <= page <= total_pages):
             raise ValueError(
-                f"Ungueltige Abgabe-Grenze: Seite {page} liegt ausserhalb des Dokuments (1..{total_pages})."
+                f"Ungültige Abgabe-Grenze: Seite {page} liegt außerhalb des Dokuments (1..{total_pages})."
             )
 
     boundaries = sorted({1, *boundary_pages})

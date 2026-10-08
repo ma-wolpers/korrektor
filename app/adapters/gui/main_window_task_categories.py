@@ -69,7 +69,7 @@ class MainWindowTaskCategoriesMixin:
         )
         add_category_button.pack(anchor=ui.W, pady=(6, 0))
 
-        widgets.Button(body, text="Schliessen", style="SecondaryAction.TButton", command=self._close_task_category_popup).pack(
+        widgets.Button(body, text="Schließen", style="SecondaryAction.TButton", command=self._close_task_category_popup).pack(
             anchor=ui.E, pady=(10, 0)
         )
 
@@ -133,7 +133,7 @@ class MainWindowTaskCategoriesMixin:
         widgets.Button(actions, text="▲", width=2, style="SecondaryAction.TButton", command=lambda: self._move_task_category(category_id, -1)).pack(side=ui.LEFT)
         widgets.Button(actions, text="▼", width=2, style="SecondaryAction.TButton", command=lambda: self._move_task_category(category_id, 1)).pack(side=ui.LEFT, padx=(2, 0))
         widgets.Button(actions, text="Umbenennen", style="SecondaryAction.TButton", command=lambda: self._rename_task_category(category_id)).pack(side=ui.LEFT, padx=(6, 0))
-        widgets.Button(actions, text="Loeschen", style="SecondaryAction.TButton", command=lambda: self._delete_task_category(category_id)).pack(side=ui.LEFT, padx=(6, 0))
+        widgets.Button(actions, text="Löschen", style="SecondaryAction.TButton", command=lambda: self._delete_task_category(category_id)).pack(side=ui.LEFT, padx=(6, 0))
 
         self._task_category_drag_drop.register_target(
             box, on_drop=lambda task_code: self._on_task_dropped(task_code, category_id)
@@ -181,8 +181,8 @@ class MainWindowTaskCategoriesMixin:
         if self._current_exam is None or self._controller is None:
             return
         confirm = messagebox.askyesno(
-            "Kategorie loeschen",
-            "Kategorie wirklich loeschen? Zugeordnete Aufgaben werden unkategorisiert, nicht geloescht.",
+            "Kategorie löschen",
+            "Kategorie wirklich löschen? Zugeordnete Aufgaben werden unkategorisiert, nicht gelöscht.",
         )
         if not confirm:
             return

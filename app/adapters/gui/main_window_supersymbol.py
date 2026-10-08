@@ -69,7 +69,7 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
         self._supersymbol_preview_button.pack(side=ui.LEFT)
         self._attach_hover_help(
             self._supersymbol_preview_button,
-            label="Zeigt alle Personen, die die Bedingung erfuellen, ueberlagert an - Klick platziert das aktuell gewaehlte Markierungssymbol bei allen gleichzeitig",
+            label="Zeigt alle Personen, die die Bedingung erfüllen, überlagert an - Klick platziert das aktuell gewählte Markierungssymbol bei allen gleichzeitig",
         )
         self._supersymbol_cancel_button = widgets.Button(
             supersymbol_row3,
@@ -89,25 +89,25 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
         superposition_buttons.pack(fill=ui.X, pady=(4, 0))
         self._superposition_points_button = widgets.Button(
             superposition_buttons,
-            text="Punkte einfuegen",
+            text="Punkte einfügen",
             style="SecondaryAction.TButton",
             command=self._start_scored_superposition,
         )
         self._superposition_points_button.pack(side=ui.LEFT)
         self._attach_hover_help(
             self._superposition_points_button,
-            label="Fuegt an einer gemeinsamen Position die jeweils erreichte Punktzahl jeder Person ein",
+            label="Fügt an einer gemeinsamen Position die jeweils erreichte Punktzahl jeder Person ein",
         )
         self._superposition_grade_button = widgets.Button(
             superposition_buttons,
-            text="Note einfuegen",
+            text="Note einfügen",
             style="SecondaryAction.TButton",
             command=self._start_grade_superposition,
         )
         self._superposition_grade_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(
             self._superposition_grade_button,
-            label="Fuegt an einer gemeinsamen Position die jeweilige Note jeder Person ein (Notenschluessel noetig)",
+            label="Fügt an einer gemeinsamen Position die jeweilige Note jeder Person ein (Notenschlüssel nötig)",
         )
 
         show_max_points_check = Checkbox(
@@ -139,11 +139,11 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
         self._superposition_page_next_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(
             self._superposition_page_prev_button,
-            label="Noten-Superposition: eine Seite zurueck (unabhaengig vom Bereich)",
+            label="Noten-Superposition: eine Seite zurück (unabhängig vom Bereich)",
         )
         self._attach_hover_help(
             self._superposition_page_next_button,
-            label="Noten-Superposition: eine Seite vor (unabhaengig vom Bereich)",
+            label="Noten-Superposition: eine Seite vor (unabhängig vom Bereich)",
         )
         superposition_page_nav.pack(anchor=ui.W, pady=(4, 0))
         superposition_page_nav.pack_forget()
@@ -221,11 +221,11 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
             return
         template = self._current_correction_template()
         if template is None:
-            messagebox.showinfo("Hinweis", "Bitte zuerst einen Bereich waehlen.")
+            messagebox.showinfo("Hinweis", "Bitte zuerst einen Bereich wählen.")
             return
         task_codes = self._resolve_supersymbol_task_codes(template)
         if not task_codes:
-            messagebox.showinfo("Hinweis", "Bitte eine Aufgabe oder 'Summe aller Aufgaben' waehlen.")
+            messagebox.showinfo("Hinweis", "Bitte eine Aufgabe oder 'Summe aller Aufgaben' wählen.")
             return
         operator = SUPERSYMBOL_OPERATOR_BY_LABEL.get(self._supersymbol_operator_var.get())
         if operator is None:
@@ -234,7 +234,7 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
         try:
             target_value = float(raw_value)
         except ValueError:
-            messagebox.showerror("Ungueltiger Wert", "Bitte eine Zahl als Filterwert eingeben.")
+            messagebox.showerror("Ungültiger Wert", "Bitte eine Zahl als Filterwert eingeben.")
             return
 
         scores = self._controller.load_scores_for_exam(exam=self._current_exam)
@@ -246,7 +246,7 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
         if not matched_ids:
             messagebox.showerror(
                 "Kein Treffer",
-                "Kein(e) Schueler:in erfuellt diese Bedingung - das Supersymbol kann so nicht platziert werden.",
+                "Kein(e) Schüler:in erfüllt diese Bedingung - das Supersymbol kann so nicht platziert werden.",
             )
             return
 
@@ -306,7 +306,7 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
         built = self._build_superposed_pixmap(students=students, page_number=page_number, clip=clip)
         if built is None:
             self._correction_canvas.delete("all")
-            self._correction_info_var.set("Supersymbol: keine renderbaren Seiten fuer die Treffer")
+            self._correction_info_var.set("Supersymbol: keine renderbaren Seiten für die Treffer")
             return 0
         pixmap, reference_rect, source_count = built
 

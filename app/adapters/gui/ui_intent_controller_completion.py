@@ -92,20 +92,20 @@ class UiIntentControllerCompletionMixin:
         """
         normalized_region_id = region_id.strip()
         if not normalized_region_id:
-            messagebox.showerror("Ungueltige Eingabe", "Bereich fehlt.")
+            messagebox.showerror("Ungültige Eingabe", "Bereich fehlt.")
             return None
 
         target_ids = list(dict.fromkeys(student_ids))
         if not target_ids:
-            messagebox.showerror("Ungueltige Eingabe", "Keine Personen fuer Fertigstatus ausgewaehlt.")
+            messagebox.showerror("Ungültige Eingabe", "Keine Personen für Fertigstatus ausgewählt.")
             return None
 
         known_ids = {student.student_id for student in exam.students}
         unknown_ids = [student_id for student_id in target_ids if student_id not in known_ids]
         if unknown_ids:
             messagebox.showerror(
-                "Ungueltige Eingabe",
-                f"Unbekannte Person(en) fuer Fertigstatus: {', '.join(unknown_ids)}",
+                "Ungültige Eingabe",
+                f"Unbekannte Person(en) für Fertigstatus: {', '.join(unknown_ids)}",
             )
             return None
 

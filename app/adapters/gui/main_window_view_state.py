@@ -72,7 +72,7 @@ class MainWindowViewStateMixin:
             command=self._open_grading_scale_management_popup,
         )
         grading_scale_manage_button.pack(side=ui.RIGHT, padx=(0, 8))
-        self._attach_hover_help(grading_scale_manage_button, label="Notenschluessel anlegen/bearbeiten/archivieren")
+        self._attach_hover_help(grading_scale_manage_button, label="Notenschlüssel anlegen/bearbeiten/archivieren")
 
         task_category_button = widgets.Button(
             detail_actions,
@@ -90,7 +90,7 @@ class MainWindowViewStateMixin:
             command=self._open_student_result_popup,
         )
         student_result_button.pack(side=ui.RIGHT, padx=(0, 8))
-        self._attach_hover_help(student_result_button, label="Ergebnisse pro Schueler:in ansehen")
+        self._attach_hover_help(student_result_button, label="Ergebnisse pro Schüler:in ansehen")
 
         batch_export_button = widgets.Button(
             detail_actions,
@@ -99,7 +99,7 @@ class MainWindowViewStateMixin:
             command=self._open_batch_export_popup,
         )
         batch_export_button.pack(side=ui.RIGHT, padx=(0, 8))
-        self._attach_hover_help(batch_export_button, label="Alle ausgewaehlten Schueler:innen-PDFs in einem Rutsch exportieren")
+        self._attach_hover_help(batch_export_button, label="Alle ausgewählten Schüler:innen-PDFs in einem Rutsch exportieren")
 
         self._detail_name = ui.StringVar(value="-")
         self._detail_pages = ui.StringVar(value="Standardseiten: -")
@@ -120,7 +120,7 @@ class MainWindowViewStateMixin:
 
         grading_scale_row = widgets.Frame(self._detail_view, style="Surface.TFrame")
         grading_scale_row.pack(fill=ui.X, pady=(4, 0))
-        self._grading_scale_assignment_var = ui.StringVar(value="Notenschluessel: keiner zugeordnet")
+        self._grading_scale_assignment_var = ui.StringVar(value="Notenschlüssel: keiner zugeordnet")
         widgets.Label(grading_scale_row, textvariable=self._grading_scale_assignment_var, style="Muted.TLabel").pack(
             side=ui.LEFT
         )
@@ -141,7 +141,7 @@ class MainWindowViewStateMixin:
         )
         assign_grading_scale_button.pack(side=ui.LEFT, padx=(6, 0))
         self._attach_hover_help(
-            assign_grading_scale_button, label="Gewaehlten Notenschluessel dieser Klausur zuordnen"
+            assign_grading_scale_button, label="Gewählten Notenschlüssel dieser Klausur zuordnen"
         )
 
         self._correction_controls_frame = widgets.Frame(self._detail_view, style="Surface.TFrame")
@@ -187,7 +187,7 @@ class MainWindowViewStateMixin:
             command=self._toggle_extra_pages_popup_for_current,
         )
         show_extras_button.pack(side=ui.RIGHT)
-        self._attach_hover_help(show_extras_button, label="Extraseiten-Popup der aktuellen Person oeffnen", shortcut=None)
+        self._attach_hover_help(show_extras_button, label="Extraseiten-Popup der aktuellen Person öffnen", shortcut=None)
 
         form = widgets.Frame(self._correction_controls_frame, style="Surface.TFrame")
         form.pack(fill=ui.X, pady=(8, 0))
@@ -233,7 +233,7 @@ class MainWindowViewStateMixin:
             command=lambda: self._move_student(1),
         )
         next_student_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(next_student_button, label="Naechste Person", shortcut="Rechts")
+        self._attach_hover_help(next_student_button, label="Nächste Person", shortcut="Rechts")
 
     def _focus_first_input_field(self) -> None:
         if self._correction_mode_active:

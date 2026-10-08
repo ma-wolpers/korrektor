@@ -150,8 +150,8 @@ class MainWindowCorrectionMarkersExportMixin:
             suffix = f"\n... und {remaining} weitere" if remaining > 0 else ""
             messagebox.showwarning(
                 "Exporthinweis",
-                "Markierungen ausserhalb des aktiven Vorschau-Bereichs wurden beim PDF-Ueberschreiben ignoriert:\n"
+                "Markierungen außerhalb des aktiven Vorschau-Bereichs wurden beim PDF-Überschreiben ignoriert:\n"
                 + preview
                 + suffix,
             )
-        self._status_var.set("Original-PDF mit Markierungen ueberschrieben")
+        self._status_var.set("Original-PDF mit Markierungen überschrieben")

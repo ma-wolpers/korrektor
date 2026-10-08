@@ -78,8 +78,8 @@ def test_rejects_existing_destination_and_writes_nothing(source, tmp_path: Path)
     [
         ([_Output("Anna.pdf", ((1, 2),)), _Output("anna.PDF", ((3, 4),))], "Doppelter"),
         ([_Output("Anna.pdf", ())], "Keine Seiten"),
-        ([_Output("Anna.pdf", ((5, 7),))], "Ungueltiger Seitenbereich"),
-        ([_Output("Anna.pdf", ((0, 2),))], "Ungueltiger Seitenbereich"),
+        ([_Output("Anna.pdf", ((5, 7),))], "Ungültiger Seitenbereich"),
+        ([_Output("Anna.pdf", ((0, 2),))], "Ungültiger Seitenbereich"),
     ],
 )
 def test_invalid_outputs_raise_before_anything_is_written(source, tmp_path: Path, outputs, message) -> None:

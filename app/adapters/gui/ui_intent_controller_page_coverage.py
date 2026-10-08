@@ -24,13 +24,13 @@ class UiIntentControllerPageCoverageMixin:
             return exam
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
-            description="Extraseiten-Zuordnung geloescht",
+            description="Extraseiten-Zuordnung gelöscht",
             exam_id=updated.exam_id,
             before_payload=before_payload,
             after_payload=updated.to_dict(),
         )
         self.refresh_exam_overview()
-        self._app.set_status("Extraseiten-Zuordnung geloescht")
+        self._app.set_status("Extraseiten-Zuordnung gelöscht")
         return updated
 
     def assign_extra_page_immediate(

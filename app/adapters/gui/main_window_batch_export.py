@@ -39,7 +39,7 @@ class MainWindowBatchExportMixin:
         if self._controller is None or self._current_exam is None:
             return
         if not self._current_exam.students:
-            messagebox.showinfo("Hinweis", "Diese Klausur hat keine Schueler:innen.")
+            messagebox.showinfo("Hinweis", "Diese Klausur hat keine Schüler:innen.")
             return
         self._build_batch_export_popup()
         self._batch_export_scores = self._controller.load_scores_for_exam(exam=self._current_exam)
@@ -132,7 +132,7 @@ class MainWindowBatchExportMixin:
         self._batch_export_export_button.pack(anchor=ui.E, pady=(14, 0))
 
         widgets.Button(
-            body, text="Schliessen", style="SecondaryAction.TButton", command=self._close_batch_export_popup
+            body, text="Schließen", style="SecondaryAction.TButton", command=self._close_batch_export_popup
         ).pack(anchor=ui.E, pady=(6, 0))
 
         self._batch_export_popup = popup

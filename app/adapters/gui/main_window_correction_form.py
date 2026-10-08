@@ -42,12 +42,12 @@ class MainWindowCorrectionFormMixin:
 
         insert_comment_button = widgets.Button(
             correction_form,
-            text="Einfuegen",
+            text="Einfügen",
             style="SecondaryAction.TButton",
             command=self._insert_current_comment_into_preview_center,
         )
         insert_comment_button.grid(row=1, column=2, padx=(8, 0), sticky=ui.E)
-        self._attach_hover_help(insert_comment_button, label="Kommentar in der Vorschau-Mitte einfuegen")
+        self._attach_hover_help(insert_comment_button, label="Kommentar in der Vorschau-Mitte einfügen")
 
         self._correction_form_frame = correction_form
 

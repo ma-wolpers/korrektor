@@ -66,9 +66,9 @@ class UiIntentControllerRegionsMixin:
 
         joined = ", ".join(already_scored)
         messagebox.showerror(
-            "Aenderung abgelehnt",
-            f"Die maximale Punktzahl von bereits bewerteten Aufgaben ({joined}) kann nicht mehr geaendert werden, "
-            "damit bereits erfasste Punkte/Noten nicht rueckwirkend verfaelscht werden.",
+            "Änderung abgelehnt",
+            f"Die maximale Punktzahl von bereits bewerteten Aufgaben ({joined}) kann nicht mehr geändert werden, "
+            "damit bereits erfasste Punkte/Noten nicht rückwirkend verfälscht werden.",
         )
         return True
 
@@ -86,7 +86,7 @@ class UiIntentControllerRegionsMixin:
         if page_number > exam.standard_page_count:
             messagebox.showerror(
                 "Ungültige Eingabe",
-                "Im Extraseitenmodus koennen keine Aufgaben definiert werden. Bitte nur Bereich(e) zuordnen.",
+                "Im Extraseitenmodus können keine Aufgaben definiert werden. Bitte nur Bereich(e) zuordnen.",
             )
             return None
 
@@ -151,13 +151,13 @@ class UiIntentControllerRegionsMixin:
             return exam
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
-            description="Bereich geloescht",
+            description="Bereich gelöscht",
             exam_id=updated.exam_id,
             before_payload=before_payload,
             after_payload=updated.to_dict(),
         )
         self.refresh_exam_overview()
-        self._app.set_status("Bereich geloescht")
+        self._app.set_status("Bereich gelöscht")
         return updated
 
     def finish_reading_mode(self, *, exam: ExamProject) -> ExamProject:

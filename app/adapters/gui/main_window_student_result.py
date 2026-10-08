@@ -37,7 +37,7 @@ class MainWindowStudentResultMixin:
         if self._controller is None or self._current_exam is None:
             return
         if not self._current_exam.students:
-            messagebox.showinfo("Hinweis", "Diese Klausur hat keine Schueler:innen.")
+            messagebox.showinfo("Hinweis", "Diese Klausur hat keine Schüler:innen.")
             return
         # ScrollablePopupWindow is one-shot (its close path destroys the
         # widget tree, unlike the previous withdraw()/deiconify() reuse
@@ -144,7 +144,7 @@ class MainWindowStudentResultMixin:
         self._student_result_export_list = ui.Listbox(export_controls, selectmode=ui.EXTENDED, height=5, exportselection=False)
         self._student_result_export_list.pack(fill=ui.X, pady=(4, 0))
         self._attach_hover_help(
-            self._student_result_export_list, label="Auswahl der zu exportierenden Personen (Mehrfachauswahl moeglich)"
+            self._student_result_export_list, label="Auswahl der zu exportierenden Personen (Mehrfachauswahl möglich)"
         )
 
         export_actions = widgets.Frame(export_controls, style="Surface.TFrame")
@@ -166,7 +166,7 @@ class MainWindowStudentResultMixin:
 
         self._build_student_result_pdf_export_controls(export_controls)
 
-        widgets.Button(body, text="Schliessen", style="SecondaryAction.TButton", command=self._close_student_result_popup).pack(
+        widgets.Button(body, text="Schließen", style="SecondaryAction.TButton", command=self._close_student_result_popup).pack(
             anchor=ui.E, pady=(14, 0)
         )
 
@@ -206,7 +206,7 @@ class MainWindowStudentResultMixin:
         if result.grade_label is not None:
             grade_text = f" | Note: {result.grade_label} ({result.grade_percentage:g}%)"
         elif self._current_exam.grading_scale_snapshot is not None:
-            grade_text = " | Note: noch nicht ermittelbar (unvollstaendig oder ausserhalb der Notenstufen)"
+            grade_text = " | Note: noch nicht ermittelbar (unvollständig oder außerhalb der Notenstufen)"
         else:
             grade_text = ""
         self._student_result_summary_var.set(f"Gesamt: {total_text}{grade_text}")
@@ -263,12 +263,12 @@ class MainWindowStudentResultMixin:
             return
         selected_indices = self._student_result_export_list.curselection()
         if not selected_indices:
-            messagebox.showinfo("Hinweis", "Bitte mindestens eine Person auswaehlen.")
+            messagebox.showinfo("Hinweis", "Bitte mindestens eine Person auswählen.")
             return
         students = self._current_exam.students
         student_ids = [students[index].student_id for index in selected_indices if index < len(students)]
 
-        target_dir = filedialog.askdirectory(title="Zielordner fuer den Export waehlen")
+        target_dir = filedialog.askdirectory(title="Zielordner für den Export wählen")
         if not target_dir:
             return
 
@@ -286,7 +286,7 @@ class MainWindowStudentResultMixin:
         if failed:
             messagebox.showwarning(
                 "Export teilweise fehlgeschlagen",
-                f"{len(exported)} exportiert, fehlgeschlagen fuer: {', '.join(failed)}",
+                f"{len(exported)} exportiert, fehlgeschlagen für: {', '.join(failed)}",
             )
         else:
             messagebox.showinfo("Export abgeschlossen", f"{len(exported)} Ergebnis(se) exportiert nach:\n{target_dir}")

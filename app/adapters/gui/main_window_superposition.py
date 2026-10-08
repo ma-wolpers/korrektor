@@ -25,7 +25,7 @@ class MainWindowSuperpositionMixin:
 
     def _start_grade_superposition(self) -> None:
         if self._current_exam is not None and self._current_exam.grading_scale_snapshot is None:
-            messagebox.showinfo("Hinweis", "Bitte dieser Klausur zuerst einen Notenschluessel zuordnen.")
+            messagebox.showinfo("Hinweis", "Bitte dieser Klausur zuerst einen Notenschlüssel zuordnen.")
             return
         self._start_superposition_preview(mode="grade")
 
@@ -57,7 +57,7 @@ class MainWindowSuperpositionMixin:
             return
         template = self._current_correction_template()
         if template is None:
-            messagebox.showinfo("Hinweis", "Bitte zuerst einen Bereich waehlen.")
+            messagebox.showinfo("Hinweis", "Bitte zuerst einen Bereich wählen.")
             return
         target_students = [self._current_exam.students[index] for index in self._correction_student_indices]
         if not target_students:
@@ -67,7 +67,7 @@ class MainWindowSuperpositionMixin:
         if mode == "scored":
             task_code, max_points = self._selected_correction_task()
             if task_code is None:
-                messagebox.showinfo("Hinweis", "Bitte zuerst eine Aufgabe im Punkte-Formular auswaehlen.")
+                messagebox.showinfo("Hinweis", "Bitte zuerst eine Aufgabe im Punkte-Formular auswählen.")
                 return
             task_codes = [task_code]
             self._superposition_max_points = max_points
@@ -76,7 +76,7 @@ class MainWindowSuperpositionMixin:
         else:
             task_codes = self._resolve_supersymbol_task_codes(template)
             if not task_codes:
-                messagebox.showinfo("Hinweis", "Bitte eine Aufgabe oder 'Summe aller Aufgaben' waehlen.")
+                messagebox.showinfo("Hinweis", "Bitte eine Aufgabe oder 'Summe aller Aufgaben' wählen.")
                 return
             self._superposition_page_number = template.page_number
             page_number = self._superposition_page_number

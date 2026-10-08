@@ -39,21 +39,21 @@ class MainWindowOverviewMixin:
 
         open_exam_button = widgets.Button(
             overview_actions,
-            text="Klausur oeffnen",
+            text="Klausur öffnen",
             style="SecondaryAction.TButton",
             command=lambda: self._controller and self._controller.open_selected_exam(),
         )
         open_exam_button.pack(side=ui.LEFT, padx=(10, 0))
-        self._attach_hover_help(open_exam_button, label="Ausgewaehlte Klausur oeffnen", shortcut="Enter")
+        self._attach_hover_help(open_exam_button, label="Ausgewählte Klausur öffnen", shortcut="Enter")
 
         delete_exam_button = widgets.Button(
             overview_actions,
-            text="Klausur loeschen",
+            text="Klausur löschen",
             style="SecondaryAction.TButton",
             command=lambda: self._controller and self._controller.delete_selected_exam(),
         )
         delete_exam_button.pack(side=ui.LEFT, padx=(10, 0))
-        self._attach_hover_help(delete_exam_button, label="Ausgewaehlte Klausur loeschen", shortcut=None)
+        self._attach_hover_help(delete_exam_button, label="Ausgewählte Klausur löschen", shortcut=None)
 
         self._tree = widgets.Treeview(
             self._overview_view,

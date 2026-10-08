@@ -38,7 +38,7 @@ def validate_rename_set(students: list[StudentExam], actual_pdf_filenames: set[s
         errors.append(f"Referenzierte Datei fehlt: {filename} ({owners}).")
 
     for filename in sorted(actual_pdf_filenames - referenced):
-        errors.append(f"Zusaetzliche PDF ohne Zuordnung: {filename}.")
+        errors.append(f"Zusätzliche PDF ohne Zuordnung: {filename}.")
 
     return errors
 
@@ -74,11 +74,11 @@ def plan_target_filenames(students: list[StudentExam], name_by_student_id: dict[
         name = name_by_student_id.get(student.student_id, "").strip()
         label = student.display_name.strip() or student.student_id
         if not name:
-            errors.append(f"Kein Name eingegeben fuer {label}.")
+            errors.append(f"Kein Name eingegeben für {label}.")
             continue
         target = build_pdf_filename_from_name(name)
         if target is None:
-            errors.append(f"Ungueltiger Name (nach Bereinigung leer): '{name}' fuer {label}.")
+            errors.append(f"Ungültiger Name (nach Bereinigung leer): '{name}' für {label}.")
             continue
         raw_targets[student.student_id] = target
 
@@ -119,4 +119,4 @@ def find_external_conflicts(
     """
     outside = actual_pdf_filenames - rename_set_filenames
     conflicting = sorted(set(target_filename_by_student_id.values()) & outside)
-    return [f"Zielname kollidiert mit vorhandener Datei ausserhalb der Umbenennung: {name}" for name in conflicting]
+    return [f"Zielname kollidiert mit vorhandener Datei außerhalb der Umbenennung: {name}" for name in conflicting]

@@ -37,7 +37,7 @@ class UiIntentControllerGradingScaleMixin:
         if not scale.scale_id:
             scale.scale_id = f"gs-{uuid4().hex[:12]}"
         saved = self._deps.grading_scale_repository.save_scale(scale)
-        self._app.set_status(f"Notenschluessel gespeichert: {saved.name}")
+        self._app.set_status(f"Notenschlüssel gespeichert: {saved.name}")
         return saved
 
     def archive_grading_scale_immediate(self, *, scale_id: str) -> GradingScale | None:
@@ -46,7 +46,7 @@ class UiIntentControllerGradingScaleMixin:
             return None
         scale.status = STATUS_ARCHIVED
         saved = self._deps.grading_scale_repository.save_scale(scale)
-        self._app.set_status(f"Notenschluessel archiviert: {saved.name}")
+        self._app.set_status(f"Notenschlüssel archiviert: {saved.name}")
         return saved
 
     def reactivate_grading_scale_immediate(self, *, scale_id: str) -> GradingScale | None:
@@ -55,7 +55,7 @@ class UiIntentControllerGradingScaleMixin:
             return None
         scale.status = STATUS_ACTIVE
         saved = self._deps.grading_scale_repository.save_scale(scale)
-        self._app.set_status(f"Notenschluessel reaktiviert: {saved.name}")
+        self._app.set_status(f"Notenschlüssel reaktiviert: {saved.name}")
         return saved
 
     def delete_grading_scale_immediate(self, *, scale_id: str) -> bool:
@@ -74,13 +74,13 @@ class UiIntentControllerGradingScaleMixin:
             return False
         if repo.has_usage(scale_id):
             messagebox.showerror(
-                "Loeschen nicht moeglich",
+                "Löschen nicht möglich",
                 f"'{scale.name}' wurde bereits mindestens einer Klausur zugeordnet und kann deshalb nicht "
-                "geloescht werden - bitte stattdessen archivieren.",
+                "gelöscht werden - bitte stattdessen archivieren.",
             )
             return False
         repo.delete_scale(scale_id)
-        self._app.set_status(f"Notenschluessel geloescht: {scale.name}")
+        self._app.set_status(f"Notenschlüssel gelöscht: {scale.name}")
         return True
 
     def assign_grading_scale_immediate(self, *, exam: ExamProject, scale_id: str) -> ExamProject | None:
@@ -95,7 +95,7 @@ class UiIntentControllerGradingScaleMixin:
         """
         scale = self._deps.grading_scale_repository.get_scale(scale_id)
         if scale is None:
-            messagebox.showerror("Fehler", "Dieser Notenschluessel existiert nicht (mehr).")
+            messagebox.showerror("Fehler", "Dieser Notenschlüssel existiert nicht (mehr).")
             return None
 
         before_payload = exam.to_dict()
@@ -117,11 +117,11 @@ class UiIntentControllerGradingScaleMixin:
         )
 
         self._record_exam_payload_action(
-            description=f"Notenschluessel zugeordnet: {scale.name}",
+            description=f"Notenschlüssel zugeordnet: {scale.name}",
             exam_id=updated.exam_id,
             before_payload=before_payload,
             after_payload=updated.to_dict(),
         )
         self.refresh_exam_overview()
-        self._app.set_status(f"Notenschluessel zugeordnet: {scale.name}")
+        self._app.set_status(f"Notenschlüssel zugeordnet: {scale.name}")
         return updated

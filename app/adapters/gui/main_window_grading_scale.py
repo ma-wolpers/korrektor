@@ -39,7 +39,7 @@ class MainWindowGradingScaleMixin:
     def _build_grading_scale_popup(self) -> None:
         popup = ScrollablePopupWindow(
             self.root,
-            title="Notenschluessel verwalten",
+            title="Notenschlüssel verwalten",
             geometry="880x560",
             minsize=(640, 420),
             theme_key=self._tooltip_theme_key,
@@ -52,7 +52,7 @@ class MainWindowGradingScaleMixin:
 
         list_panel = widgets.Frame(body, style="Surface.TFrame", padding=(0, 0, 10, 0))
         list_panel.pack(side=ui.LEFT, fill=ui.BOTH, expand=True)
-        widgets.Label(list_panel, text="Vorhandene Notenschluessel", style="Muted.TLabel").pack(anchor=ui.W)
+        widgets.Label(list_panel, text="Vorhandene Notenschlüssel", style="Muted.TLabel").pack(anchor=ui.W)
 
         tree_shell = widgets.Frame(list_panel, style="Surface.TFrame")
         tree_shell.pack(fill=ui.BOTH, expand=True, pady=(4, 0))
@@ -86,7 +86,7 @@ class MainWindowGradingScaleMixin:
 
         form_panel = widgets.Frame(body, style="Surface.TFrame", padding=(10, 0, 0, 0))
         form_panel.pack(side=ui.LEFT, fill=ui.Y)
-        widgets.Label(form_panel, text="Notenschluessel bearbeiten", style="Muted.TLabel").pack(anchor=ui.W)
+        widgets.Label(form_panel, text="Notenschlüssel bearbeiten", style="Muted.TLabel").pack(anchor=ui.W)
 
         self._gs_name_var = ui.StringVar(value="")
         self._gs_subject_var = ui.StringVar(value="")
@@ -150,7 +150,7 @@ class MainWindowGradingScaleMixin:
         )
         self._gs_delete_button = widgets.Button(
             actions_row2,
-            text="Loeschen",
+            text="Löschen",
             style="SecondaryAction.TButton",
             command=self._delete_selected_grading_scale,
         )
@@ -160,7 +160,7 @@ class MainWindowGradingScaleMixin:
         transfer_row.pack(fill=ui.X, pady=(16, 0))
         widgets.Label(
             transfer_row,
-            text="Notenschluessel leben lokal auf diesem Rechner - auf einem anderen Rechner"
+            text="Notenschlüssel leben lokal auf diesem Rechner - auf einem anderen Rechner"
             " (z. B. anderer Exam-Indexordner) fehlen sie, bis sie hier ex-/importiert wurden.",
             style="Muted.TLabel",
             justify=ui.LEFT,
@@ -175,7 +175,7 @@ class MainWindowGradingScaleMixin:
             command=self._export_grading_scales,
         )
         export_button.pack(side=ui.LEFT)
-        self._attach_hover_help(export_button, label="Alle Notenschluessel in eine Datei exportieren")
+        self._attach_hover_help(export_button, label="Alle Notenschlüssel in eine Datei exportieren")
         import_button = widgets.Button(
             transfer_buttons,
             text="Importieren...",
@@ -183,9 +183,9 @@ class MainWindowGradingScaleMixin:
             command=self._import_grading_scales,
         )
         import_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(import_button, label="Notenschluessel aus einer zuvor exportierten Datei uebernehmen")
+        self._attach_hover_help(import_button, label="Notenschlüssel aus einer zuvor exportierten Datei übernehmen")
 
-        widgets.Button(form_panel, text="Schliessen", style="SecondaryAction.TButton", command=self._close_grading_scale_popup).pack(
+        widgets.Button(form_panel, text="Schließen", style="SecondaryAction.TButton", command=self._close_grading_scale_popup).pack(
             anchor=ui.E, pady=(14, 0)
         )
 
@@ -264,7 +264,7 @@ class MainWindowGradingScaleMixin:
         """
         raw = self._gs_thresholds_text.get("1.0", ui.END).strip()
         if not raw:
-            messagebox.showerror("Ungueltige Eingabe", "Bitte mindestens eine Notenstufe angeben, z. B. 80:1")
+            messagebox.showerror("Ungültige Eingabe", "Bitte mindestens eine Notenstufe angeben, z. B. 80:1")
             return None
         thresholds: list[GradeThreshold] = []
         for line in raw.splitlines():
@@ -273,16 +273,16 @@ class MainWindowGradingScaleMixin:
                 continue
             parts = [part.strip() for part in line.split(":")]
             if len(parts) != 2:
-                messagebox.showerror("Ungueltiges Format", f"Nutze Prozent:Note, z. B. 80:1 - nicht '{line}'")
+                messagebox.showerror("Ungültiges Format", f"Nutze Prozent:Note, z. B. 80:1 - nicht '{line}'")
                 return None
             percent_text, grade_label = parts
             try:
                 min_percent = float(percent_text.replace(",", "."))
             except ValueError:
-                messagebox.showerror("Ungueltiger Prozentwert", f"'{percent_text}' ist keine Zahl.")
+                messagebox.showerror("Ungültiger Prozentwert", f"'{percent_text}' ist keine Zahl.")
                 return None
             if not grade_label:
-                messagebox.showerror("Ungueltige Note", "Bitte fuer jede Zeile eine Note angeben.")
+                messagebox.showerror("Ungültige Note", "Bitte für jede Zeile eine Note angeben.")
                 return None
             thresholds.append(GradeThreshold(min_percent=min_percent, grade_label=grade_label))
         return thresholds
@@ -292,7 +292,7 @@ class MainWindowGradingScaleMixin:
             return
         name = self._gs_name_var.get().strip()
         if not name:
-            messagebox.showerror("Ungueltige Eingabe", "Bitte einen Namen angeben.")
+            messagebox.showerror("Ungültige Eingabe", "Bitte einen Namen angeben.")
             return
         thresholds = self._parse_grading_scale_thresholds_from_text()
         if thresholds is None:
@@ -360,9 +360,9 @@ class MainWindowGradingScaleMixin:
 
         if self._current_exam is not None and self._current_exam.grading_scale_snapshot is not None:
             snapshot = self._current_exam.grading_scale_snapshot
-            self._grading_scale_assignment_var.set(f"Notenschluessel: {snapshot.name} (zugeordnet am {snapshot.assigned_at[:10]})")
+            self._grading_scale_assignment_var.set(f"Notenschlüssel: {snapshot.name} (zugeordnet am {snapshot.assigned_at[:10]})")
         else:
-            self._grading_scale_assignment_var.set("Notenschluessel: keiner zugeordnet")
+            self._grading_scale_assignment_var.set("Notenschlüssel: keiner zugeordnet")
 
     def _assign_selected_grading_scale_to_current_exam(self) -> None:
         if self._current_exam is None or self._controller is None:
@@ -370,7 +370,7 @@ class MainWindowGradingScaleMixin:
         label = self._grading_scale_assign_choice_var.get()
         scale_id = self._grading_scale_assign_id_by_label.get(label)
         if scale_id is None:
-            messagebox.showinfo("Hinweis", "Bitte zuerst einen Notenschluessel auswaehlen.")
+            messagebox.showinfo("Hinweis", "Bitte zuerst einen Notenschlüssel auswählen.")
             return
         updated = self._controller.assign_grading_scale_immediate(exam=self._current_exam, scale_id=scale_id)
         if updated is None:
@@ -395,15 +395,15 @@ class MainWindowGradingScaleMixin:
 
         lines = []
         if summary.added:
-            lines.append(f"Neu hinzugefuegt ({len(summary.added)}): {', '.join(summary.added)}")
+            lines.append(f"Neu hinzugefügt ({len(summary.added)}): {', '.join(summary.added)}")
         if summary.skipped_identical:
-            lines.append(f"Bereits vorhanden, uebersprungen ({len(summary.skipped_identical)}): {', '.join(summary.skipped_identical)}")
+            lines.append(f"Bereits vorhanden, übersprungen ({len(summary.skipped_identical)}): {', '.join(summary.skipped_identical)}")
         if summary.skipped_conflict:
             lines.append(
-                f"Konflikt - gleicher Notenschluessel existiert bereits mit anderem Inhalt, "
-                f"nicht ueberschrieben ({len(summary.skipped_conflict)}): {', '.join(summary.skipped_conflict)}"
+                f"Konflikt - gleicher Notenschlüssel existiert bereits mit anderem Inhalt, "
+                f"nicht überschrieben ({len(summary.skipped_conflict)}): {', '.join(summary.skipped_conflict)}"
             )
-        messagebox.showinfo("Notenschluessel-Import", "\n".join(lines))
+        messagebox.showinfo("Notenschlüssel-Import", "\n".join(lines))
 
     def _on_grading_scale_popup_close_requested(self) -> bool:
         """Popup-registry cleanup shared by every close path - see the identical pattern/rationale

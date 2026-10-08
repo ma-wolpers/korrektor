@@ -89,7 +89,7 @@ class MainWindowExtraPagesPopupMixin:
                 command=lambda: self._change_extra_popup_page(1),
             )
             popup_next_button.pack(side=ui.LEFT, padx=(8, 0))
-            self._attach_hover_help(popup_next_button, label="Naechste Extraseite", shortcut="Rechts")
+            self._attach_hover_help(popup_next_button, label="Nächste Extraseite", shortcut="Rechts")
 
             popup_close_button = widgets.Button(
                 nav,
@@ -98,7 +98,7 @@ class MainWindowExtraPagesPopupMixin:
                 command=self._close_extra_popup,
             )
             popup_close_button.pack(side=ui.RIGHT)
-            self._attach_hover_help(popup_close_button, label="Extraseiten-Popup schliessen", shortcut="Esc")
+            self._attach_hover_help(popup_close_button, label="Extraseiten-Popup schließen", shortcut="Esc")
 
             self._extra_popup_preview = ScrollableImagePreview(popup, render=self._render_extra_popup_image)
             self._extra_popup_preview.pack(side=ui.TOP, fill=ui.BOTH, expand=True, padx=10, pady=(0, 10))

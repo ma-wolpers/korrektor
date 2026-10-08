@@ -53,8 +53,8 @@ class UiIntentControllerSuperpositionMixin:
             if value is None:
                 missing_code = next((code for code in task_codes if code not in student_scores), task_codes[0])
                 messagebox.showerror(
-                    "Superposition nicht moeglich",
-                    f"Fuer {student.display_name} fehlt die Bewertung von Aufgabe {missing_code} im Bereich "
+                    "Superposition nicht möglich",
+                    f"Für {student.display_name} fehlt die Bewertung von Aufgabe {missing_code} im Bereich "
                     f"{area_code}. Deshalb konnte die Superposition nicht angewendet werden.",
                 )
                 return None
@@ -173,7 +173,7 @@ class UiIntentControllerSuperpositionMixin:
         """
         if exam.grading_scale_snapshot is None:
             messagebox.showerror(
-                "Kein Notenschluessel", "Dieser Klausur ist noch kein Notenschluessel zugeordnet."
+                "Kein Notenschlüssel", "Dieser Klausur ist noch kein Notenschlüssel zugeordnet."
             )
             return None
 
@@ -189,8 +189,8 @@ class UiIntentControllerSuperpositionMixin:
         ]
         if missing_page_students:
             messagebox.showerror(
-                "Superposition nicht moeglich",
-                f"Die Note kann nicht auf Seite {page_number} eingefuegt werden, weil bei "
+                "Superposition nicht möglich",
+                f"Die Note kann nicht auf Seite {page_number} eingefügt werden, weil bei "
                 f"{', '.join(missing_page_students)} nicht so viele Seiten vorhanden sind.",
             )
             return None
@@ -201,23 +201,23 @@ class UiIntentControllerSuperpositionMixin:
             result = self.compute_student_result_for_exam(exam=exam, student_id=student.student_id, scores=scores)
             if result is None or result.total_achieved_points is None:
                 messagebox.showerror(
-                    "Superposition nicht moeglich",
-                    f"Fuer {student.display_name} ist die Auswertung noch nicht vollstaendig - es fehlt "
+                    "Superposition nicht möglich",
+                    f"Für {student.display_name} ist die Auswertung noch nicht vollständig - es fehlt "
                     "mindestens eine Punktbewertung im gesamten Exam (nicht nur im aktuellen Bereich). "
                     "Deshalb konnte keine Note ermittelt werden.",
                 )
                 return None
             if result.total_max_points <= 0:
                 messagebox.showerror(
-                    "Superposition nicht moeglich",
+                    "Superposition nicht möglich",
                     "Dieses Exam hat keine bewertbaren Aufgaben - es kann keine Note ermittelt werden.",
                 )
                 return None
             if result.grade_label is None:
                 messagebox.showerror(
-                    "Superposition nicht moeglich",
-                    f"Fuer {student.display_name} liegt die erreichte Punktzahl unterhalb der niedrigsten "
-                    "Schwelle des zugeordneten Notenschluessels - es kann keine Note ermittelt werden.",
+                    "Superposition nicht möglich",
+                    f"Für {student.display_name} liegt die erreichte Punktzahl unterhalb der niedrigsten "
+                    "Schwelle des zugeordneten Notenschlüssels - es kann keine Note ermittelt werden.",
                 )
                 return None
             content_by_student_id[student.student_id] = result.grade_label

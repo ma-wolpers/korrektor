@@ -54,7 +54,7 @@ class UiIntentControllerOverviewMixin:
             first = load_errors[0]
             suffix = f" ({len(load_errors) - 1} weitere)" if len(load_errors) > 1 else ""
             self._app.set_status(
-                f"{len(load_errors)} Klausur(en) uebersprungen - fehlerhaft: {first.exam_file.name}: {first.message}{suffix}"
+                f"{len(load_errors)} Klausur(en) übersprungen - fehlerhaft: {first.exam_file.name}: {first.message}{suffix}"
             )
 
     def create_exam(self) -> None:
@@ -171,7 +171,7 @@ class UiIntentControllerOverviewMixin:
         try:
             exam = self._deps.load_exam_usecase.execute(exam_file=selected.source_file)
         except Exception as exc:
-            messagebox.showerror("Klausur fehlerhaft", f"'{selected.source_file.name}' konnte nicht geoeffnet werden:\n{exc}")
+            messagebox.showerror("Klausur fehlerhaft", f"'{selected.source_file.name}' konnte nicht geöffnet werden:\n{exc}")
             return
         self._app.open_exam_detail(exam, selected.source_file)
 
@@ -179,17 +179,17 @@ class UiIntentControllerOverviewMixin:
         try:
             normalized = self._deps.settings_repository.normalize_exam_index_dir(raw_path)
         except Exception as exc:
-            messagebox.showerror("Ungueltiger Pfad", str(exc))
+            messagebox.showerror("Ungültiger Pfad", str(exc))
             return None
 
         current = self._deps.exam_repository.index_root
         if normalized == current:
-            self._app.set_status(f"JSON-Ablagepfad unveraendert: {normalized}")
+            self._app.set_status(f"JSON-Ablagepfad unverändert: {normalized}")
             return normalized
 
         self._apply_exam_index_dir(normalized)
         self._record_history_action(
-            description=f"JSON-Ablagepfad geaendert: {normalized}",
+            description=f"JSON-Ablagepfad geändert: {normalized}",
             undo=lambda: self._apply_exam_index_dir(current),
             redo=lambda: self._apply_exam_index_dir(normalized),
             context="lifecycle",

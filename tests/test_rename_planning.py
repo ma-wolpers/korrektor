@@ -38,7 +38,7 @@ def test_validate_rename_set_rejects_missing_referenced_file() -> None:
 def test_validate_rename_set_rejects_unassigned_extra_pdf() -> None:
     students = [_student("alice", "Alice.pdf")]
     errors = validate_rename_set(students, {"Alice.pdf", "Leftover.pdf"})
-    assert any("Zusaetzliche PDF ohne Zuordnung" in error and "Leftover.pdf" in error for error in errors)
+    assert any("Zusätzliche PDF ohne Zuordnung" in error and "Leftover.pdf" in error for error in errors)
 
 
 def test_validate_rename_set_rejects_empty_pdf_filename() -> None:
@@ -77,7 +77,7 @@ def test_plan_target_filenames_reports_name_invalid_after_sanitizing() -> None:
     plan = plan_target_filenames(students, {"alice": '???"""'})
 
     assert plan.target_filename_by_student_id == {}
-    assert any("Ungueltiger Name" in error for error in plan.errors)
+    assert any("Ungültiger Name" in error for error in plan.errors)
 
 
 def test_find_external_conflicts_ignores_targets_within_the_rename_set() -> None:

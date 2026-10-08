@@ -44,7 +44,7 @@ class MainWindowCorrectionSyncMixin:
             return
 
         members = self._sync_group_members(annotation, include_detached=True)
-        detached_suffix = " | Position lokal geloest (Alt-Drag)" if annotation.position_detached else ""
+        detached_suffix = " | Position lokal gelöst (Alt-Drag)" if annotation.position_detached else ""
         self._correction_sync_info_var.set(f"Sync: aktiv ({len(members)} Kopien){detached_suffix}")
 
     def _toggle_selected_annotation_sync(self) -> None:
@@ -52,7 +52,7 @@ class MainWindowCorrectionSyncMixin:
             return
         annotation = self._selected_correction_annotation()
         if annotation is None:
-            messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswaehlen.")
+            messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswählen.")
             return
 
         if annotation.sync_group_id:
@@ -64,7 +64,7 @@ class MainWindowCorrectionSyncMixin:
                 return
             self._current_exam = updated
             self._render_correction_annotations()
-            self._status_var.set("Durchdruecken deaktiviert: Kopien bei anderen Personen entfernt")
+            self._status_var.set("Durchdrücken deaktiviert: Kopien bei anderen Personen entfernt")
             return
 
         other_student_pdfs = [
@@ -83,7 +83,7 @@ class MainWindowCorrectionSyncMixin:
         created = len(updated.pdf_annotations) - annotations_before
         self._current_exam = updated
         self._render_correction_annotations()
-        self._status_var.set(f"Durchgedrueckt: {created} Kopien erzeugt")
+        self._status_var.set(f"Durchgedrückt: {created} Kopien erzeugt")
 
     def _detach_selected_annotation_from_sync(self) -> None:
         """"Nur dieses Symbol entkoppeln": leave the sync group, others stay synced.
@@ -97,7 +97,7 @@ class MainWindowCorrectionSyncMixin:
             return
         annotation = self._selected_correction_annotation()
         if annotation is None:
-            messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswaehlen.")
+            messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswählen.")
             return
         if not annotation.sync_group_id:
             messagebox.showinfo("Hinweis", "Diese Markierung ist nicht Teil einer Sync-Gruppe.")

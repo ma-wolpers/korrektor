@@ -64,13 +64,13 @@ class UiIntentControllerTaskCategoriesMixin:
             return None
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
-            description=f"Kategorie geloescht: {category.name}",
+            description=f"Kategorie gelöscht: {category.name}",
             exam_id=updated.exam_id,
             before_payload=before_payload,
             after_payload=updated.to_dict(),
         )
         self.refresh_exam_overview()
-        self._app.set_status(f"Kategorie geloescht: {category.name}")
+        self._app.set_status(f"Kategorie gelöscht: {category.name}")
         return updated
 
     def reorder_task_categories_immediate(self, *, exam: ExamProject, ordered_category_ids: list[str]) -> ExamProject | None:
@@ -93,7 +93,7 @@ class UiIntentControllerTaskCategoriesMixin:
             return None
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
-            description="Kategorien-Reihenfolge geaendert",
+            description="Kategorien-Reihenfolge geändert",
             exam_id=updated.exam_id,
             before_payload=before_payload,
             after_payload=updated.to_dict(),

@@ -31,10 +31,10 @@ class UiIntentControllerHistoryMixin:
             messagebox.showerror("Rückgängig nicht möglich", str(exc))
             return False
         if action is None:
-            self._app.set_status("Nichts zum Rueckgaengigmachen")
+            self._app.set_status("Nichts zum Rückgängigmachen")
             return False
         self._refresh_after_history_action(context=action.context)
-        self._app.set_status(f"Rueckgaengig: {action.description}")
+        self._app.set_status(f"Rückgängig: {action.description}")
         return True
 
     def redo(self) -> bool:

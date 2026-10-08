@@ -41,7 +41,7 @@ def resolve_grade(achieved_points: float, max_points: float, snapshot: GradingSc
     this function only knows the numbers it was given.
     """
     if max_points <= 0:
-        raise GradingError(f"Ungueltige maximale Punktzahl fuer die Notenberechnung: {max_points}")
+        raise GradingError(f"Ungültige maximale Punktzahl für die Notenberechnung: {max_points}")
 
     percentage = round((achieved_points / max_points) * 100.0, _PERCENT_PRECISION)
     for threshold in sorted(snapshot.thresholds, key=lambda item: item.min_percent, reverse=True):
@@ -49,5 +49,5 @@ def resolve_grade(achieved_points: float, max_points: float, snapshot: GradingSc
             return GradeResult(grade_label=threshold.grade_label, percentage=percentage)
 
     raise GradingError(
-        f"Keine Notenstufe des Notenschluessels '{snapshot.name}' erreicht ({percentage:g}% erreicht)."
+        f"Keine Notenstufe des Notenschlüssels '{snapshot.name}' erreicht ({percentage:g}% erreicht)."
     )

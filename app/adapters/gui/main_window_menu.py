@@ -64,7 +64,7 @@ class MainWindowMenuMixin:
     def _menu_items_file(self):
         return (
             SharedMenuItem(type="command", label="Neue Klausur (Strg+N)", command=self._menu_create_exam),
-            SharedMenuItem(type="command", label="Ausgewaehlte Klausur oeffnen", command=self._menu_open_selected_exam),
+            SharedMenuItem(type="command", label="Ausgewählte Klausur öffnen", command=self._menu_open_selected_exam),
             SharedMenuItem(type="command", label="Punkte exportieren (Strg+E)", command=self._menu_export_scores),
             SharedMenuItem(
                 type="command",
@@ -81,17 +81,17 @@ class MainWindowMenuMixin:
         undo_label = self._controller.undo_label() if self._controller is not None else None
         redo_label = self._controller.redo_label() if self._controller is not None else None
 
-        undo_text = "Rueckgaengig (Strg+Z)"
+        undo_text = "Rückgängig (Strg+Z)"
         redo_text = "Wiederholen (Strg+Y)"
         if undo_label:
-            undo_text = f"Rueckgaengig: {undo_label} (Strg+Z)"
+            undo_text = f"Rückgängig: {undo_label} (Strg+Z)"
         if redo_label:
             redo_text = f"Wiederholen: {redo_label} (Strg+Y)"
 
         undo_item = (
             SharedMenuItem(type="command", label=undo_text, command=self._menu_undo)
             if can_undo
-            else SharedMenuItem(type="disabled", label="Rueckgaengig (leer)")
+            else SharedMenuItem(type="disabled", label="Rückgängig (leer)")
         )
         redo_item = (
             SharedMenuItem(type="command", label=redo_text, command=self._menu_redo)
@@ -133,12 +133,12 @@ class MainWindowMenuMixin:
 
     def _menu_items_help(self):
         return (
-            SharedMenuItem(type="command", label="Ueber Korrektor", command=self._menu_show_about),
+            SharedMenuItem(type="command", label="Über Korrektor", command=self._menu_show_about),
         )
 
     def _menu_show_about(self) -> None:
         messagebox.showinfo(
-            "Ueber Korrektor",
+            "Über Korrektor",
             f"{APP_INFO.name}\nVersion: {APP_INFO.version}",
             parent=self.root,
         )
@@ -175,10 +175,10 @@ class MainWindowMenuMixin:
                         ),
                         SharedSettingsFieldSpec(
                             key="default_annotation_pdf_font_size",
-                            label="Standardgroesse Markierungen (pt im PDF)",
+                            label="Standardgröße Markierungen (pt im PDF)",
                             field_type="string",
                             default=f"{self._default_annotation_font_size:.0f}",
-                            hint="Gueltiger Bereich: 8 bis 96 pt.",
+                            hint="Gültiger Bereich: 8 bis 96 pt.",
                         ),
                         SharedSettingsFieldSpec(
                             key="scan_rotation_step_deg",

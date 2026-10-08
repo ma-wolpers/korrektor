@@ -49,12 +49,12 @@ class MainWindowCorrectionMarkersClipboardMixin:
         """
         annotation = self._selected_correction_annotation()
         if annotation is None:
-            messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswaehlen.")
+            messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswählen.")
             return False
 
         clip_box = self._resolve_annotation_clip_box(annotation, self._correction_templates)
         if clip_box is None:
-            messagebox.showinfo("Hinweis", "Die Markierung liegt ausserhalb eines gueltigen Bereichs.")
+            messagebox.showinfo("Hinweis", "Die Markierung liegt außerhalb eines gültigen Bereichs.")
             return False
 
         width = max(1e-6, clip_box[2] - clip_box[0])
@@ -128,7 +128,7 @@ class MainWindowCorrectionMarkersClipboardMixin:
         self._current_exam = updated
         self._correction_selected_annotation_id = annotation.annotation_id
         self._render_correction_annotations()
-        self._status_var.set("Markierung eingefuegt")
+        self._status_var.set("Markierung eingefügt")
         return True
 
     def _annotation_by_id(self, annotation_id: str) -> PdfAnnotation | None:

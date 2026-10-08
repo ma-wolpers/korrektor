@@ -22,12 +22,12 @@ class MainWindowReadingMixin:
 
         back_to_detail_button = widgets.Button(
             reading_nav,
-            text="Zurueck zur Klausur",
+            text="Zurück zur Klausur",
             style="SecondaryAction.TButton",
             command=self._leave_reading_view,
         )
         back_to_detail_button.pack(side=ui.LEFT)
-        self._attach_hover_help(back_to_detail_button, label="Zur Klausurdetailansicht zurueck", shortcut="Esc")
+        self._attach_hover_help(back_to_detail_button, label="Zur Klausurdetailansicht zurück", shortcut="Esc")
 
         self._finish_reading_button = widgets.Button(
             reading_nav,
@@ -67,7 +67,7 @@ class MainWindowReadingMixin:
             command=lambda: self._change_reading_page(1),
         )
         next_page_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(next_page_button, label="Naechste Seite", shortcut="Rechts")
+        self._attach_hover_help(next_page_button, label="Nächste Seite", shortcut="Rechts")
 
         prev_reading_student_button = widgets.Button(
             self._reading_toolbar,

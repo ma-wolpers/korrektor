@@ -40,7 +40,7 @@ class JsonAppSettingsRepository:
     def normalize_exam_index_dir(self, raw_path: str) -> Path:
         normalized_raw = raw_path.strip()
         if not normalized_raw:
-            raise ValueError("Bitte einen gueltigen Ordnerpfad angeben.")
+            raise ValueError("Bitte einen gültigen Ordnerpfad angeben.")
 
         candidate = Path(normalized_raw).expanduser()
         if not candidate.is_absolute():

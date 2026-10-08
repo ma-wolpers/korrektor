@@ -72,12 +72,12 @@ class UiIntentControllerNamingMixin:
 
         set_errors = validate_rename_set(exam.students, actual_pdf_filenames)
         if set_errors:
-            messagebox.showerror("Umbenennen nicht moeglich", "\n".join(set_errors))
+            messagebox.showerror("Umbenennen nicht möglich", "\n".join(set_errors))
             return None
 
         plan = plan_target_filenames(exam.students, name_by_student_id)
         if plan.errors:
-            messagebox.showerror("Ungueltige Namen", "\n".join(plan.errors))
+            messagebox.showerror("Ungültige Namen", "\n".join(plan.errors))
             return None
 
         rename_set_filenames = {student.pdf_filename for student in exam.students}
@@ -85,7 +85,7 @@ class UiIntentControllerNamingMixin:
             plan.target_filename_by_student_id, actual_pdf_filenames, rename_set_filenames
         )
         if external_conflicts:
-            messagebox.showerror("Umbenennen nicht moeglich", "\n".join(external_conflicts))
+            messagebox.showerror("Umbenennen nicht möglich", "\n".join(external_conflicts))
             return None
 
         rename_operations = [
@@ -94,7 +94,7 @@ class UiIntentControllerNamingMixin:
             if plan.target_filename_by_student_id[student.student_id] != student.pdf_filename
         ]
         if not rename_operations:
-            messagebox.showinfo("Hinweis", "Keine Umbenennung noetig - alle Namen entsprechen bereits den Dateinamen.")
+            messagebox.showinfo("Hinweis", "Keine Umbenennung nötig - alle Namen entsprechen bereits den Dateinamen.")
             return exam
 
         rename_pairs = [(old, new) for _sid, old, new in rename_operations]
@@ -106,7 +106,7 @@ class UiIntentControllerNamingMixin:
         try:
             self._apply_staged_renames(folder, rename_pairs)
         except OSError as exc:
-            messagebox.showerror("Umbenennen fehlgeschlagen", f"Dateisystem-Fehler, keine Datei wurde veraendert: {exc}")
+            messagebox.showerror("Umbenennen fehlgeschlagen", f"Dateisystem-Fehler, keine Datei wurde verändert: {exc}")
             return None
 
         for student in exam.students:
@@ -132,7 +132,7 @@ class UiIntentControllerNamingMixin:
                 pass
             messagebox.showerror(
                 "Umbenennen fehlgeschlagen",
-                f"Klausur konnte nicht gespeichert werden, Dateinamen wurden zurueckgesetzt: {exc}",
+                f"Klausur konnte nicht gespeichert werden, Dateinamen wurden zurückgesetzt: {exc}",
             )
             return None
 
@@ -150,7 +150,7 @@ class UiIntentControllerNamingMixin:
             self._write_exam_payload(exam_file_path, after_payload)
 
         self._record_history_action(
-            description=f"{len(rename_operations)} Schueler:in(nen) umbenannt",
+            description=f"{len(rename_operations)} Schüler:in(nen) umbenannt",
             undo=_undo,
             redo=_redo,
         )

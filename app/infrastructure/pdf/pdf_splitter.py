@@ -68,7 +68,7 @@ def write_split_outputs(
     colliding = [path.name for path in destinations if path.exists()]
     if colliding:
         raise FileExistsError(
-            "Diese Datei(en) existieren bereits im Zielordner und wuerden ueberschrieben: " + ", ".join(colliding)
+            "Diese Datei(en) existieren bereits im Zielordner und würden überschrieben: " + ", ".join(colliding)
         )
 
     written: list[Path] = []
@@ -117,10 +117,10 @@ def _validate_outputs(page_count: int, outputs: Sequence[SplitOutputSpec]) -> No
             raise ValueError(f"Doppelter Ziel-Dateiname: {output.filename}")
         seen.add(key)
         if not output.page_ranges:
-            raise ValueError(f"Keine Seiten fuer {output.filename}.")
+            raise ValueError(f"Keine Seiten für {output.filename}.")
         for start, end in output.page_ranges:
             if not (1 <= start <= end <= page_count):
-                raise ValueError(f"Ungueltiger Seitenbereich {start}-{end} fuer {output.filename} (1..{page_count}).")
+                raise ValueError(f"Ungültiger Seitenbereich {start}-{end} für {output.filename} (1..{page_count}).")
 
 
 def _remove_files(paths: list[Path]) -> list[Path]:

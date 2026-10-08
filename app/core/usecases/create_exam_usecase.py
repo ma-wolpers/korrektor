@@ -60,7 +60,7 @@ class CreateExamUseCase:
             )
         scan_entries = self._pdf_scan_repo.scan_exam_folder(folder_path)
         if not scan_entries:
-            raise ValueError("Im gewaehlten Ordner wurden keine PDFs gefunden.")
+            raise ValueError("Im gewählten Ordner wurden keine PDFs gefunden.")
 
         standard_page_count = min(page_count for _, page_count in scan_entries)
         created = utc_now_iso()

@@ -48,7 +48,7 @@ class MainWindowStudentResultPdfExportMixin:
             return None
         selected_indices = self._student_result_export_list.curselection()
         if not selected_indices:
-            messagebox.showinfo("Hinweis", "Bitte mindestens eine Person auswaehlen.")
+            messagebox.showinfo("Hinweis", "Bitte mindestens eine Person auswählen.")
             return None
         students = self._current_exam.students
         return [students[index].student_id for index in selected_indices if index < len(students)]

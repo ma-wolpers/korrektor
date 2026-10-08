@@ -125,10 +125,10 @@ class UiIntentControllerAnnotationsMixin:
             exam.pdf_annotations = [
                 item for item in exam.pdf_annotations if item.sync_group_id != annotation.sync_group_id
             ]
-            description = "Sync-Gruppe geloescht"
+            description = "Sync-Gruppe gelöscht"
         else:
             exam.pdf_annotations = [item for item in exam.pdf_annotations if item.annotation_id != annotation_id]
-            description = "Markierung geloescht"
+            description = "Markierung gelöscht"
 
         def _rollback() -> None:
             exam.pdf_annotations = previous_annotations
@@ -159,7 +159,7 @@ class UiIntentControllerAnnotationsMixin:
 
         return self._save_annotation_mutation_immediate(
             exam=exam,
-            description=f"Markierungsgroesse: {next_size:.0f}pt",
+            description=f"Markierungsgröße: {next_size:.0f}pt",
             before_payload=before_payload,
             rollback=_rollback,
         )
@@ -258,7 +258,7 @@ class UiIntentControllerAnnotationsMixin:
 
         return self._save_annotation_mutation_immediate(
             exam=exam,
-            description=f"Durchgedrueckt: {len(clones)} Kopien erzeugt",
+            description=f"Durchgedrückt: {len(clones)} Kopien erzeugt",
             before_payload=before_payload,
             rollback=_rollback,
         )
@@ -297,7 +297,7 @@ class UiIntentControllerAnnotationsMixin:
 
         return self._save_annotation_mutation_immediate(
             exam=exam,
-            description=f"Durchdruecken deaktiviert ({removed} Kopien entfernt)",
+            description=f"Durchdrücken deaktiviert ({removed} Kopien entfernt)",
             before_payload=before_payload,
             rollback=_rollback,
         )

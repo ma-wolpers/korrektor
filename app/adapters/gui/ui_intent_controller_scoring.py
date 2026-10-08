@@ -82,11 +82,11 @@ class UiIntentControllerScoringMixin:
     ) -> ExamProject | None:
         normalized_task = task_code.strip().upper()
         if not normalized_task:
-            messagebox.showerror("Ungueltige Eingabe", "Aufgabencode fehlt.")
+            messagebox.showerror("Ungültige Eingabe", "Aufgabencode fehlt.")
             return None
 
         if student_id not in {student.student_id for student in exam.students}:
-            messagebox.showerror("Ungueltige Eingabe", "Unbekannte Person fuer Aufgabenkommentar.")
+            messagebox.showerror("Ungültige Eingabe", "Unbekannte Person für Aufgabenkommentar.")
             return None
 
         valid_tasks = self._existing_task_codes(exam)

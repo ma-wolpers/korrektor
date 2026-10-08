@@ -52,7 +52,7 @@ class MainWindowShortcutsDebugMixin:
             on_change=lambda _offline: self._refresh_shortcut_runtime_debug_dialog(),
         )
         offline_check.pack(side=ui.LEFT, padx=(12, 0))
-        self._attach_hover_help(offline_check, label="Offline-Simulation fuer Runtime-Resolver umschalten", shortcut="Ctrl+Shift+O")
+        self._attach_hover_help(offline_check, label="Offline-Simulation für Runtime-Resolver umschalten", shortcut="Ctrl+Shift+O")
 
         refresh_button = widgets.Button(
             toolbar,

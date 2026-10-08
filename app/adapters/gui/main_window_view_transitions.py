@@ -77,7 +77,7 @@ class MainWindowViewTransitionsMixin:
         self._detail_status.set("Status: -")
         self._active_student.set("Aktive Person: -")
         if self._grading_scale_assignment_var is not None:
-            self._grading_scale_assignment_var.set("Notenschluessel: keiner zugeordnet")
+            self._grading_scale_assignment_var.set("Notenschlüssel: keiner zugeordnet")
         self._correction_zoom_percent = 100
         self._refresh_correction_zoom_label()
         self._reading_mode_title_var.set("Zuschnitt")
@@ -104,7 +104,7 @@ class MainWindowViewTransitionsMixin:
         self._refresh_region_tree()
         self._show_view("overview")
         self._in_detail_mode = False
-        self._status_var.set("Zur Übersicht zurueckgekehrt")
+        self._status_var.set("Zur Übersicht zurückgekehrt")
 
     def _show_correction_controls(self) -> None:
         if self._correction_controls_frame is None:

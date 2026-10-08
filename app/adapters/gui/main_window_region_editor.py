@@ -97,7 +97,7 @@ class MainWindowRegionEditorMixin:
         self._task_input_example_label.pack(fill=ui.X, pady=(4, 0))
 
         self._extra_area_container = widgets.Frame(self._regions_editor, style="Surface.TFrame")
-        widgets.Label(self._extra_area_container, text="Bereich(e) fuer Extraseite", style="Muted.TLabel").pack(anchor=ui.W)
+        widgets.Label(self._extra_area_container, text="Bereich(e) für Extraseite", style="Muted.TLabel").pack(anchor=ui.W)
         self._extra_area_codes_var = ui.StringVar(value="")
         self._extra_area_entry = widgets.Entry(self._extra_area_container, textvariable=self._extra_area_codes_var)
         self._extra_area_entry.pack(fill=ui.X, pady=(4, 0))
@@ -125,12 +125,12 @@ class MainWindowRegionEditorMixin:
 
         self._delete_region_button = widgets.Button(
             region_actions,
-            text="Loeschen",
+            text="Löschen",
             style="SecondaryAction.TButton",
             command=self._delete_selected_region,
         )
         self._delete_region_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(self._delete_region_button, label="Aktiven Bereich loeschen", shortcut="Entf")
+        self._attach_hover_help(self._delete_region_button, label="Aktiven Bereich löschen", shortcut="Entf")
 
         redraw_region_button = widgets.Button(
             region_actions,
@@ -141,7 +141,7 @@ class MainWindowRegionEditorMixin:
         redraw_region_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(
             redraw_region_button,
-            label="Naechste gezogene Box ueberschreibt den ausgewaehlten Bereich",
+            label="Nächste gezogene Box überschreibt den ausgewählten Bereich",
             shortcut=None,
         )
 

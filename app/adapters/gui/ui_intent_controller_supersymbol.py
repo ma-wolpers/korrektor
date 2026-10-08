@@ -70,5 +70,5 @@ class UiIntentControllerSupersymbolMixin:
             after_payload=updated.to_dict(),
         )
         self.refresh_exam_overview()
-        self._app.set_status(f"Supersymbol fuer {len(clones)} Person(en) gesetzt")
+        self._app.set_status(f"Supersymbol für {len(clones)} Person(en) gesetzt")
         return updated
