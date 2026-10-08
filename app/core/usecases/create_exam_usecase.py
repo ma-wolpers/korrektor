@@ -46,18 +46,17 @@ class CreateExamUseCase:
                 folder flow behaves exactly as before.
 
         Raises:
-            ValueError: The folder is already indexed by another exam, or it
-                contains no PDF.
+            ValueError: The folder already holds exam data
+                (``korrektor_klausur.json`` - never overwritten), or it contains no PDF.
         """
-        resolved_folder = folder_path.resolve()
-        existing_name = self._find_exam_name_for_folder(resolved_folder)
-        if existing_name is not None:
+        exam_file = self._exam_repo.exam_file_for_folder(folder_path)
+        if exam_file.exists():
+            header = self._exam_repo.read_exam_header(exam_file) or {}
+            existing_name = header.get("exam_name") or "(unbekannt)"
             raise ValueError(
-                f"Fuer diesen Ordner existiert im aktuellen Exam-Indexordner bereits die Klausur "
-                f"'{existing_name}'. Bitte diese ueber die Klausur-Uebersicht oeffnen, statt eine "
-                "neue, leere Klausur anzulegen - sonst gehen bereits erfasste Bereiche/Punkte/Namen "
-                "fuer diesen Ordner scheinbar verloren (sie bleiben in der alten Klausur erhalten, "
-                "tauchen aber in der neuen nicht auf)."
+                f"In diesem Ordner liegen bereits die Daten der Klausur '{existing_name}'. "
+                "Eine neue, leere Klausur würde sie überschreiben - bitte die vorhandene Klausur "
+                "übernehmen bzw. über die Übersicht öffnen."
             )
         scan_entries = self._pdf_scan_repo.scan_exam_folder(folder_path)
         if not scan_entries:
@@ -101,19 +100,3 @@ class CreateExamUseCase:
         )
         exam_file = self._exam_repo.save_exam(exam)
         return CreateExamResult(exam=exam, exam_file=exam_file)
-
-    def _find_exam_name_for_folder(self, resolved_folder: Path) -> str | None:
-        """Return the name of an already-indexed exam pointing at `resolved_folder`, if any.
-
-        A file that fails to load (broken/legacy JSON) is skipped rather
-        than aborting exam creation over an unrelated exam's problem - the
-        same "skip broken, don't block" choice `ListExamsUseCase` makes.
-        """
-        for exam_file in self._exam_repo.list_exam_files():
-            try:
-                candidate = self._exam_repo.load_exam(exam_file)
-            except Exception:
-                continue
-            if Path(candidate.folder_path).resolve() == resolved_folder:
-                return candidate.exam_name
-        return None

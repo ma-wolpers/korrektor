@@ -73,7 +73,7 @@ def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[UiIntentCon
 
 
 def _reload(controller: UiIntentController) -> ExamProject:
-    return controller._deps.exam_repository.load_exam(controller._deps.exam_repository.index_root / "exam-1.json")
+    return controller._deps.exam_repository.load_exam(controller._deps.exam_repository.exam_file_for_id("exam-1"))
 
 
 def test_apply_scored_superposition_creates_personalized_content_per_student(tmp_path: Path, monkeypatch) -> None:

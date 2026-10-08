@@ -4,7 +4,6 @@ from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
 from app.adapters.undo import HistoryAction
-from app.infrastructure.repositories.file_utils import atomic_write_json
 
 
 class UiIntentControllerHistoryMixin:
@@ -80,10 +79,9 @@ class UiIntentControllerHistoryMixin:
             return
         atomic_write_text(path, content, encoding="utf-8")
 
-    @staticmethod
-    def _write_exam_payload(exam_file: Path, payload: dict[str, object]) -> None:
-        exam_file.parent.mkdir(parents=True, exist_ok=True)
-        atomic_write_json(exam_file, payload)
+    def _write_exam_payload(self, exam_file: Path, payload: dict[str, object]) -> None:
+        """Write a full exam snapshot for undo/redo (atomic, folder file, re-registers the exam)."""
+        self._deps.exam_repository.write_exam_payload(exam_file, payload)
 
     def _record_exam_payload_action(
         self,
@@ -107,7 +105,9 @@ class UiIntentControllerHistoryMixin:
         already-open exam's content — see `HistoryAction.context` for what
         the two values mean.
         """
-        exam_file = self._deps.exam_repository.index_root / f"{exam_id}.json"
+        # The snapshot itself says where the exam lives (folder_path is always
+        # the folder the exam was loaded from), so no registry lookup is needed.
+        exam_file = self._deps.exam_repository.exam_file_for_folder(Path(str(after_payload["folder_path"])))
 
         self._record_history_action(
             description=description,

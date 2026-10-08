@@ -100,7 +100,7 @@ def test_upsert_region_immediate_rejects_max_points_change_once_task_is_scored(t
 
     assert updated is None
     reloaded = controller._deps.exam_repository.load_exam(
-        controller._deps.exam_repository.index_root / "exam-1.json"
+        controller._deps.exam_repository.exam_file_for_id("exam-1")
     )
     assert reloaded.regions[0].tasks[0].max_points == 5.0
 

@@ -47,6 +47,7 @@ class GuiDependencies:
     undo_history: UndoHistory
     app_info: AppInfo
     shell_config: AppShellConfig
+    exam_storage_notice: str | None = None
 
 
 AppDependencies = GuiDependencies
@@ -63,6 +64,8 @@ def build_gui_dependencies(base_dir: Path) -> GuiDependencies:
     undo_history = UndoHistory()
 
     exam_repo = JsonExamRepository(index_root=runtime_settings.exam_index_dir)
+    migration_report = exam_repo.migrate_legacy_index()
+    exam_storage_notice = migration_report.status_text() or exam_repo.registry.corruption_notice
     score_repo = CsvScoreRepository()
     export_repo = CsvScoreExportRepository()
     student_result_export_repo = MatplotlibStudentResultExportRepository()
@@ -95,4 +98,5 @@ def build_gui_dependencies(base_dir: Path) -> GuiDependencies:
             min_width=980,
             min_height=640,
         ),
+        exam_storage_notice=exam_storage_notice,
     )

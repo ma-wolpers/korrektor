@@ -1,11 +1,17 @@
 import json
+import shutil
 from pathlib import Path
 
 import pytest
 
 from app.core.domain.models import ExamProject, StudentExam, utc_now_iso
 from app.core.domain.validation import ExamConflictError, ExamStructureError
-from app.infrastructure.repositories.json_exam_repository import JsonExamRepository
+from app.infrastructure.repositories import json_exam_repository as repo_module
+from app.infrastructure.repositories.json_exam_repository import (
+    EXAM_DATA_FILENAME,
+    ExamFolderMissingError,
+    JsonExamRepository,
+)
 
 
 def _build_exam(folder: Path) -> ExamProject:
@@ -28,64 +34,127 @@ def _build_exam(folder: Path) -> ExamProject:
     )
 
 
-def test_delete_exam_removes_saved_json(tmp_path: Path) -> None:
-    index_root = tmp_path / "index"
+def test_save_exam_writes_into_the_exam_folder_and_registers_it(tmp_path: Path) -> None:
     exam_folder = tmp_path / "exam"
+    exam_folder.mkdir()
+    repo = JsonExamRepository(index_root=tmp_path / "index")
+
+    exam_file = repo.save_exam(_build_exam(exam_folder))
+
+    assert exam_file == (exam_folder / EXAM_DATA_FILENAME).resolve()
+    assert repo.list_exam_files() == [exam_file]
+    assert repo.exam_file_for_id("exam-1") == exam_file
+    assert list((tmp_path / "index").glob("*.json")) == [repo.registry.file]
+
+
+def test_folder_path_is_derived_from_the_file_location_after_moving_the_folder(tmp_path: Path) -> None:
+    """Portability: copying/moving the folder carries everything; the stored path is never trusted."""
+    exam_folder = tmp_path / "pc1" / "exam"
     exam_folder.mkdir(parents=True)
+    repo = JsonExamRepository(index_root=tmp_path / "index")
+    repo.save_exam(_build_exam(exam_folder))
 
-    repo = JsonExamRepository(index_root=index_root)
+    moved = tmp_path / "pc2" / "Mathe 10a"
+    shutil.copytree(exam_folder, moved)
+    exam = repo.load_exam(moved / EXAM_DATA_FILENAME)
+
+    assert Path(exam.folder_path) == moved.resolve()
+    repo.save_exam(exam)
+    on_disk = json.loads((moved / EXAM_DATA_FILENAME).read_text(encoding="utf-8"))
+    assert Path(on_disk["folder_path"]) == moved.resolve()
+
+
+def test_failed_write_keeps_previous_file_byte_identical(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    exam_folder = tmp_path / "exam"
+    exam_folder.mkdir()
+    repo = JsonExamRepository(index_root=tmp_path / "index")
     exam = _build_exam(exam_folder)
-
     exam_file = repo.save_exam(exam)
-    assert exam_file.exists()
+    before = exam_file.read_bytes()
+    updated_at = exam.updated_at
+
+    def _broken_write(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(repo_module, "atomic_write_json", _broken_write)
+    exam.exam_name = "Mathe (nicht gespeichert)"
+    with pytest.raises(OSError):
+        repo.save_exam(exam)
+
+    assert exam_file.read_bytes() == before
+    assert exam.updated_at == updated_at  # a retry is not blocked by the conflict check
+
+
+def test_missing_folder_is_a_value_error_for_the_overview(tmp_path: Path) -> None:
+    exam_folder = tmp_path / "exam"
+    exam_folder.mkdir()
+    repo = JsonExamRepository(index_root=tmp_path / "index")
+    exam_file = repo.save_exam(_build_exam(exam_folder))
+    shutil.rmtree(exam_folder)
+
+    with pytest.raises(ExamFolderMissingError, match="nicht gefunden"):
+        repo.load_exam(exam_file)
+
+
+def test_delete_exam_removes_folder_file_and_registry_entry_but_keeps_pdfs(tmp_path: Path) -> None:
+    exam_folder = tmp_path / "exam"
+    exam_folder.mkdir()
+    (exam_folder / "Alice.pdf").write_bytes(b"%PDF")
+    repo = JsonExamRepository(index_root=tmp_path / "index")
+    exam_file = repo.save_exam(_build_exam(exam_folder))
 
     repo.delete_exam(exam_file)
 
     assert not exam_file.exists()
     assert repo.list_exam_files() == []
+    assert (exam_folder / "Alice.pdf").exists()
 
 
-def test_delete_exam_rejects_paths_outside_index_root(tmp_path: Path) -> None:
+def test_delete_exam_rejects_files_that_are_no_exam_data_file(tmp_path: Path) -> None:
     repo = JsonExamRepository(index_root=tmp_path / "index")
-    outside_file = tmp_path / "outside.json"
-    outside_file.write_text("{}", encoding="utf-8")
+    other = tmp_path / "other.json"
+    other.write_text("{}", encoding="utf-8")
 
     with pytest.raises(ValueError):
-        repo.delete_exam(outside_file)
+        repo.delete_exam(other)
 
 
-def test_set_index_root_switches_storage_location(tmp_path: Path) -> None:
-    first_index = tmp_path / "index-a"
-    second_index = tmp_path / "index-b"
+def test_write_exam_payload_restores_and_re_registers(tmp_path: Path) -> None:
     exam_folder = tmp_path / "exam"
-    exam_folder.mkdir(parents=True)
+    exam_folder.mkdir()
+    repo = JsonExamRepository(index_root=tmp_path / "index")
+    exam_file = repo.save_exam(_build_exam(exam_folder))
+    payload = json.loads(exam_file.read_text(encoding="utf-8"))
+    repo.delete_exam(exam_file)
 
-    repo = JsonExamRepository(index_root=first_index)
-    exam = _build_exam(exam_folder)
+    repo.write_exam_payload(exam_file, payload)
 
-    first_file = repo.save_exam(exam)
-    assert first_file.parent == first_index.resolve()
+    assert repo.list_exam_files() == [exam_file]
+    assert repo.load_exam(exam_file).exam_name == "Mathe"
 
-    repo.set_index_root(second_index)
-    second_file = repo.save_exam(exam)
 
-    assert second_file.parent == second_index.resolve()
-    assert second_file.exists()
+def test_set_index_root_switches_the_registry_but_not_the_data(tmp_path: Path) -> None:
+    exam_folder = tmp_path / "exam"
+    exam_folder.mkdir()
+    repo = JsonExamRepository(index_root=tmp_path / "index-a")
+    exam_file = repo.save_exam(_build_exam(exam_folder))
+
+    repo.set_index_root(tmp_path / "index-b")
+
+    assert repo.list_exam_files() == []
+    assert exam_file.exists()
 
 
 def test_save_exam_rejects_stale_write_after_concurrent_change(tmp_path: Path) -> None:
-    """Two independent in-memory copies of the same exam (e.g. two computers sharing
-    the index folder via cloud sync) must not silently clobber each other's save."""
-    index_root = tmp_path / "index"
+    """Two in-memory copies of the same exam (e.g. two PCs sharing the synced exam folder)
+    must not silently clobber each other's save."""
     exam_folder = tmp_path / "exam"
-    exam_folder.mkdir(parents=True)
+    exam_folder.mkdir()
+    repo = JsonExamRepository(index_root=tmp_path / "index")
+    exam_file = repo.save_exam(_build_exam(exam_folder))
 
-    repo = JsonExamRepository(index_root=index_root)
-    original = _build_exam(exam_folder)
-    repo.save_exam(original)
-
-    stale_copy = repo.load_exam(index_root / "exam-1.json")
-    fresh_copy = repo.load_exam(index_root / "exam-1.json")
+    stale_copy = repo.load_exam(exam_file)
+    fresh_copy = repo.load_exam(exam_file)
 
     fresh_copy.exam_name = "Mathe (bearbeitet auf PC 2)"
     repo.save_exam(fresh_copy)
@@ -94,27 +163,22 @@ def test_save_exam_rejects_stale_write_after_concurrent_change(tmp_path: Path) -
     with pytest.raises(ExamConflictError, match="Mathe"):
         repo.save_exam(stale_copy)
 
-    # The conflicting write must not have touched the file at all.
-    on_disk = repo.load_exam(index_root / "exam-1.json")
-    assert on_disk.exam_name == "Mathe (bearbeitet auf PC 2)"
+    assert repo.load_exam(exam_file).exam_name == "Mathe (bearbeitet auf PC 2)"
 
 
 def test_save_exam_allows_sequential_saves_from_the_same_session(tmp_path: Path) -> None:
-    index_root = tmp_path / "index"
     exam_folder = tmp_path / "exam"
-    exam_folder.mkdir(parents=True)
-
-    repo = JsonExamRepository(index_root=index_root)
+    exam_folder.mkdir()
+    repo = JsonExamRepository(index_root=tmp_path / "index")
     exam = _build_exam(exam_folder)
-    repo.save_exam(exam)
+    exam_file = repo.save_exam(exam)
 
     exam.exam_name = "Mathe (Runde 2)"
-    repo.save_exam(exam)  # must not raise: `exam.updated_at` was refreshed by the first save
-
+    repo.save_exam(exam)
     exam.exam_name = "Mathe (Runde 3)"
     repo.save_exam(exam)
 
-    assert repo.load_exam(index_root / "exam-1.json").exam_name == "Mathe (Runde 3)"
+    assert repo.load_exam(exam_file).exam_name == "Mathe (Runde 3)"
 
 
 def test_load_exam_rejects_legacy_schema_without_extra_assignments(tmp_path: Path) -> None:

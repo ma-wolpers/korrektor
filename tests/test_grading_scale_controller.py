@@ -154,7 +154,7 @@ def test_assign_grading_scale_immediate_is_undoable(tmp_path: Path, monkeypatch)
     assert controller.undo() is True
 
     reloaded = controller._deps.exam_repository.load_exam(
-        controller._deps.exam_repository.index_root / "exam-1.json"
+        controller._deps.exam_repository.exam_file_for_id("exam-1")
     )
     assert reloaded.grading_scale_snapshot is None
     # The usage record itself is an append-only fact and survives the undo.

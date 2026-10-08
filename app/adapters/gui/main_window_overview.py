@@ -15,8 +15,12 @@ from bw_gui.runtime import ui, widgets
 
 class MainWindowOverviewMixin:
     def _initial_load(self) -> None:
+        """Fill the overview; then show what the startup storage migration did (if anything)."""
         if self._controller:
             self._controller.refresh_exam_overview()
+        notice = getattr(self.deps, "exam_storage_notice", None)
+        if notice:
+            self.set_status(notice)
 
     def _build_overview_view(self) -> None:
         widgets.Label(self._overview_view, text="Übersicht", style="Title.TLabel").pack(anchor=ui.W)
@@ -164,7 +168,7 @@ class MainWindowOverviewMixin:
         if self._current_exam is None:
             return
 
-        exam_file = self.deps.exam_repository.index_root / f"{self._current_exam.exam_id}.json"
+        exam_file = self.deps.exam_repository.exam_file_for(self._current_exam)
         if not exam_file.exists():
             self._return_to_overview()
             return
@@ -201,7 +205,7 @@ class MainWindowOverviewMixin:
         if self._current_exam is None:
             return
 
-        exam_file = self.deps.exam_repository.index_root / f"{self._current_exam.exam_id}.json"
+        exam_file = self.deps.exam_repository.exam_file_for(self._current_exam)
         if not exam_file.exists():
             self._return_to_overview()
             return

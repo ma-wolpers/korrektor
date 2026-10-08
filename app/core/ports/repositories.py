@@ -9,7 +9,15 @@ from app.core.domain.student_result import StudentResult
 
 
 class ExamRepository(Protocol):
+    """Exam storage port: the exam folder is the single source of all exam data (see `JsonExamRepository`)."""
+
     def list_exam_files(self) -> list[Path]:
+        ...
+
+    def exam_file_for_folder(self, folder: Path) -> Path:
+        ...
+
+    def read_exam_header(self, exam_file: Path) -> dict[str, str] | None:
         ...
 
     def load_exam(self, exam_file: Path) -> ExamProject:

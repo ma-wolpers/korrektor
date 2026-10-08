@@ -112,19 +112,19 @@ def test_apply_super_symbol_immediate_is_one_undoable_action(tmp_path: Path) -> 
     )
 
     reloaded = controller._deps.exam_repository.load_exam(
-        controller._deps.exam_repository.index_root / "exam-1.json"
+        controller._deps.exam_repository.exam_file_for_id("exam-1")
     )
     assert len(reloaded.pdf_annotations) == 3
 
     assert controller.undo() is True
     reloaded = controller._deps.exam_repository.load_exam(
-        controller._deps.exam_repository.index_root / "exam-1.json"
+        controller._deps.exam_repository.exam_file_for_id("exam-1")
     )
     assert len(reloaded.pdf_annotations) == 0
 
     assert controller.redo() is True
     reloaded = controller._deps.exam_repository.load_exam(
-        controller._deps.exam_repository.index_root / "exam-1.json"
+        controller._deps.exam_repository.exam_file_for_id("exam-1")
     )
     assert len(reloaded.pdf_annotations) == 3
 

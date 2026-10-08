@@ -13,10 +13,15 @@ _SOURCE_SPLIT = "split"
 
 class UiIntentControllerOverviewMixin:
     def _apply_exam_index_dir(self, target: Path) -> None:
+        """Switch the Klausurliste folder; legacy exam files found there are migrated into their folders."""
         self._deps.settings_repository.save_exam_index_dir(target)
         self._deps.exam_repository.set_index_root(target)
+        report = self._deps.exam_repository.migrate_legacy_index()
         self._app.on_exam_index_dir_changed(target)
         self.refresh_exam_overview()
+        notice = report.status_text()
+        if notice:
+            self._app.set_status(notice)
 
     def refresh_exam_overview(self) -> None:
         """Rebuild the exam overview list from a single load pass.
@@ -135,7 +140,7 @@ class UiIntentControllerOverviewMixin:
         exam_file = result.exam_file
         self._record_history_action(
             description=f"Klausur angelegt: {result.exam.exam_name}",
-            undo=lambda: exam_file.exists() and exam_file.unlink(),
+            undo=lambda: self._deps.exam_repository.delete_exam(exam_file),
             redo=lambda: self._write_exam_payload(exam_file, payload),
             context="lifecycle",
         )
@@ -194,7 +199,7 @@ class UiIntentControllerOverviewMixin:
         self._record_history_action(
             description=f"Klausur geloescht: {selected.exam_name}",
             undo=lambda: self._write_exam_payload(exam_file, payload),
-            redo=lambda: exam_file.exists() and exam_file.unlink(),
+            redo=lambda: self._deps.exam_repository.delete_exam(exam_file),
             context="lifecycle",
         )
 

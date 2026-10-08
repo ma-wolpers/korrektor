@@ -155,10 +155,10 @@ class MainWindowMenuMixin:
                         ),
                         SharedSettingsFieldSpec(
                             key="exam_index_dir",
-                            label="Ablageordner Klausur-JSON",
+                            label="Ablageordner Klausurliste",
                             field_type="string",
                             default=self._exam_index_dir_value,
-                            hint="Ein einzelner Ordner fuer alle Klausur-JSON-Dateien.",
+                            hint="Ordner für die Liste der bekannten Klausuren. Die Klausurdaten selbst liegen im jeweiligen Klausurordner.",
                         ),
                         SharedSettingsFieldSpec(
                             key="default_annotation_color",

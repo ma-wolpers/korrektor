@@ -22,12 +22,15 @@
 
 ## Persistenz
 
-- Klausur-Metadaten: konfigurierbarer JSON-Indexordner (`*.json`, Standard: `.korrektor_index` im Repo)
-- Korrekturdaten: `korrektor_scores.csv` im Klausurordner
+- **Der Klausurordner ist die einzige fachliche Quelle:** `korrektor_klausur.json` (alle Klausurdaten) und `korrektor_scores.csv` liegen neben den PDFs. Ordner kopieren/synchronisieren genügt, um eine Klausur auf einen anderen PC mitzunehmen.
+- `folder_path` wird beim Laden aus dem Speicherort der Datei abgeleitet (der gespeicherte Wert wird nie als Wahrheit gelesen) und beim Speichern auf den aktuellen Ordner neu geschrieben.
+- Klausurliste: `known_exams.json` (`ExamRegistry`) im konfigurierbaren Indexordner (Standard: `.korrektor_index` im Repo) - nur Auffinden/Übersicht (`exam_id` → Ordner), keine fachlichen Daten. Eine beschädigte Liste wird als `known_exams.json.defekt` beiseitegelegt; Klausuren lassen sich über "Neue Klausur" wieder übernehmen.
+- Migration der alten zentralen Ablage (`<index>/<exam_id>.json`): `legacy_exam_migration.migrate_legacy_index` beim Start und beim Wechsel des Indexordners - Ordnerdatei schreiben (neuere `updated_at` gewinnt, ältere als `.migriert` gesichert; fremde `exam_id` = Konflikt, nichts angefasst; fehlender Ordner = gemeldet, Altdatei bleibt) → registrieren → Altdatei zu `.migriert` umbenennen (nie löschen). Jeder Schritt ist idempotent, ein unterbrochener Lauf setzt beim nächsten Start fort; echte Crash-Atomicity ist nicht garantiert.
 - App-Einstellungen: `%APPDATA%/<app_name>/settings.json` (mindestens `exam_index_dir`)
 - Schreibvorgaenge sind atomar (temp + replace)
 - `JsonExamRepository.save_exam` schuetzt zusaetzlich gegen stille Datenverlust-Ueberschreibung: vor dem Schreiben wird das `updated_at` der bereits auf der Platte liegenden Datei mit dem `updated_at` des uebergebenen (geladenen/zuletzt gespeicherten) `exam`-Objekts verglichen; weichen sie ab, hat etwas anderes die Datei seitdem veraendert (typischerweise derselbe Exam-Indexordner auf einem zweiten Rechner ueber Cloud-Sync) und der Save wird mit `ExamConflictError` statt stillem Ueberschreiben abgelehnt. Jeder direkte GUI-Aufrufer geht durch `UiIntentControllerBase._save_exam_guarded` (zeigt die Fehlermeldung, gibt `None` zurueck); die drei Usecases, die selbst `save_exam` aufrufen (`CreateExamUseCase`, `UpsertRegionUseCase`, `SetReadingCompleteUseCase`), lassen `ExamConflictError` durchreichen - deren GUI-Aufrufer fangen sie jeweils lokal ab.
-- `CreateExamUseCase.execute` lehnt das Anlegen einer neuen Klausur fuer einen Ordner ab, fuer den im aktuellen Exam-Indexordner bereits eine Klausur existiert (Abgleich ueber `folder_path`, aufgeloest) - verhindert, dass erneutes "Neue Klausur" auf demselben PDF-Ordner eine leere Zweit-Klausur erzeugt, die den bisherigen Stand (Bereiche/Punkte/Namen) scheinbar verschwinden laesst.
+- `CreateExamUseCase.execute` lehnt das Anlegen ab, wenn im Ordner schon eine `korrektor_klausur.json` liegt - eine neue, leere Klausur würde sonst den vorhandenen Stand überschreiben.
+- `save_exam` ist atomar (temp + replace via `atomic_write_json`; bei Fehlern bleibt die alte Datei byte-identisch, `updated_at` des In-Memory-Objekts wird zurückgesetzt) und registriert die Klausur danach. Undo/Redo-Snapshots schreiben über `JsonExamRepository.write_exam_payload` (atomar, registriert erneut); Anlegen-Undo und Löschen nutzen `delete_exam` (Datei + Registry-Eintrag, PDFs bleiben).
 - Zukunfts-Schema (ohne Legacy-Fallback):
 	- `regions` enthalten nur Standardbereich-Templates (seiten-/koordinatenbasiert, nicht studentgebunden).
 	- Extraseiten-Zuordnungen liegen separat in `extra_page_assignments` (student-/seitenbezogen).
