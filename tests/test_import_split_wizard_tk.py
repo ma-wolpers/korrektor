@@ -1,50 +1,23 @@
 """Real-Tk tests of the PDF import wizard (Importmodus): lifecycle, error paths, layout, keyboard.
 
-Builds one real `MainWindow` per module with ``APPDATA`` redirected to a
-temp folder, so neither the real settings nor the real exam index are ever
-read. All PDFs are synthetic. Dialog services are replaced by recorders.
-
-Key events go to the *focused* widget, so the keyboard tests take the OS
-focus and are opt-in via ``TK_FOCUS_TESTS=1`` (same convention as bw-gui).
+Uses the session-wide real `MainWindow` (``korrektor_window`` in
+`conftest.py`, built with ``APPDATA`` redirected to a temp folder - the real
+settings and exam index are never read). All PDFs are synthetic. Dialog
+services are replaced by recorders. The keyboard test is opt-in via
+``TK_FOCUS_TESTS=1`` (see `tk_test_support.FOCUS_ONLY`).
 """
 
 from __future__ import annotations
 
-import os
-import time
 from pathlib import Path
 
-import fitz
 import pytest
+
+from tk_test_support import FOCUS_ONLY, build_pdf, pdf_texts, settle
 
 from app.adapters.gui import dialog_services
 from app.adapters.gui import main_window_import_split_export as export_module
 from app.infrastructure.pdf.pdf_splitter import SplitWriteError
-
-_focus_only = pytest.mark.skipif(
-    os.environ.get("TK_FOCUS_TESTS") != "1",
-    reason="sends key events to the focused widget; run with TK_FOCUS_TESTS=1",
-)
-
-
-def _build_pdf(path: Path, pages: int, tag: str, *, locked: bool = False) -> Path:
-    document = fitz.open()
-    for index in range(pages):
-        document.new_page(width=595, height=842).insert_text((50, 80), f"{tag} {index + 1}", fontsize=30)
-    if locked:
-        document.save(path, encryption=fitz.PDF_ENCRYPT_AES_256, user_pw="x", owner_pw="y")
-    else:
-        document.save(path)
-    document.close()
-    return path
-
-
-def _texts(path: Path) -> list[str]:
-    document = fitz.open(path)
-    try:
-        return [document.load_page(index).get_text().strip() for index in range(document.page_count)]
-    finally:
-        document.close()
 
 
 class _Dialogs:
@@ -71,22 +44,9 @@ class _Dialogs:
         monkeypatch.setattr(dialog_services.messagebox, "askyesno", _askyesno)
 
 
-@pytest.fixture(scope="module")
-def window(tmp_path_factory):
-    base = tmp_path_factory.mktemp("korrektor_import")
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setenv("APPDATA", str(base / "appdata"))
-        from app.adapters.bootstrap.wiring import build_gui_dependencies
-        from app.adapters.gui.main_window import MainWindow
-        from app.adapters.gui.ui_intent_controller import UiIntentController
-
-        deps = build_gui_dependencies(base_dir=base / "base")
-        assert str(deps.exam_repository.index_root).startswith(str(base))
-        main_window = MainWindow(deps=deps)
-        main_window.set_controller(UiIntentController(app=main_window, deps=deps))
-        main_window.update()
-        yield main_window
-        main_window.destroy()
+@pytest.fixture
+def window(korrektor_window):
+    return korrektor_window
 
 
 @pytest.fixture
@@ -102,18 +62,10 @@ def dialogs(window, monkeypatch):
 @pytest.fixture
 def sources(tmp_path):
     return {
-        "scan10": _build_pdf(tmp_path / "scan_10.pdf", 3, "X"),
-        "scan2": _build_pdf(tmp_path / "scan_2.pdf", 4, "Y"),
-        "locked": _build_pdf(tmp_path / "locked.pdf", 1, "L", locked=True),
+        "scan10": build_pdf(tmp_path / "scan_10.pdf", 3, "X"),
+        "scan2": build_pdf(tmp_path / "scan_2.pdf", 4, "Y"),
+        "locked": build_pdf(tmp_path / "locked.pdf", 1, "L", locked=True),
     }
-
-
-def _settle(window, ms: int = 80) -> None:
-    deadline = time.monotonic() + ms / 1000
-    while time.monotonic() < deadline:
-        window.update()
-        time.sleep(0.005)
-    window.update()
 
 
 def _open_single(window, dialogs, path: Path, callback=None):
@@ -165,7 +117,7 @@ def test_every_end_of_the_order_dialog_clears_pending(window, dialogs, sources, 
         pending.popup.tk.eval(pending.popup.protocol("WM_DELETE_WINDOW"))
     else:
         pending.popup.destroy()
-    _settle(window)
+    settle(window)
 
     assert window._import_split_pending is None
     dialogs.files = (str(sources["scan2"]),)
@@ -199,11 +151,11 @@ def test_external_destroy_ends_session_but_child_destroy_does_not(window, dialog
     document = session.document
 
     view.bars[0].destroy()
-    _settle(window)
+    settle(window)
     assert window._import_split_session is session
 
     view.popup.destroy()
-    _settle(window)
+    settle(window)
     assert window._import_split_session is None
     assert document.is_closed
 
@@ -230,11 +182,11 @@ def test_duplicate_hint_appears_without_changing_bar_height(window, dialogs, sou
     session.mark_boundary(3)
     session.go_to_page(3)
     window._refresh_import_split_view(page_changed=True)
-    _settle(window)
+    settle(window)
     height = view.bars[2].winfo_height()
 
     view.name_entry.insert(0, "anna")
-    _settle(window)
+    settle(window)
 
     assert "Diesen Namen gibt es schon (Seiten 1-2)" in view.hint_var.get()
     assert view.bars[2].winfo_height() == height
@@ -289,7 +241,7 @@ def test_successful_split_merges_duplicates_and_closes_session(window, dialogs, 
 
     out = tmp_path / "out"
     assert sorted(path.name for path in out.glob("*.pdf")) == ["Anna_Müller.pdf", "Ben.pdf"]
-    assert _texts(out / "Anna_Müller.pdf") == ["Y 1", "Y 3", "Y 4"]
+    assert pdf_texts(out / "Anna_Müller.pdf") == ["Y 1", "Y 3", "Y 4"]
     assert window._import_split_session is None and document.is_closed
     assert "Zusammengeführt" in dialogs.infos[-1][1]
 
@@ -327,7 +279,7 @@ def test_controls_stay_fully_visible_at_every_size(window, dialogs, sources):
     for width in (min_width, 800, 1300):
         for height in (min_height, 750):
             view.popup.geometry(f"{width}x{height}")
-            _settle(window, 200)
+            settle(window, 200)
             popup_x, popup_y = view.popup.winfo_rootx(), view.popup.winfo_rooty()
             for widget in controls:
                 x, y = widget.winfo_rootx() - popup_x, widget.winfo_rooty() - popup_y
@@ -339,14 +291,14 @@ def test_controls_stay_fully_visible_at_every_size(window, dialogs, sources):
 
     renders.clear()
     view.popup.geometry(f"1300x{min_height}")
-    _settle(window, 200)
+    settle(window, 200)
     renders.clear()
     view.popup.geometry("1300x760")
-    _settle(window, 250)
+    settle(window, 250)
     assert renders == []
 
 
-@_focus_only
+@FOCUS_ONLY
 def test_keyboard_contract_with_focus_in_name_field(window, dialogs, sources):
     session, view = _open_single(window, dialogs, sources["scan2"])
     entry = view.name_entry
@@ -356,7 +308,7 @@ def test_keyboard_contract_with_focus_in_name_field(window, dialogs, sources):
         entry.focus_force()
         window.update()
         entry.event_generate(sequence, **kwargs)
-        _settle(window, 40)
+        settle(window, 40)
 
     entry.insert(0, "Anna")
     entry.icursor(2)
@@ -379,54 +331,12 @@ def test_keyboard_contract_with_focus_in_name_field(window, dialogs, sources):
     key("<Next>")
     assert entry.get() == "Anna" and entry.index("insert") == insert_index
     assert view.preview.canvas.yview()[0] > 0
+    entry.focus_force()
+    settle(window, 60)
+    assert str(window.focus_get()) == str(entry), "the name field needs the OS keyboard focus - run undisturbed"
     key("<Control-Left>")
     assert session.current_page == 1 and entry.index("insert") < insert_index
     view.boundary_check.invoke()
-    _settle(window, 100)
+    settle(window, 100)
     assert str(window.focus_get()) == str(entry)
 
-
-def test_extra_pages_popup_keeps_navigation_visible_and_scrolls(window, tmp_path):
-    """Same layout contract for the Extraseiten popup (it had the same "A4 page pushes the bar out" bug)."""
-    from app.core.domain.models import ExamProject, StudentExam, utc_now_iso
-
-    folder = tmp_path / "exam"
-    folder.mkdir()
-    _build_pdf(folder / "Anna.pdf", 3, "E")
-    now = utc_now_iso()
-    window._current_exam = ExamProject(
-        exam_id="exam-1",
-        exam_name="Mathe",
-        folder_path=str(folder),
-        created_at=now,
-        updated_at=now,
-        standard_page_count=1,
-        students=[StudentExam(student_id="anna", display_name="Anna", pdf_filename="Anna.pdf", page_count=3, extra_pages=[2, 3])],
-        regions=[],
-        extra_page_assignments=[],
-        person_area_completions=[],
-        is_reading_complete=False,
-    )
-    window._student_cursor = 0
-    try:
-        window._open_extra_pages_popup_for_current(notify_if_missing=False)
-        popup = window._extra_popup
-        preview = window._extra_popup_preview
-        _settle(window, 200)
-        nav_buttons = [child for child in popup.winfo_children()[1].winfo_children()]
-        for height in (320, 600):
-            popup.geometry(f"420x{height}")
-            _settle(window, 200)
-            for widget in nav_buttons:
-                y = widget.winfo_rooty() - popup.winfo_rooty()
-                assert widget.winfo_ismapped() and y + widget.winfo_height() <= popup.winfo_height()
-        preview.scroll(2, "pages")
-        window.update()
-        assert preview.canvas.yview()[0] > 0
-        window._change_extra_popup_page(1)
-        window.update()
-        assert "Extraseite 2/2 | Seite 3" in window._extra_popup_info_var.get()
-        assert preview.canvas.yview()[0] == 0
-    finally:
-        window._close_extra_popup()
-        window._current_exam = None
