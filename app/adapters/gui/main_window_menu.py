@@ -5,7 +5,7 @@ from pathlib import Path
 from app.adapters.gui.dialog_services import messagebox
 from app.adapters.gui.main_window_constants import CORRECTION_DEFAULT_COLOR_NAME, CORRECTION_MARKER_COLORS
 from app.app_info import APP_INFO
-from app.infrastructure.repositories.json_app_settings_repository import AppRuntimeSettings
+from app.infrastructure.repositories.json_app_settings_repository import AppRuntimeSettings, clamp_scan_rotation_step
 from bw_gui.dialogs import SettingsDialogSpec as SharedSettingsDialogSpec
 from bw_gui.dialogs import SettingsFieldSpec as SharedSettingsFieldSpec
 from bw_gui.dialogs import SettingsSectionSpec as SharedSettingsSectionSpec
@@ -108,6 +108,7 @@ class MainWindowMenuMixin:
 
     def _menu_items_mode(self):
         return (
+            SharedMenuItem(type="command", label="Scan-Werkstatt starten", command=self._start_scan_workshop),
             SharedMenuItem(type="command", label="Zuschnitt starten", command=self._start_reading_mode),
             SharedMenuItem(type="command", label="Korrektur starten", command=self._start_correction_mode),
             SharedMenuItem(type="separator"),
@@ -179,6 +180,13 @@ class MainWindowMenuMixin:
                             default=f"{self._default_annotation_font_size:.0f}",
                             hint="Gueltiger Bereich: 8 bis 96 pt.",
                         ),
+                        SharedSettingsFieldSpec(
+                            key="scan_rotation_step_deg",
+                            label="Drehschritt Scan-Werkstatt (°)",
+                            field_type="string",
+                            default=f"{self._scan_rotation_step_deg:g}",
+                            hint="Schritt für Strg+←/→ in der Scan-Werkstatt. Gültiger Bereich: 0,1 bis 45°.",
+                        ),
                     ),
                 ),
                 SharedSettingsSectionSpec(
@@ -204,6 +212,7 @@ class MainWindowMenuMixin:
             "exam_index_dir": self._exam_index_dir_value,
             "default_annotation_color": self._marker_color_name_for_hex(self._default_annotation_color_hex),
             "default_annotation_pdf_font_size": f"{self._default_annotation_font_size:.0f}",
+            "scan_rotation_step_deg": f"{self._scan_rotation_step_deg:g}",
             "runtime_offline": bool(self._shortcut_debug_offline_var.get()),
         }
 
@@ -237,6 +246,9 @@ class MainWindowMenuMixin:
 
         requested_size = payload.get("default_annotation_pdf_font_size", self._default_annotation_font_size)
         self._default_annotation_font_size = self._normalize_marker_font_size(requested_size)
+        self._scan_rotation_step_deg = clamp_scan_rotation_step(
+            payload.get("scan_rotation_step_deg", self._scan_rotation_step_deg)
+        )
 
         try:
             current_index_dir = Path(self._exam_index_dir_value).resolve()
@@ -245,6 +257,7 @@ class MainWindowMenuMixin:
                     exam_index_dir=current_index_dir,
                     default_annotation_color=self._default_annotation_color_hex,
                     default_annotation_pdf_font_size=self._default_annotation_font_size,
+                    scan_rotation_step_deg=self._scan_rotation_step_deg,
                 )
             )
             self._default_annotation_color_hex = self._normalize_marker_color_hex(

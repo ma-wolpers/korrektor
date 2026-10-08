@@ -20,7 +20,8 @@ class MainWindowDispatchMixin:
             has_inline_editor=isinstance(widget, (ui.Entry, widgets.Entry))
             or self._correction_mode_active
             or self._reading_active
-            or self._extra_mode_active,
+            or self._extra_mode_active
+            or self._active_view == "scan_workshop",
             has_parent_state=self._current_exam is not None,
         )
 
@@ -53,6 +54,10 @@ class MainWindowDispatchMixin:
 
             if self._reading_active or self._extra_mode_active:
                 self._leave_reading_view()
+                return
+
+            if self._active_view == "scan_workshop":
+                self._leave_scan_workshop()
                 return
 
         if action != ESCAPE_POP_PARENT or self._current_exam is None:
@@ -123,6 +128,9 @@ class MainWindowDispatchMixin:
         if self._active_view == "reading" and self._detail_submode == "reading" and self._reading_active:
             self._change_reading_page(-1)
             return
+        if self._active_view == "scan_workshop":
+            self._scan_go_student(-1)
+            return
         self._move_student(-1)
 
     def _on_right_key(self, _event: ui.Event[ui.Misc]) -> None:
@@ -140,6 +148,9 @@ class MainWindowDispatchMixin:
         if self._active_view == "reading" and self._detail_submode == "reading" and self._reading_active:
             self._change_reading_page(1)
             return
+        if self._active_view == "scan_workshop":
+            self._scan_go_student(1)
+            return
         self._move_student(1)
 
     def _on_up_key(self, _event: ui.Event[ui.Misc]) -> None:
@@ -149,6 +160,8 @@ class MainWindowDispatchMixin:
             return
         if self._active_view == "correction" and self._correction_mode_active:
             self._cycle_correction_task(-1)
+        elif self._active_view == "scan_workshop":
+            self._scan_go_page(-1)
 
     def _on_down_key(self, _event: ui.Event[ui.Misc]) -> None:
         if self._is_editable_widget(self.root.focus_get()) and not (
@@ -157,6 +170,8 @@ class MainWindowDispatchMixin:
             return
         if self._active_view == "correction" and self._correction_mode_active:
             self._cycle_correction_task(1)
+        elif self._active_view == "scan_workshop":
+            self._scan_go_page(1)
 
     def _on_ctrl_up_key(self, _event: ui.Event[ui.Misc]) -> None:
         if self._is_editable_widget(self.root.focus_get()) and not (
@@ -165,6 +180,8 @@ class MainWindowDispatchMixin:
             return
         if self._active_view == "correction" and self._correction_mode_active:
             self._cycle_correction_area(-1)
+        elif self._active_view == "scan_workshop":
+            self._scan_move_page(-1)
 
     def _on_ctrl_down_key(self, _event: ui.Event[ui.Misc]) -> None:
         if self._is_editable_widget(self.root.focus_get()) and not (
@@ -173,6 +190,8 @@ class MainWindowDispatchMixin:
             return
         if self._active_view == "correction" and self._correction_mode_active:
             self._cycle_correction_area(1)
+        elif self._active_view == "scan_workshop":
+            self._scan_move_page(1)
 
     def _on_ctrl_space_key(self, _event: ui.Event[ui.Misc]):
         if self._active_view != "correction" or not self._correction_mode_active:

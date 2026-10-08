@@ -29,6 +29,15 @@ class MainWindowViewStateMixin:
         back_button.pack(side=ui.LEFT)
         self._attach_hover_help(back_button, label="Zur Gesamtübersicht wechseln", shortcut="Esc")
 
+        scan_workshop_button = widgets.Button(
+            detail_actions,
+            text="Scan-Werkstatt",
+            style="SecondaryAction.TButton",
+            command=self._start_scan_workshop,
+        )
+        scan_workshop_button.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(scan_workshop_button, label="Seiten sortieren, löschen und gerade drehen (vor dem Zuschnitt)", shortcut=None)
+
         mode_reading_button = widgets.Button(
             detail_actions,
             text="Zuschnitt",

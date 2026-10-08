@@ -14,6 +14,20 @@ class AppRuntimeSettings:
     exam_index_dir: Path
     default_annotation_color: str = "#d62828"
     default_annotation_pdf_font_size: float = 14.0
+    # Scan-Werkstatt: Strg+←/→ step in degrees (product decision: default 2.0, allowed 0.1-45).
+    scan_rotation_step_deg: float = 2.0
+
+
+SCAN_ROTATION_STEP_RANGE = (0.1, 45.0)
+
+
+def clamp_scan_rotation_step(value: object) -> float:
+    """Scan-Werkstatt rotation step in degrees, clamped to 0.1-45 (invalid input -> default 2.0)."""
+    try:
+        step = float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        return 2.0
+    return max(SCAN_ROTATION_STEP_RANGE[0], min(SCAN_ROTATION_STEP_RANGE[1], step))
 
 
 class JsonAppSettingsRepository:
@@ -38,6 +52,7 @@ class JsonAppSettingsRepository:
         return candidate
 
     def load(self) -> AppRuntimeSettings:
+        """Read the settings file; missing or invalid values fall back to defaults (rotation step clamped to `SCAN_ROTATION_STEP_RANGE`)."""
         if not self._settings_file.exists():
             self._default_exam_index_dir.mkdir(parents=True, exist_ok=True)
             return AppRuntimeSettings(exam_index_dir=self._default_exam_index_dir)
@@ -73,9 +88,11 @@ class JsonAppSettingsRepository:
             exam_index_dir=exam_index_dir,
             default_annotation_color=default_color,
             default_annotation_pdf_font_size=default_size,
+            scan_rotation_step_deg=clamp_scan_rotation_step(raw.get("scan_rotation_step_deg", 2.0)),
         )
 
     def save(self, settings: AppRuntimeSettings) -> AppRuntimeSettings:
+        """Write all runtime settings atomically (including `scan_rotation_step_deg`)."""
         normalized = settings.exam_index_dir.resolve()
         normalized.mkdir(parents=True, exist_ok=True)
         color = settings.default_annotation_color.strip()
@@ -86,20 +103,24 @@ class JsonAppSettingsRepository:
             "exam_index_dir": str(normalized),
             "default_annotation_color": color,
             "default_annotation_pdf_font_size": size,
+            "scan_rotation_step_deg": clamp_scan_rotation_step(settings.scan_rotation_step_deg),
         }
         atomic_write_json(self._settings_file, payload)
         return AppRuntimeSettings(
             exam_index_dir=normalized,
             default_annotation_color=color,
             default_annotation_pdf_font_size=size,
+            scan_rotation_step_deg=clamp_scan_rotation_step(settings.scan_rotation_step_deg),
         )
 
     def save_exam_index_dir(self, exam_index_dir: Path) -> AppRuntimeSettings:
+        """Change only the exam index folder, keeping every other stored setting."""
         current = self.load()
         return self.save(
             AppRuntimeSettings(
                 exam_index_dir=exam_index_dir,
                 default_annotation_color=current.default_annotation_color,
                 default_annotation_pdf_font_size=current.default_annotation_pdf_font_size,
+                scan_rotation_step_deg=current.scan_rotation_step_deg,
             )
         )

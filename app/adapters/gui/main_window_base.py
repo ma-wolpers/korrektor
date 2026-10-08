@@ -73,6 +73,9 @@ class MainWindowBase(BwBaseWindow):
         self._extra_sequence: list[tuple[int, int]] = []
         self._extra_cursor = 0
         self._naming_window_view = None
+        # Scan-Werkstatt: pending edits (Tk-free session) and its widgets.
+        self._scan_session = None
+        self._scan_view = None
         self._pending_student_names: dict[str, str] = {}
         self._doc_cache: dict[str, fitz.Document] = {}
         self._render_photo: ui.PhotoImage | None = None
@@ -128,6 +131,7 @@ class MainWindowBase(BwBaseWindow):
         settings = self.deps.runtime_settings
         self._default_annotation_color_hex = self._normalize_marker_color_hex(settings.default_annotation_color)
         self._default_annotation_font_size = self._normalize_marker_font_size(settings.default_annotation_pdf_font_size)
+        self._scan_rotation_step_deg = settings.scan_rotation_step_deg
         self._correction_selected_annotation_id: str | None = None
         self._correction_drag_annotation_id: str | None = None
         self._correction_drag_offset_pdf: tuple[float, float] | None = None
@@ -184,6 +188,10 @@ class MainWindowBase(BwBaseWindow):
                 UiIntent.CORRECTION_PASTE_ANNOTATION,
                 UiIntent.DEBUG_RUNTIME_OVERLAY,
                 UiIntent.DEBUG_RUNTIME_OFFLINE,
+                UiIntent.SCAN_ROTATE_CW,
+                UiIntent.SCAN_ROTATE_CCW,
+                UiIntent.SCAN_ROTATE_90_CW,
+                UiIntent.SCAN_ROTATE_90_CCW,
                 UiIntent.NAMING_PREV_PERSON,
                 UiIntent.NAMING_NEXT_PERSON,
                 UiIntent.NAMING_COMMIT,

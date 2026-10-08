@@ -255,6 +255,10 @@ class MainWindowRegionFormMixin:
         self._rerender_active_page()
 
     def _on_delete_region_key(self, _event: ui.Event[ui.Misc]) -> None:
+        if self._active_view == "scan_workshop":
+            if not self._is_editable_widget(self.root.focus_get()):
+                self._scan_toggle_delete()
+            return
         if self._active_view == "correction" and self._correction_mode_active:
             self._delete_selected_correction_annotation()
             return

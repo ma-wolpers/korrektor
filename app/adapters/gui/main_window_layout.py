@@ -28,11 +28,13 @@ class MainWindowLayoutMixin:
         self._detail_view = widgets.Frame(self._view_stack, style="Surface.TFrame", padding=12)
         self._reading_view = widgets.Frame(self._view_stack, style="Surface.TFrame", padding=12)
         self._correction_view = widgets.Frame(self._view_stack, style="Surface.TFrame", padding=12)
+        self._scan_workshop_view = widgets.Frame(self._view_stack, style="Surface.TFrame", padding=12)
 
         self._build_overview_view()
         self._build_detail_view()
         self._build_reading_view()
         self._build_correction_view()
+        self._build_scan_workshop_view()
 
         widgets.Separator(shell).pack(fill=ui.X, pady=(10, 8))
         widgets.Label(shell, textvariable=self._status_var, style="Status.TLabel").pack(anchor=ui.W)

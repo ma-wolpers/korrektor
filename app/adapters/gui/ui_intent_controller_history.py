@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
+from app.adapters.gui.dialog_services import messagebox
 from app.adapters.undo import HistoryAction
 
 
@@ -20,7 +21,15 @@ class UiIntentControllerHistoryMixin:
         return self._deps.undo_history.peek_redo()
 
     def undo(self) -> bool:
-        action = self._deps.undo_history.undo()
+        """Undo the newest action; asks first if it carries a ``confirm_text``; reports failures."""
+        pending = self._deps.undo_history.peek_undo_action()
+        if pending is not None and pending.confirm_text and not messagebox.askyesno("Rückgängig", pending.confirm_text):
+            return False
+        try:
+            action = self._deps.undo_history.undo()
+        except Exception as exc:
+            messagebox.showerror("Rückgängig nicht möglich", str(exc))
+            return False
         if action is None:
             self._app.set_status("Nichts zum Rueckgaengigmachen")
             return False
@@ -29,7 +38,15 @@ class UiIntentControllerHistoryMixin:
         return True
 
     def redo(self) -> bool:
-        action = self._deps.undo_history.redo()
+        """Redo the newest undone action; asks first if it carries a ``confirm_text``; reports failures."""
+        pending = self._deps.undo_history.peek_redo_action()
+        if pending is not None and pending.confirm_text and not messagebox.askyesno("Wiederholen", pending.confirm_text):
+            return False
+        try:
+            action = self._deps.undo_history.redo()
+        except Exception as exc:
+            messagebox.showerror("Wiederholen nicht möglich", str(exc))
+            return False
         if action is None:
             self._app.set_status("Nichts zum Wiederholen")
             return False
@@ -55,13 +72,16 @@ class UiIntentControllerHistoryMixin:
         else:
             self._app.refresh_exam_content_in_place()
 
-    def _record_history_action(self, *, description: str, undo, redo, context: str = "content") -> None:
+    def _record_history_action(
+        self, *, description: str, undo, redo, context: str = "content", confirm_text: str | None = None
+    ) -> None:
         self._deps.undo_history.push(
             HistoryAction(
                 description=description,
                 undo=undo,
                 redo=redo,
                 context=context,
+                confirm_text=confirm_text,
             )
         )
 

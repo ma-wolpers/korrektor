@@ -26,6 +26,9 @@ class HistoryAction:
     undo: Callable[[], None]
     redo: Callable[[], None]
     context: str = "content"
+    confirm_text: str | None = None
+    """If set, the controller asks this (yes/no) before undoing or redoing - e.g. Scan-Werkstatt
+    actions that swap PDF files. Declining leaves both stacks unchanged."""
 
 
 class UndoHistory:
@@ -58,6 +61,14 @@ class UndoHistory:
             return None
         return self._redo_stack[-1].description
 
+    def peek_undo_action(self) -> HistoryAction | None:
+        """The action `undo()` would run next, without running it."""
+        return self._undo_stack[-1] if self._undo_stack else None
+
+    def peek_redo_action(self) -> HistoryAction | None:
+        """The action `redo()` would run next, without running it."""
+        return self._redo_stack[-1] if self._redo_stack else None
+
     def undo(self) -> HistoryAction | None:
         """Pop and run the top undo action, returning it (or None if the stack is empty).
 
@@ -68,7 +79,11 @@ class UndoHistory:
         if not self._undo_stack:
             return None
         action = self._undo_stack.pop()
-        action.undo()
+        try:
+            action.undo()
+        except Exception:
+            self._undo_stack.append(action)  # a failed undo must not lose the action
+            raise
         self._redo_stack.append(action)
         return action
 
@@ -77,6 +92,10 @@ class UndoHistory:
         if not self._redo_stack:
             return None
         action = self._redo_stack.pop()
-        action.redo()
+        try:
+            action.redo()
+        except Exception:
+            self._redo_stack.append(action)
+            raise
         self._undo_stack.append(action)
         return action

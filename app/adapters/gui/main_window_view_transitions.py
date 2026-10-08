@@ -31,6 +31,7 @@ class MainWindowViewTransitionsMixin:
             "detail": self._detail_view,
             "reading": self._reading_view,
             "correction": self._correction_view,
+            "scan_workshop": self._scan_workshop_view,
         }
         target = frames.get(view_name)
         if target is None:
@@ -62,6 +63,7 @@ class MainWindowViewTransitionsMixin:
         self._extra_mode_active = False
         self._pending_student_names.clear()
         self._end_naming_window()
+        self._scan_session = None
         self._correction_mode_active = False
         self._superpage_var.set(False)
         self._selected_region_id = None

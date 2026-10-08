@@ -211,6 +211,7 @@ class MainWindowOverviewMixin:
         self._current_exam = self.deps.exam_repository.load_exam(exam_file)
         self._apply_detail_labels(self._current_exam)
         self._refresh_region_tree()
+        self._refresh_scan_workshop_after_reload()
         self._refresh_grading_scale_assignment_choices()
 
         if self._correction_mode_active:

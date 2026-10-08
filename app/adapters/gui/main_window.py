@@ -50,6 +50,8 @@ from app.adapters.gui.main_window_correction_zoom import MainWindowCorrectionZoo
 from app.adapters.gui.main_window_correction_completion import MainWindowCorrectionCompletionMixin
 from app.adapters.gui.main_window_correction_form import MainWindowCorrectionFormMixin
 from app.adapters.gui.main_window_naming import MainWindowNamingMixin
+from app.adapters.gui.main_window_scan_workshop import MainWindowScanWorkshopMixin
+from app.adapters.gui.main_window_scan_workshop_view import MainWindowScanWorkshopViewMixin
 from app.adapters.gui.main_window_naming_capture import MainWindowNamingCaptureMixin
 from app.adapters.gui.main_window_extra_pages import MainWindowExtraPagesMixin
 from app.adapters.gui.main_window_extra_pages_popup import MainWindowExtraPagesPopupMixin
@@ -73,6 +75,7 @@ from app.adapters.gui.main_window_region_redraw import MainWindowRegionRedrawMix
 from app.adapters.gui.main_window_region_specs import MainWindowRegionSpecsMixin
 from app.adapters.gui.main_window_shortcuts_debug import MainWindowShortcutsDebugMixin
 from app.adapters.gui.main_window_shortcuts import MainWindowShortcutsMixin
+from app.adapters.gui.main_window_shortcut_table import MainWindowShortcutTableMixin
 from app.adapters.gui.main_window_menu import MainWindowMenuMixin
 from app.adapters.gui.main_window_overview import MainWindowOverviewMixin
 from app.adapters.gui.main_window_view_state import MainWindowViewStateMixin
@@ -93,6 +96,8 @@ class MainWindow(
     MainWindowCorrectionCompletionMixin,
     MainWindowCorrectionFormMixin,
     MainWindowNamingMixin,
+    MainWindowScanWorkshopMixin,
+    MainWindowScanWorkshopViewMixin,
     MainWindowNamingCaptureMixin,
     MainWindowExtraPagesMixin,
     MainWindowExtraPagesPopupMixin,
@@ -115,6 +120,7 @@ class MainWindow(
     MainWindowRegionRedrawMixin,
     MainWindowRegionSpecsMixin,
     MainWindowShortcutsDebugMixin,
+    MainWindowShortcutTableMixin,
     MainWindowShortcutsMixin,
     MainWindowMenuMixin,
     MainWindowOverviewMixin,
