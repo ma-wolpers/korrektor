@@ -270,7 +270,7 @@ class MainWindowReadingCanvasMixin:
             messagebox.showinfo("Hinweis", "Im Extraseitenmodus kann nur eine Extraseiten-Zuordnung neu gezogen werden.")
             return
         if not self._extra_mode_active and self._selected_region_kind != "region":
-            messagebox.showinfo("Hinweis", "Im Einlesemodus kann nur ein Standardbereich neu gezogen werden.")
+            messagebox.showinfo("Hinweis", "Im Zuschnitt kann nur ein Standardbereich neu gezogen werden.")
             return
         self._redraw_target_region_kind = self._selected_region_kind
         self._redraw_target_region_id = self._selected_region_id

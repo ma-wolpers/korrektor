@@ -31,12 +31,12 @@ class MainWindowViewStateMixin:
 
         mode_reading_button = widgets.Button(
             detail_actions,
-            text="Einlesen",
+            text="Zuschnitt",
             style="SecondaryAction.TButton",
             command=self._start_reading_mode,
         )
         mode_reading_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(mode_reading_button, label="In den Einlesemodus wechseln", shortcut=None)
+        self._attach_hover_help(mode_reading_button, label="Zum Zuschnitt wechseln", shortcut=None)
 
         mode_extra_button = widgets.Button(
             detail_actions,
@@ -54,7 +54,7 @@ class MainWindowViewStateMixin:
             command=self._start_correction_mode,
         )
         mode_correction_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(mode_correction_button, label="In den Korrekturmodus wechseln", shortcut=None)
+        self._attach_hover_help(mode_correction_button, label="Zur Korrektur wechseln", shortcut=None)
 
         mode_naming_button = widgets.Button(
             detail_actions,
@@ -173,12 +173,12 @@ class MainWindowViewStateMixin:
         self._correction_area_combo.pack(side=ui.LEFT, padx=(8, 8))
         start_correction_button = widgets.Button(
             correction_header,
-            text="Korrekturmodus",
+            text="Korrektur starten",
             style="SecondaryAction.TButton",
             command=self._start_correction_mode,
         )
         start_correction_button.pack(side=ui.LEFT)
-        self._attach_hover_help(start_correction_button, label="Korrekturmodus starten", shortcut=None)
+        self._attach_hover_help(start_correction_button, label="Korrektur für den gewählten Bereich starten", shortcut=None)
 
         stop_correction_button = widgets.Button(
             correction_header,

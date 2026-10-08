@@ -50,11 +50,11 @@ class MainWindowViewTransitionsMixin:
         self._naming_capture_active = False
         self._superpage_var.set(False)
         self._extra_sequence = []
-        self._reading_mode_title_var.set("Einlesen")
+        self._reading_mode_title_var.set("Zuschnitt")
         self._clear_pending_redraw()
         self._close_extra_popup()
-        self._reading_info_var.set("Einlesemodus: bereit")
-        self._status_var.set("Namenmodus verlassen" if was_naming else "Einlesemodus verlassen")
+        self._reading_info_var.set("Zuschnitt: bereit")
+        self._status_var.set("Namenmodus verlassen" if was_naming else "Zuschnitt verlassen")
         self._show_detail_mode()
 
     def _return_to_overview(self) -> None:
@@ -82,8 +82,8 @@ class MainWindowViewTransitionsMixin:
             self._grading_scale_assignment_var.set("Notenschluessel: keiner zugeordnet")
         self._correction_zoom_percent = 100
         self._refresh_correction_zoom_label()
-        self._reading_mode_title_var.set("Einlesen")
-        self._reading_info_var.set("Einlesemodus: nicht aktiv")
+        self._reading_mode_title_var.set("Zuschnitt")
+        self._reading_info_var.set("Zuschnitt: nicht aktiv")
         if hasattr(self, "_correction_info_var"):
             self._correction_info_var.set("Korrektur: nicht aktiv")
         if hasattr(self, "_correction_points_var"):
@@ -182,7 +182,7 @@ class MainWindowViewTransitionsMixin:
                 self._naming_region_toolbar.pack(fill=ui.X, pady=(6, 0), before=self._reading_split)
             return
 
-        self._reading_mode_title_var.set("Einlesen")
+        self._reading_mode_title_var.set("Zuschnitt")
         self._extra_toolbar.pack_forget()
         self._reading_toolbar.pack(fill=ui.X, before=self._reading_split)
         self._superpage_toggle.pack_forget()

@@ -63,7 +63,7 @@ class MainWindowOverviewMixin:
         )
         headings = {
             "name": "Klausur",
-            "read": "Einlesen %",
+            "read": "Zuschnitt %",
             "corr": "Korrektur %",
             "regions": "Bereiche",
             "done": "Korrigiert",
@@ -142,7 +142,7 @@ class MainWindowOverviewMixin:
         self._apply_detail_labels(exam)
         self._refresh_grading_scale_assignment_choices()
         self._status_var.set(f"Detailansicht: {exam.exam_name}")
-        self._reading_info_var.set("Einlesemodus: bereit")
+        self._reading_info_var.set("Zuschnitt: bereit")
         self._reading_canvas.delete("all")
         self._draft_regions.clear()
         self._hide_correction_controls()

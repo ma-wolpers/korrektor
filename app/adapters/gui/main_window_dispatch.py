@@ -75,7 +75,7 @@ class MainWindowDispatchMixin:
         self._pending_student_names.clear()
         self._correction_mode_active = False
         self._correction_student_indices = []
-        self._reading_info_var.set("Einlesemodus: nicht aktiv")
+        self._reading_info_var.set("Zuschnitt: nicht aktiv")
         self._draft_regions.clear()
         self._reading_canvas.delete("all")
         self._hide_correction_controls()

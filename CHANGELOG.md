@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Modi umbenannt:** Der Einlesemodus heißt jetzt **"Zuschnitt"** (hier wird festgelegt, durch welche Fenster künftig auf die Klausur geblickt wird), der Korrekturmodus heißt einfach **"Korrektur"** - in Knöpfen, Menü "Ansicht", Spaltenkopf "Zuschnitt %" der Übersicht, Status- und Hinweistexten.
 - **"Neue Klausur" übernimmt vorhandene Klausuren:** Liegt im gewählten Ordner schon eine `korrektor_klausur.json` (z. B. vom anderen PC kopiert), fragt Korrektor "Klausur übernehmen?" und öffnet sie mit allen Daten - es wird nie eine leere Klausur darübergeschrieben. Ist die Klausur unter einem anderen Ordner bekannt, der nicht mehr existiert, wird die Liste auf den neuen Ordner umgestellt; liegt sie doppelt vor (Kopie), wählt man zwischen "Als eigene Klausur übernehmen" (neue ID) und "Auf diesen Ordner umstellen". Geöffnet wird immer die Klausur des gewählten Ordners.
 - **"Klausur löschen" heißt jetzt "Klausur entfernen" mit zwei Wegen:** "Nur aus der Übersicht entfernen" (Daten bleiben im Ordner, jederzeit wieder übernehmbar) oder "Klausurdaten im Ordner löschen" (löscht `korrektor_klausur.json` und `korrektor_scores.csv`; PDFs und Sicherungen bleiben). Beides lässt sich mit Strg+Z vollständig rückgängig machen.
 - PDF-Import im "Neue Klausur"-Ablauf lehnt einen Zielordner ab, in dem schon Klausurdaten liegen.

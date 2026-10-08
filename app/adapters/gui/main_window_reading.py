@@ -31,12 +31,12 @@ class MainWindowReadingMixin:
 
         self._finish_reading_button = widgets.Button(
             reading_nav,
-            text="Einlesen abschliessen",
+            text="Zuschnitt abschließen",
             style="PrimaryAction.TButton",
             command=self._finish_reading_mode,
         )
         self._finish_reading_button.pack(side=ui.RIGHT)
-        self._attach_hover_help(self._finish_reading_button, label="Einlesemodus abschliessen", shortcut=None)
+        self._attach_hover_help(self._finish_reading_button, label="Zuschnitt abschließen", shortcut=None)
 
         self._reading_toolbar = widgets.Frame(self._reading_view, style="Surface.TFrame")
         self._reading_toolbar.pack(fill=ui.X)
@@ -65,7 +65,7 @@ class MainWindowReadingMixin:
             command=lambda: self._change_reading_student(-1),
         )
         prev_reading_student_button.pack(side=ui.LEFT, padx=(14, 0))
-        self._attach_hover_help(prev_reading_student_button, label="Vorherige Person im Einlesen", shortcut=None)
+        self._attach_hover_help(prev_reading_student_button, label="Vorherige Person im Zuschnitt", shortcut=None)
 
         next_reading_student_button = widgets.Button(
             self._reading_toolbar,
@@ -74,7 +74,7 @@ class MainWindowReadingMixin:
             command=lambda: self._change_reading_student(1),
         )
         next_reading_student_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(next_reading_student_button, label="Naechste Person im Einlesen", shortcut=None)
+        self._attach_hover_help(next_reading_student_button, label="Nächste Person im Zuschnitt", shortcut=None)
 
         self._superpage_toggle = Switch(
             self._reading_toolbar,
@@ -106,7 +106,7 @@ class MainWindowReadingMixin:
         self._show_view("reading")
         self._refresh_region_tree()
         self._render_current_reading_page()
-        self._status_var.set("Einlesemodus aktiv")
+        self._status_var.set("Zuschnitt aktiv")
 
     def _change_reading_student(self, delta: int) -> None:
         if not self._reading_active or not self._current_exam or not self._current_exam.students:
@@ -244,5 +244,5 @@ class MainWindowReadingMixin:
         self._reading_active = False
         self._naming_mode_active = False
         self._naming_capture_active = False
-        self._reading_info_var.set("Einlesemodus: abgeschlossen")
+        self._reading_info_var.set("Zuschnitt: abgeschlossen")
         self._show_detail_mode()

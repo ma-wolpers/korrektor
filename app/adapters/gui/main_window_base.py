@@ -218,8 +218,8 @@ class MainWindowBase(BwBaseWindow):
     def build_content(self, frame) -> None:
         self.root = self
         self._status_var = ui.StringVar(value="Bereit")
-        self._reading_mode_title_var = ui.StringVar(value="Einlesen")
-        self._reading_info_var = ui.StringVar(value="Einlesemodus: nicht aktiv")
+        self._reading_mode_title_var = ui.StringVar(value="Zuschnitt")
+        self._reading_info_var = ui.StringVar(value="Zuschnitt: nicht aktiv")
         self._assignment_mode_var = ui.StringVar(value="quick")
         self._superpage_var = ui.BooleanVar(value=False)
         self._extra_overview_var = ui.StringVar(value="")

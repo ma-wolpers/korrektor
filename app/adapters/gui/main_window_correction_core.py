@@ -133,7 +133,7 @@ class MainWindowCorrectionCoreMixin:
         self._refresh_correction_area_choices(self._current_exam)
         templates = self._build_correction_templates(self._current_exam)
         if not templates:
-            messagebox.showinfo("Keine Bereiche", "Bitte zuerst Standardbereiche im Einlesemodus markieren und speichern.")
+            messagebox.showinfo("Keine Bereiche", "Bitte zuerst Standardbereiche im Zuschnitt markieren und speichern.")
             return
         label_to_region_id = self._build_label_to_region_id_map(templates)
 
@@ -170,7 +170,7 @@ class MainWindowCorrectionCoreMixin:
         self._refresh_correction_task_choices(load_saved_points=True)
         self._refresh_correction_completion_controls()
         self._focus_first_input_field()
-        self._status_var.set(f"Korrekturmodus aktiv für Bereich {area}")
+        self._status_var.set(f"Korrektur aktiv für Bereich {area}")
 
     def _stop_correction_mode(self, *, silent: bool = False) -> None:
         """Leave Korrekturmodus, clearing the region templates and label map."""
@@ -202,7 +202,7 @@ class MainWindowCorrectionCoreMixin:
         self._refresh_active_student_label()
         self._show_detail_mode()
         if not silent:
-            self._status_var.set("Korrekturmodus beendet")
+            self._status_var.set("Korrektur beendet")
 
     @staticmethod
     def _build_correction_templates(exam: ExamProject) -> dict[str, CorrectionTemplate]:

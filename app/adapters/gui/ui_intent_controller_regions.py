@@ -191,7 +191,7 @@ class UiIntentControllerRegionsMixin:
         if missing_pages:
             joined = ", ".join(str(page) for page in missing_pages)
             proceed = messagebox.askyesno(
-                "Unvollständiges Einlesen",
+                "Zuschnitt unvollständig",
                 f"Es fehlen noch Markierungen auf Standardseiten: {joined}.\nTrotzdem abschließen?",
             )
             if not proceed:
@@ -203,13 +203,13 @@ class UiIntentControllerRegionsMixin:
             messagebox.showerror("Speichern abgebrochen", str(exc))
             return exam
         self._record_exam_payload_action(
-            description="Einlesemodus abgeschlossen",
+            description="Zuschnitt abgeschlossen",
             exam_id=updated.exam_id,
             before_payload=before_payload,
             after_payload=updated.to_dict(),
         )
         self.refresh_exam_overview()
-        self._app.set_status("Einlesemodus abgeschlossen")
+        self._app.set_status("Zuschnitt abgeschlossen")
         return updated
 
     def assign_extra_page_immediate(
@@ -230,7 +230,7 @@ class UiIntentControllerRegionsMixin:
 
         existing_areas = self._existing_standard_area_codes(exam)
         if not existing_areas:
-            messagebox.showerror("Keine Bereiche", "Bitte zuerst Standardbereiche im Einlesemodus anlegen.")
+            messagebox.showerror("Keine Bereiche", "Bitte zuerst Standardbereiche im Zuschnitt anlegen.")
             return None
 
         unknown = [code for code in normalized_areas if code not in existing_areas]
