@@ -9,14 +9,11 @@ recent refactor onto `rewrite_pdf_atomically` preserves exact behavior
 annotations instead of duplicating them, and the file is genuinely
 writable a second time right afterwards - no stale open handle left).
 
-One `MainWindow` (and therefore one real `tk.Tk()` root) for the whole
-module: `MainWindow` has no way to adopt an externally-supplied root (GRENZE: the
-underlying `TkRootHost` supports it, but `MainWindow`'s own constructor
-does not forward it - out of scope to change here), and creating/
-destroying several real `Tk()` interpreters in one process was observed
-to be intermittently flaky on this Windows setup (same root cause as the
-bw-gui `ScrollableFrame` test suite's session-scoped-root fix). All three
-checks therefore live in one test function against one shared setup.
+Uses the session-wide `korrektor_window` fixture (`conftest.py`): creating
+a second real `Tk()` interpreter next to it was intermittently flaky on
+this Windows setup ("tk wasn't installed properly" / init.tcl), the same
+root cause as the bw-gui session-scoped-root fix. All three checks live in
+one test function against one shared setup.
 """
 
 from __future__ import annotations
@@ -27,10 +24,7 @@ from pathlib import Path
 import fitz
 import pytest
 
-from app.adapters.bootstrap.wiring import build_gui_dependencies
 from app.adapters.gui import ui_intent_controller as uic_module
-from app.adapters.gui.main_window import MainWindow
-from app.adapters.gui.ui_intent_controller import UiIntentController
 from app.core.domain.models import (
     ExamProject,
     PdfAnnotation,
@@ -55,17 +49,14 @@ def _build_student_pdf(path: Path) -> None:
     document.close()
 
 
-def test_save_correction_annotations_to_pdfs_real_file_roundtrip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+def test_save_correction_annotations_to_pdfs_real_file_roundtrip(tmp_path: Path, korrektor_window) -> None:
     exam_folder = tmp_path / "exam"
     exam_folder.mkdir()
     pdf_path = exam_folder / "Alice.pdf"
     _build_student_pdf(pdf_path)
 
-    deps = build_gui_dependencies(tmp_path / "repo")
-    window = MainWindow(deps=deps)
-    controller = UiIntentController(app=window, deps=deps)
-    window.set_controller(controller)
+    window = korrektor_window
+    deps = window.deps
 
     now = utc_now_iso()
     exam = ExamProject(
@@ -106,6 +97,14 @@ def test_save_correction_annotations_to_pdfs_real_file_roundtrip(tmp_path: Path,
     )
     deps.exam_repository.save_exam(exam)
     window._current_exam = exam
+    try:
+        _run_checks(window, pdf_path)
+    finally:
+        window._current_exam = None
+        window.invalidate_doc_cache(["Alice.pdf"])
+
+
+def _run_checks(window, pdf_path: Path) -> None:
 
     # --- 1. Burns in the marker annotation. ---
     window._save_correction_annotations_to_pdfs()

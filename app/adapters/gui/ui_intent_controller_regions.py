@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+from app.core.domain.page_coverage import pages_missing_markings
 from app.adapters.gui.dialog_services import messagebox
-from app.core.domain.models import ExamProject, ExtraPageAssignment, RegionAssignment, RegionBox, TaskDefinition
+from app.core.domain.models import ExamProject, RegionAssignment, RegionBox, TaskDefinition
 from app.core.domain.validation import ExamConflictError
 
 
@@ -159,34 +160,11 @@ class UiIntentControllerRegionsMixin:
         self._app.set_status("Bereich geloescht")
         return updated
 
-    def delete_extra_page_assignment_immediate(self, *, exam: ExamProject, assignment_id: str) -> ExamProject:
-        before_payload = exam.to_dict()
-        exam.extra_page_assignments = [
-            assignment for assignment in exam.extra_page_assignments if assignment.assignment_id != assignment_id
-        ]
-        exam_file = self._save_exam_guarded(exam)
-        if exam_file is None:
-            return exam
-        updated = self._deps.exam_repository.load_exam(exam_file)
-        self._record_exam_payload_action(
-            description="Extraseiten-Zuordnung geloescht",
-            exam_id=updated.exam_id,
-            before_payload=before_payload,
-            after_payload=updated.to_dict(),
-        )
-        self.refresh_exam_overview()
-        self._app.set_status("Extraseiten-Zuordnung geloescht")
-        return updated
-
     def finish_reading_mode(self, *, exam: ExamProject) -> ExamProject:
         before_payload = exam.to_dict()
-        expected = set(range(1, exam.standard_page_count + 1))
-        marked = {
-            region.page_number
-            for region in exam.regions
-            if 1 <= region.page_number <= exam.standard_page_count
-        }
-        missing_pages = sorted(expected - marked)
+        # Standard pages without a region that are still open for someone
+        # (a Deckblatt marked "ohne Bewertung" for everybody is not missing).
+        missing_pages = pages_missing_markings(exam)
 
         if missing_pages:
             joined = ", ".join(str(page) for page in missing_pages)
@@ -210,86 +188,6 @@ class UiIntentControllerRegionsMixin:
         )
         self.refresh_exam_overview()
         self._app.set_status("Zuschnitt abgeschlossen")
-        return updated
-
-    def assign_extra_page_immediate(
-        self,
-        *,
-        exam: ExamProject,
-        student_pdf: str,
-        page_number: int,
-        box: tuple[float, float, float, float],
-        area_codes: list[str],
-        assignment_id: str | None = None,
-    ) -> ExamProject | None:
-        before_payload = exam.to_dict()
-        normalized_areas = [code.strip().upper() for code in area_codes if code.strip()]
-        if not normalized_areas:
-            messagebox.showerror("Ungültige Eingabe", "Bitte mindestens einen Bereich angeben, z. B. A.")
-            return None
-
-        existing_areas = self._existing_standard_area_codes(exam)
-        if not existing_areas:
-            messagebox.showerror("Keine Bereiche", "Bitte zuerst Standardbereiche im Zuschnitt anlegen.")
-            return None
-
-        unknown = [code for code in normalized_areas if code not in existing_areas]
-        if unknown:
-            unknown_text = ", ".join(unknown)
-            messagebox.showerror(
-                "Unbekannter Bereich",
-                f"Folgende Bereiche existieren nicht als Standardbereich: {unknown_text}",
-            )
-            return None
-
-        existing = None
-        if assignment_id is not None:
-            existing = next(
-                (item for item in exam.extra_page_assignments if item.assignment_id == assignment_id),
-                None,
-            )
-        if existing is None:
-            existing = next(
-                (
-                    assignment
-                    for assignment in exam.extra_page_assignments
-                    if assignment.student_pdf == student_pdf and assignment.page_number == page_number
-                ),
-                None,
-            )
-
-        assignment_id = existing.assignment_id if existing else f"x-{uuid4().hex[:10]}"
-        assignment = ExtraPageAssignment(
-            assignment_id=assignment_id,
-            student_pdf=student_pdf,
-            page_number=page_number,
-            box=RegionBox(x0=box[0], y0=box[1], x1=box[2], y1=box[3]),
-            assigned_area_codes=normalized_areas,
-            is_read_complete=True,
-            is_corrected=existing.is_corrected if existing else False,
-        )
-
-        replaced = False
-        for index, item in enumerate(exam.extra_page_assignments):
-            if item.assignment_id == assignment.assignment_id:
-                exam.extra_page_assignments[index] = assignment
-                replaced = True
-                break
-        if not replaced:
-            exam.extra_page_assignments.append(assignment)
-
-        exam_file = self._save_exam_guarded(exam)
-        if exam_file is None:
-            return None
-        updated = self._deps.exam_repository.load_exam(exam_file)
-        self._record_exam_payload_action(
-            description="Extraseite zugeordnet",
-            exam_id=updated.exam_id,
-            before_payload=before_payload,
-            after_payload=updated.to_dict(),
-        )
-        self.refresh_exam_overview()
-        self._app.set_status("Extraseite sofort zugeordnet")
         return updated
 
     def set_name_region_immediate(

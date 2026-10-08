@@ -137,7 +137,9 @@ class MainWindowViewTransitionsMixin:
         self._finish_reading_button.pack(side=ui.RIGHT)
 
         if mode == "extra":
-            self._reading_mode_title_var.set("Extraseiten")
+            self._reading_mode_title_var.set("Zuschnitt · Schritt 2: Seiten ohne Bereich")
+            self._zuschnitt_step_button.configure(text="◀ Schritt 1: Bereiche")
+            self._zuschnitt_step_button.pack(side=ui.RIGHT, padx=(0, 8))
             self._reading_toolbar.pack_forget()
             self._mode_row.pack_forget()
             self._regions_editor.pack(fill=ui.BOTH, pady=(10, 0))
@@ -160,6 +162,7 @@ class MainWindowViewTransitionsMixin:
             # visible space - every pack() call here must anchor `before=
             # self._reading_split` to land above the canvas as intended.
             self._reading_mode_title_var.set("Namen")
+            self._zuschnitt_step_button.pack_forget()
             self._extra_toolbar.pack_forget()
             self._mode_row.pack_forget()
             self._regions_editor.pack_forget()
@@ -182,7 +185,9 @@ class MainWindowViewTransitionsMixin:
                 self._naming_region_toolbar.pack(fill=ui.X, pady=(6, 0), before=self._reading_split)
             return
 
-        self._reading_mode_title_var.set("Zuschnitt")
+        self._reading_mode_title_var.set("Zuschnitt · Schritt 1: Bereiche festlegen")
+        self._zuschnitt_step_button.configure(text="Schritt 2: Seiten ohne Bereich ▶")
+        self._zuschnitt_step_button.pack(side=ui.RIGHT, padx=(0, 8))
         self._extra_toolbar.pack_forget()
         self._reading_toolbar.pack(fill=ui.X, before=self._reading_split)
         self._superpage_toggle.pack_forget()

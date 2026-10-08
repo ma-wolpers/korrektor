@@ -38,6 +38,17 @@ class MainWindowReadingMixin:
         self._finish_reading_button.pack(side=ui.RIGHT)
         self._attach_hover_help(self._finish_reading_button, label="Zuschnitt abschließen", shortcut=None)
 
+        self._zuschnitt_step_button = widgets.Button(
+            reading_nav,
+            text="Schritt 2: Seiten ohne Bereich ▶",
+            style="SecondaryAction.TButton",
+            command=self._toggle_zuschnitt_step,
+        )
+        self._zuschnitt_step_button.pack(side=ui.RIGHT, padx=(0, 8))
+        self._attach_hover_help(
+            self._zuschnitt_step_button, label="Zwischen Schritt 1 (Bereiche) und Schritt 2 (Seiten ohne Bereich) wechseln", shortcut=None
+        )
+
         self._reading_toolbar = widgets.Frame(self._reading_view, style="Surface.TFrame")
         self._reading_toolbar.pack(fill=ui.X)
         prev_page_button = widgets.Button(

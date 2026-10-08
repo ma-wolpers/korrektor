@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.core.domain.models import ExamProject
+from app.core.domain.page_coverage import open_pages, pages_missing_markings
 
 
 @dataclass(slots=True)
@@ -33,24 +34,10 @@ class ProgressCalculator:
         )
         reading_percent = 100.0 if region_count == 0 else (read_complete_count / region_count) * 100.0
 
-        expected_extra_pages = {
-            (student.pdf_filename, page)
-            for student in exam.students
-            for page in student.extra_pages
-        }
-        assigned_extra_pages = {
-            (assignment.student_pdf, assignment.page_number)
-            for assignment in exam.extra_page_assignments
-        }
-        has_unassigned_extra_pages = bool(expected_extra_pages - assigned_extra_pages)
-
-        marked_standard_pages = {
-            region.page_number
-            for region in exam.regions
-            if 1 <= region.page_number <= exam.standard_page_count
-        }
-        expected_standard_pages = set(range(1, exam.standard_page_count + 1))
-        has_missing_page_markings = not expected_standard_pages.issubset(marked_standard_pages)
+        # Extra pages are computed (pages without a template region, see
+        # page_coverage); a page is open unless it is assigned or "ohne Bewertung".
+        has_unassigned_extra_pages = bool(open_pages(exam))
+        has_missing_page_markings = bool(pages_missing_markings(exam))
 
         area_codes = {
             code.strip().upper()

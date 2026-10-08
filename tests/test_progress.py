@@ -17,7 +17,6 @@ def test_progress_detects_unassigned_extra_pages_and_missing_standard_pages() ->
                 display_name="Alice",
                 pdf_filename="Alice.pdf",
                 page_count=5,
-                extra_pages=[4, 5],
             )
         ],
         regions=[
@@ -54,14 +53,12 @@ def test_progress_counts_fully_finished_areas_for_all_students() -> None:
                 display_name="Alice",
                 pdf_filename="Alice.pdf",
                 page_count=2,
-                extra_pages=[],
             ),
             StudentExam(
                 student_id="bob",
                 display_name="Bob",
                 pdf_filename="Bob.pdf",
                 page_count=2,
-                extra_pages=[],
             ),
         ],
         regions=[

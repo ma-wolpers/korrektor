@@ -36,16 +36,7 @@ class MainWindowViewStateMixin:
             command=self._start_reading_mode,
         )
         mode_reading_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(mode_reading_button, label="Zum Zuschnitt wechseln", shortcut=None)
-
-        mode_extra_button = widgets.Button(
-            detail_actions,
-            text="Extraseiten",
-            style="SecondaryAction.TButton",
-            command=self._start_extra_mode,
-        )
-        mode_extra_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(mode_extra_button, label="In den Extraseitenmodus wechseln", shortcut=None)
+        self._attach_hover_help(mode_reading_button, label="Zum Zuschnitt wechseln (Schritt 1: Bereiche, Schritt 2: Seiten ohne Bereich)", shortcut=None)
 
         mode_correction_button = widgets.Button(
             detail_actions,

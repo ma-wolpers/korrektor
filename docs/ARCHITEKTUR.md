@@ -63,11 +63,12 @@
 - **`TaskDefinition.max_points` ist nach der ersten Bewertung historisch unveraenderlich:** durchgesetzt an der einzigen Schreibstelle (`UiIntentController.upsert_region_immediate` -> `_reject_max_points_change_for_scored_tasks`), die einen Aenderungsversuch ablehnt statt still zu uebernehmen, sobald `ScoreRepository.load_scores` fuer den betroffenen `task_code` bereits einen Punktwert zeigt. Fuer noch nicht bewertete Aufgaben bleibt `max_points` frei aenderbar. Kein Snapshot-Mechanismus dafuer noetig (anders als beim Notenschluessel) - die Regel wird direkt an der Quelle verhindert statt nachtraeglich eingefroren.
 - **Rechnerwechsel:** Notenschluessel liegen global unter `%APPDATA%/<app_name>/`, nicht im (ggf. synchronisierten/portablen) Exam-Indexordner - sie muessen deshalb manuell uebertragen werden. `UiIntentControllerGradingScaleTransferMixin` (`app/adapters/gui/ui_intent_controller_grading_scale_transfer.py`) exportiert alle Vorlagen (aktiv+archiviert) in eine JSON-Datei und importiert sie auf einem anderen Rechner wieder ein. Import ist additiv und ueberschreibt nie: eine bereits lokal vorhandene `scale_id` mit identischem Inhalt wird uebersprungen, eine mit abweichendem Inhalt als Konflikt gemeldet (nicht automatisch aufgeloest) - der lokale Stand geht so nie durch einen Import verloren.
 
-## Extra-Seiten-Workflow
+## Zuschnitt, Schritt 2 (Seiten ohne Bereich)
 
-- Bereichsrahmen koennen direkt auf Extraseiten gezogen, gespeichert und wieder geloescht werden.
+- "Extraseiten" sind berechnet (`app/core/domain/page_coverage.py`): alle Seiten (1-basiert je Schüler:innen-PDF), auf deren Seitenzahl kein Vorlagen-Bereich (`regions`, `student_pdf == ""`) liegt - nicht mehr nur Seiten über dem Seitenminimum. `StudentExam.extra_pages` existiert nicht mehr; es gibt nur diese eine, berechnete Wahrheit.
+- Jede solche Seite ist entweder einem Bereich zugeordnet (`extra_page_assignments`, Box = ganze sichtbare Seite) oder "ohne Bewertung" (`unscored_pages`), sonst offen (`open_pages`, Flag in der Übersicht). `pages_missing_markings` ersetzt die alte Regel "jede Standardseite braucht einen Bereich".
+- "Für alle Personen (Seite N)" nur für Seitenzahlen ohne Bereich bei allen; `plan_page_for_all` schließt zugeordnete Seiten (und bei der Zuordnung auch bewusste "ohne Bewertung"-Marken) immer aus.
 - Extraseiten erhalten keine eigene Aufgabenpflege; sie werden nur vorhandenen Standard-Bereichen zugeordnet.
-- Standardbereiche dienen als wiederverwendbare Koordinatenvorlagen fuer alle Schueler:innen; Extraseiten referenzieren diese Bereiche nur per Zuordnung.
 
 ## PDF-Import (Importmodus)
 

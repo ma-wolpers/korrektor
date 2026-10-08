@@ -8,7 +8,7 @@ from tk_test_support import build_pdf, settle
 def test_extra_pages_popup_keeps_navigation_visible_and_scrolls(korrektor_window, tmp_path):
     """Navigation stays fully visible at small heights; the page scrolls and starts at the top on page change."""
     window = korrektor_window
-    from app.core.domain.models import ExamProject, StudentExam, utc_now_iso
+    from app.core.domain.models import ExamProject, RegionAssignment, RegionBox, StudentExam, utc_now_iso
 
     folder = tmp_path / "exam"
     folder.mkdir()
@@ -21,8 +21,8 @@ def test_extra_pages_popup_keeps_navigation_visible_and_scrolls(korrektor_window
         created_at=now,
         updated_at=now,
         standard_page_count=1,
-        students=[StudentExam(student_id="anna", display_name="Anna", pdf_filename="Anna.pdf", page_count=3, extra_pages=[2, 3])],
-        regions=[],
+        students=[StudentExam(student_id="anna", display_name="Anna", pdf_filename="Anna.pdf", page_count=3)],
+        regions=[RegionAssignment(region_id="r1", student_pdf="", page_number=1, box=RegionBox(0, 0, 10, 10))],
         extra_page_assignments=[],
         person_area_completions=[],
         is_reading_complete=False,

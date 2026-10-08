@@ -71,14 +71,12 @@ class CreateExamUseCase:
             stem = Path(pdf_filename).stem
             display_name = display_names.get(pdf_filename, "").strip() or stem
             student_id = slugify(stem)
-            extras = [page for page in range(standard_page_count + 1, page_count + 1)]
             students.append(
                 StudentExam(
                     student_id=student_id,
                     display_name=display_name,
                     pdf_filename=pdf_filename,
                     page_count=page_count,
-                    extra_pages=extras,
                 )
             )
 

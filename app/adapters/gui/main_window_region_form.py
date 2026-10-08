@@ -258,4 +258,15 @@ class MainWindowRegionFormMixin:
         if self._active_view == "correction" and self._correction_mode_active:
             self._delete_selected_correction_annotation()
             return
+        if (
+            self._active_view == "reading"
+            and self._detail_submode == "extra"
+            and self._extra_mode_active
+            and not self._is_editable_widget(self.root.focus_get())
+            and self._selected_region_id is None
+        ):
+            # Zuschnitt Schritt 2: Entf toggles "ohne Bewertung" for the current page;
+            # with an assignment selected in the tree it still deletes that assignment.
+            self._toggle_current_page_unscored()
+            return
         self._delete_selected_region()

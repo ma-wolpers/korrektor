@@ -51,6 +51,7 @@ from app.adapters.gui.main_window_correction_completion import MainWindowCorrect
 from app.adapters.gui.main_window_correction_form import MainWindowCorrectionFormMixin
 from app.adapters.gui.main_window_naming import MainWindowNamingMixin
 from app.adapters.gui.main_window_extra_pages import MainWindowExtraPagesMixin
+from app.adapters.gui.main_window_extra_pages_popup import MainWindowExtraPagesPopupMixin
 from app.adapters.gui.main_window_import_split import MainWindowImportSplitMixin
 from app.adapters.gui.main_window_import_split_view import MainWindowImportSplitViewMixin
 from app.adapters.gui.main_window_import_split_input import MainWindowImportSplitInputMixin
@@ -92,6 +93,7 @@ class MainWindow(
     MainWindowCorrectionFormMixin,
     MainWindowNamingMixin,
     MainWindowExtraPagesMixin,
+    MainWindowExtraPagesPopupMixin,
     MainWindowImportSplitMixin,
     MainWindowImportSplitViewMixin,
     MainWindowImportSplitInputMixin,

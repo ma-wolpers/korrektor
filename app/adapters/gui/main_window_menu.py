@@ -104,7 +104,6 @@ class MainWindowMenuMixin:
         return (
             SharedMenuItem(type="command", label="Zuschnitt starten", command=self._start_reading_mode),
             SharedMenuItem(type="command", label="Korrektur starten", command=self._start_correction_mode),
-            SharedMenuItem(type="command", label="Extraseiten-Modus starten", command=self._start_extra_mode),
             SharedMenuItem(type="separator"),
             SharedMenuItem(type="command", label="Zur Übersicht", command=self._return_to_overview),
         )

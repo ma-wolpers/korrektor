@@ -21,6 +21,7 @@ from app.adapters.gui.ui_intent_controller_grading_scale_transfer import UiInten
 from app.adapters.gui.ui_intent_controller_history import UiIntentControllerHistoryMixin
 from app.adapters.gui.ui_intent_controller_naming import UiIntentControllerNamingMixin
 from app.adapters.gui.ui_intent_controller_overview import UiIntentControllerOverviewMixin
+from app.adapters.gui.ui_intent_controller_page_coverage import UiIntentControllerPageCoverageMixin
 from app.adapters.gui.ui_intent_controller_regions import UiIntentControllerRegionsMixin
 from app.adapters.gui.ui_intent_controller_scoring import UiIntentControllerScoringMixin
 from app.adapters.gui.ui_intent_controller_superposition import UiIntentControllerSuperpositionMixin
@@ -43,6 +44,7 @@ class UiIntentController(
     UiIntentControllerNamingMixin,
     UiIntentControllerCompletionMixin,
     UiIntentControllerRegionsMixin,
+    UiIntentControllerPageCoverageMixin,
     UiIntentControllerScoringMixin,
     UiIntentControllerOverviewMixin,
     UiIntentControllerExamStorageMixin,
