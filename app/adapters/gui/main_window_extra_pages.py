@@ -11,6 +11,8 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.theming import theme_canvas
+from bw_gui.widgets import ScrollableImagePreview
 
 
 class MainWindowExtraPagesMixin:
@@ -173,36 +175,26 @@ class MainWindowExtraPagesMixin:
             return
 
         if self._extra_popup is None or not self._extra_popup.winfo_exists():
-            # Deliberate exception from the bw-gui default-scrollable popup
-            # convention (`bw-gui/docs/SCROLLABILITY_CONTRACT.md`): a plain
-            # `ui.Toplevel`, not `ScrollablePopupWindow`. This popup is a
-            # single-image PDF-page viewer (fixed-size Canvas sized to the
-            # rendered page, nav buttons below) - structurally the same
-            # "self-contained canvas display, an outer scroll layer adds no
-            # value" shape as Kursplaner's `kompetenzgraph_dialog.py`
-            # (`scrollable=False`), not a growing list of fields/rows.
+            # A plain `ui.Toplevel`, not `ScrollablePopupWindow`: only the page
+            # preview needs to scroll, which bw-gui's `ScrollableImagePreview`
+            # does (see bw-gui `docs/SCROLLABILITY_CONTRACT.md`). The navigation
+            # bar is packed *before* the preview (side=BOTTOM) so it always
+            # stays visible - a canvas sized to an A4 page used to push it out
+            # of the window. Shrinking the window only shrinks the preview.
             popup = ui.Toplevel(self.root)
             popup.title(f"Extraseiten: {student.display_name}")
             popup.geometry("760x860")
+            popup.minsize(420, 320)
             popup.transient(self.root)
             self._register_popup_window(popup)
 
             header = widgets.Frame(popup, padding=10)
-            header.pack(fill=ui.X)
+            header.pack(side=ui.TOP, fill=ui.X)
             self._extra_popup_info_var = ui.StringVar(value="")
             widgets.Label(header, textvariable=self._extra_popup_info_var, style="Muted.TLabel").pack(side=ui.LEFT)
 
-            canvas_bg, canvas_border = self._canvas_theme_tokens()
-            self._extra_popup_canvas = ui.Canvas(
-                popup,
-                bg=canvas_bg,
-                highlightthickness=1,
-                highlightbackground=canvas_border,
-            )
-            self._extra_popup_canvas.pack(fill=ui.BOTH, expand=True, padx=10, pady=(0, 10))
-
             nav = widgets.Frame(popup, padding=(10, 0, 10, 10))
-            nav.pack(fill=ui.X)
+            nav.pack(side=ui.BOTTOM, fill=ui.X)
             popup_prev_button = widgets.Button(
                 nav,
                 text="◀",
@@ -230,6 +222,10 @@ class MainWindowExtraPagesMixin:
             popup_close_button.pack(side=ui.RIGHT)
             self._attach_hover_help(popup_close_button, label="Extraseiten-Popup schliessen", shortcut="Esc")
 
+            self._extra_popup_preview = ScrollableImagePreview(popup, render=self._render_extra_popup_image)
+            self._extra_popup_preview.pack(side=ui.TOP, fill=ui.BOTH, expand=True, padx=10, pady=(0, 10))
+            theme_canvas(self._extra_popup_preview.canvas, self._tooltip_theme_key)
+
             popup.protocol("WM_DELETE_WINDOW", self._close_extra_popup)
             self._extra_popup = popup
 
@@ -253,11 +249,12 @@ class MainWindowExtraPagesMixin:
         self._render_extra_popup_page()
 
     def _render_extra_popup_page(self) -> None:
+        """Show the current extra page: update the header and re-render the preview from the top."""
         if (
             not self._current_exam
             or self._extra_popup is None
             or not self._extra_popup.winfo_exists()
-            or self._extra_popup_canvas is None
+            or self._extra_popup_preview is None
             or self._extra_popup_info_var is None
             or self._extra_popup_student_index is None
         ):
@@ -268,32 +265,38 @@ class MainWindowExtraPagesMixin:
             return
 
         page_number = student.extra_pages[self._extra_popup_cursor]
-        pdf_path = Path(self._current_exam.folder_path) / student.pdf_filename
-
-        document = self._doc_cache.get(student.pdf_filename)
-        if document is None:
-            document = fitz.open(pdf_path)
-            self._doc_cache[student.pdf_filename] = document
-
-        page = document.load_page(page_number - 1)
-        page_rect = page.rect
-        scale = 700.0 / max(page_rect.width, 1.0)
-        pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
-        try:
-            self._popup_photo = ui.PhotoImage(data=pix.tobytes("ppm"), format="ppm")
-            self._extra_popup_canvas.configure(width=pix.width, height=pix.height)
-            self._extra_popup_canvas.delete("all")
-            self._extra_popup_canvas.create_image(0, 0, anchor=ui.NW, image=self._popup_photo)
-        except Exception as exc:
-            self._extra_popup_canvas.delete("all")
-            self._extra_popup_info_var.set(f"Fehler beim Popup-Rendering: {exc}")
-            return
-
         areas = self._areas_for_extra_page(student.pdf_filename, page_number)
         area_text = ",".join(areas) if areas else "-"
         self._extra_popup_info_var.set(
             f"Extraseite {self._extra_popup_cursor + 1}/{len(student.extra_pages)} | Seite {page_number} | Bereich {area_text}"
         )
+        self._extra_popup_preview.refresh(scroll_to_top=True)
+
+    def _render_extra_popup_image(self, width: int):
+        """`ScrollableImagePreview` render callback: the current extra page scaled to ``width`` pixels.
+
+        Rendering errors are shown in the header (as before the preview
+        existed) instead of escaping into Tk; the preview then stays empty.
+        """
+        if not self._current_exam or self._extra_popup_student_index is None:
+            return None
+        student = self._current_exam.students[self._extra_popup_student_index]
+        if not student.extra_pages:
+            return None
+        page_number = student.extra_pages[self._extra_popup_cursor]
+        try:
+            document = self._doc_cache.get(student.pdf_filename)
+            if document is None:
+                document = fitz.open(Path(self._current_exam.folder_path) / student.pdf_filename)
+                self._doc_cache[student.pdf_filename] = document
+            page = document.load_page(page_number - 1)
+            scale = width / max(page.rect.width, 1.0)
+            pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+            return ui.PhotoImage(data=pix.tobytes("ppm"), format="ppm")
+        except Exception as exc:
+            if self._extra_popup_info_var is not None:
+                self._extra_popup_info_var.set(f"Fehler beim Popup-Rendering: {exc}")
+            return None
 
     def _close_extra_popup(self) -> None:
         if self._extra_popup is not None and self._extra_popup.winfo_exists():
@@ -302,7 +305,7 @@ class MainWindowExtraPagesMixin:
             self._tracked_popup_ids.discard(popup_id)
             self._extra_popup.destroy()
         self._extra_popup = None
-        self._extra_popup_canvas = None
+        self._extra_popup_preview = None
         self._extra_popup_info_var = None
         self._extra_popup_student_index = None
         self._extra_popup_cursor = 0

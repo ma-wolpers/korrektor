@@ -82,9 +82,8 @@ class MainWindowBase(BwBaseWindow):
         self._y_factor = 1.0
         self._drag_start: tuple[float, float] | None = None
         self._drag_rect_id: int | None = None
-        self._popup_photo: ui.PhotoImage | None = None
         self._extra_popup: ui.Toplevel | None = None
-        self._extra_popup_canvas: ui.Canvas | None = None
+        self._extra_popup_preview = None
         self._extra_popup_info_var: ui.StringVar | None = None
         self._extra_popup_student_index: int | None = None
         self._extra_popup_cursor = 0

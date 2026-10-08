@@ -35,9 +35,9 @@ class MainWindowThemeMixin:
                     theme_canvas(canvas, tk)
                 except Exception:
                     pass
-        if self._extra_popup_canvas is not None:
+        if self._extra_popup_preview is not None:
             try:
-                theme_canvas(self._extra_popup_canvas, tk)
+                theme_canvas(self._extra_popup_preview.canvas, tk)
             except Exception:
                 pass
         try:

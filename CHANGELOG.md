@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Extraseiten-Popup: Die Knöpfe ◀/▶/Schließen bleiben jetzt immer sichtbar (vorher drückte eine A4-Seite sie aus dem Fenster). Die Seite wird seitenbreit angezeigt, ist scrollbar und beginnt beim Blättern oben; beim Verkleinern schrumpft nur die Vorschau.
 - PDF-Import ("Datei" → "PDF importieren && aufteilen...") deutlich erweitert:
   - **Mehrere PDFs auf einmal:** Die Dateien werden vor dem Aufteilen zu einem Dokument zusammengeführt. Die Reihenfolge lässt sich vorher anpassen (▲/▼ bzw. Strg+↑/↓, Start: nach Dateiname sortiert); die Kopfzeile zeigt, aus welcher Datei die aktuelle Seite stammt. Nicht lesbare, passwortgeschützte oder leere PDFs werden vorab gemeinsam gemeldet.
   - **Namen pro Abgabe:** Jeder Abschnitt bekommt einen Namen, unter dem seine PDF gespeichert wird (Schreibweise wie im Namenmodus, z. B. `Anna_Müller.pdf`). Gleiche Namen (Groß-/Kleinschreibung und Leerzeichen egal) werden beim Aufteilen zu einer PDF zusammengeführt - der Hinweis "Diesen Namen gibt es schon (Seiten 2-6 und 13-19)" erscheint schon beim Tippen. Abschnitte ohne Namen lösen vor dem Aufteilen eine Rückfrage aus und werden sonst als `Abgabe_NN.pdf` gespeichert.
