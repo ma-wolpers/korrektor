@@ -1,18 +1,36 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from app.core.domain.models import ExamProject, utc_now_iso
 from app.core.domain.validation import ExamConflictError, validate_regions
 from app.core.ports.repositories import ExamRepository
+from app.infrastructure.repositories.csv_score_repository import SCORES_FILENAME
 from app.infrastructure.repositories.exam_registry import ExamRegistry
-from app.infrastructure.repositories.file_utils import atomic_write_json
+from app.infrastructure.repositories.file_utils import atomic_write_bytes, atomic_write_json
 from app.infrastructure.repositories.legacy_exam_migration import LegacyMigrationReport, migrate_legacy_index
 from app.infrastructure.repositories.legacy_migration import migrate_legacy_area_code_references
 
 EXAM_DATA_FILENAME = "korrektor_klausur.json"
+
+
+@dataclass(frozen=True)
+class ExamDataSnapshot:
+    """Everything "Klausurdaten im Ordner löschen" removes, for an exact undo.
+
+    ``exam_bytes``/``scores_bytes`` are the raw file contents (``scores_bytes``
+    is ``None`` if there was no score file); ``registered`` says whether the
+    exam was in the Klausurliste.
+    """
+
+    exam_file: Path
+    exam_id: str
+    exam_bytes: bytes
+    scores_bytes: bytes | None
+    registered: bool
 
 
 class ExamFolderMissingError(ValueError):
@@ -163,6 +181,56 @@ class JsonExamRepository(ExamRepository):
         exam_id = (header or {}).get("exam_id") or self._registry.exam_id_for_folder(exam_file.parent)
         if exam_id:
             self._registry.unregister(exam_id)
+
+    def unregister_exam(self, exam_file: Path) -> str | None:
+        """"Nur aus der Übersicht entfernen": drop the Klausurliste entry; no file is touched.
+
+        Returns the removed ``exam_id`` (``None`` if the folder was not registered).
+        """
+        exam_id = self._registry.exam_id_for_folder(exam_file.parent)
+        if exam_id is not None:
+            self._registry.unregister(exam_id)
+        return exam_id
+
+    def delete_exam_data(self, exam_file: Path) -> ExamDataSnapshot:
+        """"Klausurdaten im Ordner löschen": exam file, score file and Klausurliste entry go together.
+
+        PDFs and Scan-Werkstatt backups (``.korrektor_originale/``) are
+        deliberately kept; afterwards the folder can be created as a new exam.
+        The snapshot is read *before* anything is deleted; if a later step
+        fails, the already deleted files are written back and the error is
+        re-raised (no half-deleted exam). Crash-atomicity is not guaranteed.
+        """
+        if exam_file.name != EXAM_DATA_FILENAME:
+            raise ValueError(f"Keine Klausurdatei: {exam_file}")
+        scores_file = exam_file.parent / SCORES_FILENAME
+        header = self.read_exam_header(exam_file) or {}
+        exam_id = header.get("exam_id") or self._registry.exam_id_for_folder(exam_file.parent) or ""
+        snapshot = ExamDataSnapshot(
+            exam_file=exam_file,
+            exam_id=exam_id,
+            exam_bytes=exam_file.read_bytes(),
+            scores_bytes=scores_file.read_bytes() if scores_file.exists() else None,
+            registered=bool(exam_id) and self._registry.folder_for(exam_id) is not None,
+        )
+        try:
+            exam_file.unlink()
+            if snapshot.scores_bytes is not None:
+                scores_file.unlink()
+            if snapshot.registered:
+                self._registry.unregister(exam_id)
+        except Exception:
+            self.restore_exam_data(snapshot)
+            raise
+        return snapshot
+
+    def restore_exam_data(self, snapshot: ExamDataSnapshot) -> None:
+        """Undo of `delete_exam_data`: exam file, score file (byte-identical) and Klausurliste entry."""
+        atomic_write_bytes(snapshot.exam_file, snapshot.exam_bytes)
+        if snapshot.scores_bytes is not None:
+            atomic_write_bytes(snapshot.exam_file.parent / SCORES_FILENAME, snapshot.scores_bytes)
+        if snapshot.registered:
+            self._registry.register(snapshot.exam_id, snapshot.exam_file.parent)
 
     def migrate_legacy_index(self) -> LegacyMigrationReport:
         """Move legacy ``<exam_id>.json`` files of the old central storage into their exam folders."""

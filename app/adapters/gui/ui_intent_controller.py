@@ -15,6 +15,7 @@ from app.adapters.gui.ui_intent_controller_annotations import UiIntentController
 from app.adapters.gui.ui_intent_controller_base import UiIntentControllerBase
 from app.adapters.gui.ui_intent_controller_batch_export import UiIntentControllerBatchExportMixin
 from app.adapters.gui.ui_intent_controller_completion import UiIntentControllerCompletionMixin
+from app.adapters.gui.ui_intent_controller_exam_storage import UiIntentControllerExamStorageMixin
 from app.adapters.gui.ui_intent_controller_grading_scale import UiIntentControllerGradingScaleMixin
 from app.adapters.gui.ui_intent_controller_grading_scale_transfer import UiIntentControllerGradingScaleTransferMixin
 from app.adapters.gui.ui_intent_controller_history import UiIntentControllerHistoryMixin
@@ -44,6 +45,7 @@ class UiIntentController(
     UiIntentControllerRegionsMixin,
     UiIntentControllerScoringMixin,
     UiIntentControllerOverviewMixin,
+    UiIntentControllerExamStorageMixin,
     UiIntentControllerHistoryMixin,
     UiIntentControllerBase,
 ):

@@ -6,6 +6,7 @@ from app.adapters.gui.dialog_services import filedialog, messagebox
 from app.adapters.gui.import_split_texts import fallback_warning_text, split_summary_text, write_error_text
 from app.core.domain.pdf_split_naming import plan_split_files
 from app.infrastructure.pdf.pdf_splitter import SplitWriteError, write_split_outputs
+from app.infrastructure.repositories.json_exam_repository import EXAM_DATA_FILENAME
 
 
 class MainWindowImportSplitExportMixin:
@@ -85,6 +86,13 @@ class MainWindowImportSplitExportMixin:
         if not raw:
             return None
         output_dir = Path(raw)
+        if creates_exam and (output_dir / EXAM_DATA_FILENAME).exists():
+            self._report_import_split_error(
+                "Ordner enthält bereits eine Klausur",
+                "In diesem Ordner liegen schon Klausurdaten (korrektor_klausur.json). "
+                "Für eine neue Klausur bitte einen leeren Ordner wählen.",
+            )
+            return None
         if creates_exam and _folder_contains_pdfs(output_dir):
             self._report_import_split_error(
                 "Ordner enthält bereits PDFs",

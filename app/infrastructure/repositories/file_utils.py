@@ -11,6 +11,14 @@ def atomic_write_json(file_path: Path, payload: dict[str, Any]) -> None:
     _shared_atomic_write_json(file_path, payload)
 
 
+def atomic_write_bytes(file_path: Path, data: bytes) -> None:
+    """Write ``data`` to ``file_path`` via a temp file in the same folder plus atomic replace."""
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = file_path.with_name(f"{file_path.name}.tmp")
+    temp_path.write_bytes(data)
+    temp_path.replace(file_path)
+
+
 def slugify(value: str) -> str:
     safe = "".join(ch.lower() if ch.isalnum() else "-" for ch in value.strip())
     while "--" in safe:

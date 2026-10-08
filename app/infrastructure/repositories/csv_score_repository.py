@@ -8,6 +8,9 @@ from app.core.domain.models import ExamProject
 from app.core.ports.repositories import ScoreRepository
 
 
+SCORES_FILENAME = "korrektor_scores.csv"
+"""Per-exam score file, stored in the exam folder next to ``korrektor_klausur.json``."""
+
 class CsvScoreRepository(ScoreRepository):
     BASE_HEADER = ["student_id", "student_name"]
 
@@ -20,7 +23,7 @@ class CsvScoreRepository(ScoreRepository):
         points: float,
         max_points: float,
     ) -> None:
-        csv_path = Path(exam.folder_path) / "korrektor_scores.csv"
+        csv_path = Path(exam.folder_path) / SCORES_FILENAME
         rows, task_columns = self._read_rows(csv_path)
 
         student_name = next((s.display_name for s in exam.students if s.student_id == student_id), student_id)
@@ -66,7 +69,7 @@ class CsvScoreRepository(ScoreRepository):
         callers must treat an absent task_code as "no score recorded yet",
         never as 0.
         """
-        csv_path = Path(exam.folder_path) / "korrektor_scores.csv"
+        csv_path = Path(exam.folder_path) / SCORES_FILENAME
         rows, task_columns = self._read_rows(csv_path)
         points_columns = [column for column in task_columns if column.endswith("_points")]
 

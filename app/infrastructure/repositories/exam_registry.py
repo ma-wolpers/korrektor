@@ -75,6 +75,10 @@ class ExamRegistry:
             self._write(entries)
         return folder
 
+    def replace_all(self, entries: dict[str, Path]) -> None:
+        """Set the complete registry state (used by undo/redo, which store full states, not diffs)."""
+        self._write({exam_id: folder.resolve() for exam_id, folder in entries.items()})
+
     def _write(self, entries: dict[str, Path]) -> None:
         payload = {
             "exams": [

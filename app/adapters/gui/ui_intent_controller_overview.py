@@ -114,7 +114,13 @@ class UiIntentControllerOverviewMixin:
         Returns ``True`` if the exam was created, ``False`` if the user
         cancelled the name dialog or creation failed (the error is shown).
         ``display_name_by_filename`` is passed through to `CreateExamUseCase`.
+        If the folder already holds exam data (``korrektor_klausur.json``, e.g.
+        copied from another PC), that exam is adopted instead of creating a
+        new one (`_adopt_existing_exam`) - existing data is never overwritten.
         """
+        analysis = self._deps.adopt_exam_usecase.analyze(folder)
+        if analysis is not None:
+            return self._adopt_existing_exam(analysis)
         suggested = folder.name
         exam_name = simpledialog.askstring("Neue Klausur", "Name der Klausur:", initialvalue=suggested)
         if exam_name is None:
@@ -168,44 +174,6 @@ class UiIntentControllerOverviewMixin:
             messagebox.showerror("Klausur fehlerhaft", f"'{selected.source_file.name}' konnte nicht geoeffnet werden:\n{exc}")
             return
         self._app.open_exam_detail(exam, selected.source_file)
-
-    def delete_selected_exam(self) -> None:
-        selected = self._app.get_selected_row()
-        if selected is None:
-            messagebox.showinfo("Hinweis", "Bitte zuerst eine Klausur auswählen.")
-            return
-
-        confirm = messagebox.askyesno(
-            "Klausur loeschen",
-            f"Klausur '{selected.exam_name}' wirklich loeschen?\nDie zugehoerige JSON-Datei wird entfernt.",
-        )
-        if not confirm:
-            return
-
-        try:
-            snapshot_exam = self._deps.load_exam_usecase.execute(exam_file=selected.source_file)
-        except Exception as exc:
-            messagebox.showerror("Fehler", f"Klausur konnte nicht geladen werden: {exc}")
-            return
-        payload = snapshot_exam.to_dict()
-        exam_file = selected.source_file
-
-        try:
-            self._deps.delete_exam_usecase.execute(exam_file=selected.source_file)
-        except Exception as exc:
-            messagebox.showerror("Fehler", f"Klausur konnte nicht geloescht werden: {exc}")
-            return
-
-        self._record_history_action(
-            description=f"Klausur geloescht: {selected.exam_name}",
-            undo=lambda: self._write_exam_payload(exam_file, payload),
-            redo=lambda: self._deps.exam_repository.delete_exam(exam_file),
-            context="lifecycle",
-        )
-
-        self._app.on_exam_deleted(selected.exam_id)
-        self.refresh_exam_overview()
-        self._app.set_status("Klausur geloescht")
 
     def update_exam_index_dir(self, raw_path: str) -> Path | None:
         try:

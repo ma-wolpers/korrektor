@@ -8,7 +8,7 @@ from bw_gui.runtime import AppShellConfig
 from app.adapters.undo import UndoHistory
 from app.core.domain.progress import ProgressCalculator
 from app.core.usecases.create_exam_usecase import CreateExamUseCase
-from app.core.usecases.delete_exam_usecase import DeleteExamUseCase
+from app.core.usecases.adopt_exam_usecase import AdoptExamUseCase
 from app.core.usecases.export_scores_usecase import ExportScoresUseCase
 from app.core.usecases.export_student_result_usecase import ExportStudentResultUseCase
 from app.core.usecases.list_exams_usecase import ListExamsUseCase
@@ -32,7 +32,7 @@ from app.infrastructure.rendering.matplotlib_student_result_export_repository im
 class GuiDependencies:
     list_exams_usecase: ListExamsUseCase
     create_exam_usecase: CreateExamUseCase
-    delete_exam_usecase: DeleteExamUseCase
+    adopt_exam_usecase: AdoptExamUseCase
     load_exam_usecase: LoadExamUseCase
     upsert_region_usecase: UpsertRegionUseCase
     save_score_usecase: SaveScoreUseCase
@@ -78,7 +78,7 @@ def build_gui_dependencies(base_dir: Path) -> GuiDependencies:
     return GuiDependencies(
         list_exams_usecase=ListExamsUseCase(exam_repo=exam_repo, progress_calculator=progress),
         create_exam_usecase=CreateExamUseCase(exam_repo=exam_repo, pdf_scan_repo=scan_repo),
-        delete_exam_usecase=DeleteExamUseCase(exam_repo=exam_repo),
+        adopt_exam_usecase=AdoptExamUseCase(exam_repo=exam_repo),
         load_exam_usecase=LoadExamUseCase(exam_repo=exam_repo),
         upsert_region_usecase=UpsertRegionUseCase(exam_repo=exam_repo, region_repo=region_repo),
         save_score_usecase=SaveScoreUseCase(score_repo=score_repo),

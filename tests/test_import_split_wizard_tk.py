@@ -340,3 +340,17 @@ def test_keyboard_contract_with_focus_in_name_field(window, dialogs, sources):
     settle(window, 100)
     assert str(window.focus_get()) == str(entry)
 
+
+
+def test_new_exam_flow_rejects_folder_with_existing_exam_data(window, dialogs, sources, tmp_path):
+    session, view = _open_single(window, dialogs, sources["scan2"], callback=lambda d, n: None)
+    view.name_entry.insert(0, "Anna")
+    occupied = tmp_path / "occupied"
+    occupied.mkdir()
+    (occupied / "korrektor_klausur.json").write_text("{}", encoding="utf-8")
+    dialogs.directory = str(occupied)
+
+    window._run_import_split()
+
+    assert window._import_split_session is session
+    assert "bereits eine Klausur" in dialogs.errors[-1][0]
