@@ -10,7 +10,7 @@ annotations instead of duplicating them, and the file is genuinely
 writable a second time right afterwards - no stale open handle left).
 
 One `MainWindow` (and therefore one real `tk.Tk()` root) for the whole
-module: `MainWindow` has no way to adopt an externally-supplied root (the
+module: `MainWindow` has no way to adopt an externally-supplied root (GRENZE: the
 underlying `TkRootHost` supports it, but `MainWindow`'s own constructor
 does not forward it - out of scope to change here), and creating/
 destroying several real `Tk()` interpreters in one process was observed

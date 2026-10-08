@@ -62,8 +62,8 @@ class UiIntentControllerNamingMixin:
         rename -> in-memory exam update -> `save_exam` -> a single
         `HistoryAction`. A failure at any step reverts whatever was already
         applied, so the filesystem and the exam JSON never end up
-        disagreeing about filenames (see docs/ARCHITEKTUR.md for the
-        accepted crash-atomicity limitation). `student_id` is never
+        disagreeing about filenames (GRENZE: accepted crash-atomicity
+        limitation, see docs/ARCHITEKTUR.md). `student_id` is never
         touched - only `pdf_filename` (sanitized target) and `display_name`
         (the raw entered name, unmodified) change.
         """
