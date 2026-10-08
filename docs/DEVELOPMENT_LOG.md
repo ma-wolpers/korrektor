@@ -1,6 +1,11 @@
 # Development Log
 
 ## [Unreleased]
+- Importmodus, Schritt 2 - Benennungs- und Split-Planung als reine Domain (2026-10-08): neue `app/core/domain/pdf_split_naming.py`.
+  - `SplitSection` (1-basierte Seiten des Gesamtdokuments, `end_page` inklusiv) und `build_split_sections(page_count, boundary_pages, name_by_start_page)`, baut auf `compute_split_ranges` auf; Namen von Seiten ohne Grenze werden defensiv ignoriert.
+  - `section_name_key` (nur `casefold` + Leerzeichen-Normalisierung) entscheidet über das Zusammenführen; `find_other_sections_with_name` liefert die Daten für den Live-Duplikat-Hinweis.
+  - `plan_split_files` -> `SplitFilePlan`: gleiche Name-Keys werden in Dokumentreihenfolge zu einer Datei zusammengeführt (Anzeigename vom ersten Vorkommen), Dateiname über `build_pdf_filename_from_name` (Namenmodus-Konvention); unbenannte und nach Bereinigung leere Namen bekommen einzeln `Abgabe_NN` (Position des Abschnitts). Bewusste Trennung: verschiedene Namen, die erst nach der Dateinamen-Bereinigung kollidieren (`Anna?`/`Anna`), werden **nicht** zusammengeführt, sondern bekommen `_2`, `_3` (wie `plan_target_filenames`); explizite Namen haben Vorrang vor Fallbacks. Abhängigkeit Domain -> `file_utils` folgt dem Präzedenzfall `rename_planning.py`.
+  - Tests: `tests/test_pdf_split_naming.py`.
 - `main_window_supersymbol.py` unter die 300-Zeilen-Grenze aufgeteilt (2026-10-01, 368 → 270 Code-Zeilen, reine Verschiebung): Punkte-/Noten-Superposition (`_start_scored_superposition`, `_start_grade_superposition`, `_start_superposition_preview`, `_change_superposition_page`, `_apply_superposition_at_canvas_position`) liegt jetzt in `main_window_superposition.py` (`MainWindowSuperpositionMixin`, Basis von `MainWindowSupersymbolMixin`; keine andere Klasse definiert diese Namen).
 - Modifier-Auswertung über den bw-gui-Keybinding-Contract (2026-09-27):
   - **Mausrad:** `main_window_correction_zoom.py::_on_correction_mousewheel` fragt Shift/Strg jetzt über `bw_gui.contracts.modifiers_from_event` ab, statt `event.state` selbst zu bitmaskieren. Das Verhalten bleibt gleich; ein unbekannter Zustand bedeutet normales Scrollen.
