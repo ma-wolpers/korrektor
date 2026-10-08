@@ -135,27 +135,3 @@ def _remove_files(paths: list[Path]) -> list[Path]:
             leftovers.append(path)
     return leftovers
 
-
-class _SequentialOutput:
-    """Output spec with a sequential placeholder name, used only by `split_pdf_by_ranges`."""
-
-    def __init__(self, filename: str, page_range: tuple[int, int]) -> None:
-        self.filename = filename
-        self.page_ranges = (page_range,)
-
-
-def split_pdf_by_ranges(
-    source_path: Path, ranges: list[tuple[int, int]], output_dir: Path, *, name_prefix: str = "Abgabe"
-) -> list[Path]:
-    """Transitional wrapper for the current import wizard: one ``{name_prefix}_NN.pdf`` per range.
-
-    Removed again once the wizard writes named outputs via
-    `write_split_outputs` directly (Importmodus step 4). Opens and closes
-    ``source_path`` itself; all guarantees are those of `write_split_outputs`.
-    """
-    outputs = [_SequentialOutput(f"{name_prefix}_{index + 1:02d}.pdf", page_range) for index, page_range in enumerate(ranges)]
-    source = fitz.open(source_path)
-    try:
-        return write_split_outputs(source, outputs, output_dir)
-    finally:
-        close_quietly(source)

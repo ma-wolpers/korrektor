@@ -156,13 +156,3 @@ def test_files_that_cannot_be_removed_are_reported(source, tmp_path: Path, monke
 
     assert [path.name for path in excinfo.value.leftover_files] == ["A.pdf"]
 
-
-def test_transitional_sequential_wrapper_names_files_abgabe_nn(tmp_path: Path) -> None:
-    from app.infrastructure.pdf.pdf_splitter import split_pdf_by_ranges
-
-    path = tmp_path / "combined.pdf"
-    _build_pdf(path, page_count=4)
-
-    created = split_pdf_by_ranges(path, [(1, 2), (3, 4)], tmp_path / "out")
-
-    assert [created_path.name for created_path in created] == ["Abgabe_01.pdf", "Abgabe_02.pdf"]

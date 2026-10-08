@@ -6,6 +6,7 @@ import fitz
 
 from app.adapters.bootstrap.wiring import GuiDependencies
 from app.app_info import APP_INFO
+from app.adapters.gui.import_split_session import ImportSplitPending, ImportSplitSession
 from app.adapters.gui.main_window_types import CorrectionTemplate, DraftRegion
 from app.adapters.gui.ui_intents import UiIntent
 from app.adapters.gui.view_models import ExamOverviewRow
@@ -19,7 +20,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import BwBaseWindow, ui, widgets
-from bw_gui.widgets import Checkbox, Switch
+from bw_gui.widgets import Switch
 from bw_gui.menu import section_spec
 from bw_gui.theming import normalize_theme_key
 
@@ -87,17 +88,10 @@ class MainWindowBase(BwBaseWindow):
         self._extra_popup_info_var: ui.StringVar | None = None
         self._extra_popup_student_index: int | None = None
         self._extra_popup_cursor = 0
-        self._import_split_popup: ui.Toplevel | None = None
-        self._import_split_canvas: ui.Canvas | None = None
-        self._import_split_photo: ui.PhotoImage | None = None
-        self._import_split_info_var: ui.StringVar | None = None
-        self._import_split_boundary_var: ui.BooleanVar | None = None
-        self._import_split_count_var: ui.StringVar | None = None
-        self._import_split_boundary_check: Checkbox | None = None
-        self._import_split_document: fitz.Document | None = None
-        self._import_split_source_path: Path | None = None
-        self._import_split_page_index = 0
-        self._import_split_boundary_pages: set[int] = set()
+        # PDF import wizard: at most one of pending (order dialog) / session is set.
+        self._import_split_pending: ImportSplitPending | None = None
+        self._import_split_session: ImportSplitSession | None = None
+        self._import_split_view = None
         self._grading_scale_popup: ScrollablePopupWindow | None = None
         self._grading_scale_tree: widgets.Treeview | None = None
         self._grading_scale_selected_id: str | None = None
@@ -193,6 +187,15 @@ class MainWindowBase(BwBaseWindow):
                 UiIntent.CORRECTION_PASTE_ANNOTATION,
                 UiIntent.DEBUG_RUNTIME_OVERLAY,
                 UiIntent.DEBUG_RUNTIME_OFFLINE,
+                UiIntent.IMPORT_SPLIT_PAGE_PREV,
+                UiIntent.IMPORT_SPLIT_PAGE_NEXT,
+                UiIntent.IMPORT_SPLIT_MARK,
+                UiIntent.IMPORT_SPLIT_UNMARK,
+                UiIntent.IMPORT_SPLIT_SCROLL_UP,
+                UiIntent.IMPORT_SPLIT_SCROLL_DOWN,
+                UiIntent.IMPORT_SPLIT_ORDER_MOVE_UP,
+                UiIntent.IMPORT_SPLIT_ORDER_MOVE_DOWN,
+                UiIntent.IMPORT_SPLIT_ORDER_CONFIRM,
             ]
         )
 

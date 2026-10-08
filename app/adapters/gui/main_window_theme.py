@@ -40,3 +40,7 @@ class MainWindowThemeMixin:
                 theme_canvas(self._extra_popup_canvas, tk)
             except Exception:
                 pass
+        try:
+            self._apply_import_split_theme()
+        except Exception:
+            pass

@@ -64,6 +64,18 @@
 - Extraseiten erhalten keine eigene Aufgabenpflege; sie werden nur vorhandenen Standard-Bereichen zugeordnet.
 - Standardbereiche dienen als wiederverwendbare Koordinatenvorlagen fuer alle Schueler:innen; Extraseiten referenzieren diese Bereiche nur per Zuordnung.
 
+## PDF-Import (Importmodus)
+
+Eine oder mehrere Sammel-PDFs werden in einzelne Abgabe-PDFs aufgeteilt (Menü "Datei" → "PDF importieren && aufteilen...").
+
+- **Schichten:** Domain `pdf_split_planning.compute_split_ranges` + `pdf_split_naming` (Abschnitte, Name-Key, `plan_split_files`) → Infrastruktur `pdf_sources` (Inspektion), `pdf_merger.open_merged_pdf`, `pdf_splitter.write_split_outputs` → Adapter `ImportSplitSession`/`ImportSplitPending` (Zustand) + Mixins `main_window_import_split*.py` (Lebenszyklus, View, Input, Export, Reihenfolge).
+- **Seitennummern:** überall 1-basierte Seiten des (zusammengeführten) Gesamtdokuments, Bereiche inklusiv, Seite 1 ist implizit Grenze. 0-basierte PyMuPDF-Indizes nur im Render-Callback (`load_page`), im Splitter und im Merger.
+- **Besitz:** `open_merged_pdf` schließt jede Quelle selbst (auch bei Fehlern mittendrin) und übergibt das Zieldokument an die Session; nur `_end_import_split_session` beendet sie (Dokument schließen, Popup austragen/zerstören), auch über `<Destroy>` des Toplevels. `write_split_outputs` schließt das Quelldokument nie. Höchstens ein Importvorgang (Pending oder Session); weitere Aufrufe werden abgelehnt, verwaiste Zustände vorher geheilt.
+- **Namen:** Zusammengeführt wird nur bei gleichem Name-Key (`casefold` + Leerzeichen); verschiedene Namen, die erst nach der Dateinamen-Bereinigung kollidieren, bekommen `_2`/`_3`. Dateinamen nach Namenmodus-Konvention, unbenannte Abschnitte `Abgabe_NN`.
+- **Fehler:** Erwartbare Fehler (Quellen, Merge, Zielordner, Kollision, Schreibfehler mit Rollback und gemeldeten Resten) erscheinen als Meldung; der Assistent bleibt mit unverändertem Zustand offen.
+- **Bewusste Annahmen:** Merge und Split laufen synchron im UI-Thread und vollständig im Speicher, ausgelegt auf ca. 800 Seiten - eine Busy-/Progress-Anzeige steht als bw-gui-Wunsch auf der Wunschliste (`7thVault/Projekte/Wunschliste.md`, Abschnitt bw-gui). Garantiert sind nur Seiteninhalt und -reihenfolge (keine Links/Formulare/Lesezeichen/Metadaten). Die Vorschau rendert mit fester Scrollbar-Reserve etwas schmaler als möglich (Schutz vor Render/Scrollbar-Oszillation). Kein Render-Cache beim Blättern.
+- **Abhängigkeit:** benötigt bw-gui ab Commit `732b821` (`ScrollableImagePreview`, `ChoiceDialogService`), bezogen wie alle bw-gui-Bausteine über den Nachbar-Ordner (`ensure_bw_gui_on_path`).
+
 ## Aktueller Umbau (Modi)
 
 - Die Korrektur laeuft in einer eigenen Ansicht (separat von Klausur-Details und Einlesen) und nicht mehr als eingebetteter Formularblock in der Detailansicht.
