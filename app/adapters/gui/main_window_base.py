@@ -72,9 +72,7 @@ class MainWindowBase(BwBaseWindow):
         self._extra_mode_active = False
         self._extra_sequence: list[tuple[int, int]] = []
         self._extra_cursor = 0
-        self._naming_mode_active = False
-        self._naming_capture_active = False
-        self._naming_cursor = 0
+        self._naming_window_view = None
         self._pending_student_names: dict[str, str] = {}
         self._doc_cache: dict[str, fitz.Document] = {}
         self._render_photo: ui.PhotoImage | None = None
@@ -186,6 +184,11 @@ class MainWindowBase(BwBaseWindow):
                 UiIntent.CORRECTION_PASTE_ANNOTATION,
                 UiIntent.DEBUG_RUNTIME_OVERLAY,
                 UiIntent.DEBUG_RUNTIME_OFFLINE,
+                UiIntent.NAMING_PREV_PERSON,
+                UiIntent.NAMING_NEXT_PERSON,
+                UiIntent.NAMING_COMMIT,
+                UiIntent.NAMING_PREV_PAGE,
+                UiIntent.NAMING_NEXT_PAGE,
                 UiIntent.IMPORT_SPLIT_PAGE_PREV,
                 UiIntent.IMPORT_SPLIT_PAGE_NEXT,
                 UiIntent.IMPORT_SPLIT_MARK,
@@ -210,6 +213,7 @@ class MainWindowBase(BwBaseWindow):
         return [
             section_spec("file", self._menu_items_file, label="Datei", alt="d"),
             section_spec("edit", self._menu_items_edit, label="Bearbeiten", alt="e"),
+            section_spec("exam", self._menu_items_exam, label="Klausur", alt="k"),
             section_spec("view", self._menu_items_mode, label="Ansicht", alt="a"),
             section_spec("debug", self._menu_items_debug, label="Debug", alt="b"),
             section_spec("help", self._menu_items_help, label="Hilfe", alt="h"),

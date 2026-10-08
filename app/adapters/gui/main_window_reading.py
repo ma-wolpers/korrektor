@@ -106,8 +106,6 @@ class MainWindowReadingMixin:
             return
         self._stop_correction_mode(silent=True)
         self._extra_mode_active = False
-        self._naming_mode_active = False
-        self._naming_capture_active = False
         self._reading_active = True
         self._reading_student_cursor = 0
         self._reading_page = 1
@@ -253,7 +251,5 @@ class MainWindowReadingMixin:
         self._current_exam = updated
         self._apply_detail_labels(updated)
         self._reading_active = False
-        self._naming_mode_active = False
-        self._naming_capture_active = False
         self._reading_info_var.set("Zuschnitt: abgeschlossen")
         self._show_detail_mode()

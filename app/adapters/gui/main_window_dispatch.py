@@ -20,8 +20,7 @@ class MainWindowDispatchMixin:
             has_inline_editor=isinstance(widget, (ui.Entry, widgets.Entry))
             or self._correction_mode_active
             or self._reading_active
-            or self._extra_mode_active
-            or self._naming_mode_active,
+            or self._extra_mode_active,
             has_parent_state=self._current_exam is not None,
         )
 
@@ -52,7 +51,7 @@ class MainWindowDispatchMixin:
                 self._stop_correction_mode()
                 return
 
-            if self._reading_active or self._extra_mode_active or self._naming_mode_active:
+            if self._reading_active or self._extra_mode_active:
                 self._leave_reading_view()
                 return
 
@@ -70,9 +69,8 @@ class MainWindowDispatchMixin:
         self._reading_active = False
         self._extra_mode_active = False
         self._extra_sequence = []
-        self._naming_mode_active = False
-        self._naming_capture_active = False
         self._pending_student_names.clear()
+        self._end_naming_window()
         self._correction_mode_active = False
         self._correction_student_indices = []
         self._reading_info_var.set("Zuschnitt: nicht aktiv")
@@ -113,20 +111,16 @@ class MainWindowDispatchMixin:
     def _on_left_key(self, _event: ui.Event[ui.Misc]) -> None:
         """Dispatch Left to the active mode's "previous" action (student/page)."""
         if self._is_editable_widget(self.root.focus_get()) and not (
-            (self._active_view == "correction" and self._correction_mode_active)
-            or (self._active_view == "reading" and self._detail_submode == "naming" and self._naming_capture_active)
+            self._active_view == "correction" and self._correction_mode_active
         ):
             return
         if self._active_view == "correction" and self._correction_mode_active:
             self._change_correction_student(-1)
             return
-        if self._active_view == "reading" and self._detail_submode == "naming" and self._naming_capture_active:
-            self._change_naming_student(-1)
-            return
         if self._active_view == "reading" and self._detail_submode == "extra" and self._extra_mode_active:
             self._change_extra_page(-1)
             return
-        if self._active_view == "reading" and self._detail_submode in {"reading", "naming"} and self._reading_active:
+        if self._active_view == "reading" and self._detail_submode == "reading" and self._reading_active:
             self._change_reading_page(-1)
             return
         self._move_student(-1)
@@ -134,20 +128,16 @@ class MainWindowDispatchMixin:
     def _on_right_key(self, _event: ui.Event[ui.Misc]) -> None:
         """Dispatch Right to the active mode's "next" action (student/page)."""
         if self._is_editable_widget(self.root.focus_get()) and not (
-            (self._active_view == "correction" and self._correction_mode_active)
-            or (self._active_view == "reading" and self._detail_submode == "naming" and self._naming_capture_active)
+            self._active_view == "correction" and self._correction_mode_active
         ):
             return
         if self._active_view == "correction" and self._correction_mode_active:
             self._change_correction_student(1)
             return
-        if self._active_view == "reading" and self._detail_submode == "naming" and self._naming_capture_active:
-            self._change_naming_student(1)
-            return
         if self._active_view == "reading" and self._detail_submode == "extra" and self._extra_mode_active:
             self._change_extra_page(1)
             return
-        if self._active_view == "reading" and self._detail_submode in {"reading", "naming"} and self._reading_active:
+        if self._active_view == "reading" and self._detail_submode == "reading" and self._reading_active:
             self._change_reading_page(1)
             return
         self._move_student(1)

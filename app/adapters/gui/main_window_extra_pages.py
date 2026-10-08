@@ -99,8 +99,6 @@ class MainWindowExtraPagesMixin:
 
         self._reading_active = False
         self._extra_mode_active = True
-        self._naming_mode_active = False
-        self._naming_capture_active = False
         self._superpage_var.set(False)
         self._stop_correction_mode(silent=True)
         self._extra_sequence = sequence

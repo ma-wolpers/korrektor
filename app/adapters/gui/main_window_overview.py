@@ -130,10 +130,8 @@ class MainWindowOverviewMixin:
         self._extra_mode_active = False
         self._extra_sequence = []
         self._extra_cursor = 0
-        self._naming_mode_active = False
-        self._naming_capture_active = False
-        self._naming_cursor = 0
         self._pending_student_names.clear()
+        self._end_naming_window()
         self._correction_mode_active = False
         self._correction_student_indices = []
         self._correction_cursor = 0

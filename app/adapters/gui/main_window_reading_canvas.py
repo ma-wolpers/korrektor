@@ -56,21 +56,8 @@ class MainWindowReadingCanvasMixin:
         self._reading_canvas.bind("<Shift-MouseWheel>", self._on_canvas_shift_mousewheel)
 
     def _draw_existing_regions(self, student_pdf: str, page_number: int) -> None:
-        """Draw the persisted region(s) for the current mode: name_region in Namenmodus,
-        extra-page/task regions plus open drafts otherwise."""
+        """Draw the persisted extra-page/task regions plus open drafts (the name field lives in the naming window)."""
         if not self._current_exam:
-            return
-
-        if self._naming_mode_active and not self._naming_capture_active:
-            region = self._current_exam.name_region
-            if region is not None and self._current_exam.name_region_page == page_number:
-                x0 = region.x0 / self._x_factor
-                y0 = region.y0 / self._y_factor
-                x1 = region.x1 / self._x_factor
-                y1 = region.y1 / self._y_factor
-                self._reading_canvas.create_rectangle(
-                    x0, y0, x1, y1, outline="#8b5cf6", width=3, tags=("region", "name_region"),
-                )
             return
 
         if self._extra_mode_active:
@@ -226,10 +213,6 @@ class MainWindowReadingCanvasMixin:
             self._drag_rect_id = None
             self._drag_start = None
             self._rerender_active_page()
-            return
-
-        if self._naming_mode_active and not self._naming_capture_active:
-            self._commit_name_region_from_drag(box=box, page_number=page_number)
             return
 
         draft_id = f"draft-{uuid4().hex[:10]}"

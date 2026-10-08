@@ -1,128 +1,238 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import fitz
 
 from app.adapters.gui.dialog_services import messagebox
-from app.core.domain.models import ExamProject, StudentExam
+from app.adapters.gui.main_window_import_split_input import prefer_toplevel_bindings
+from app.adapters.gui.ui_intents import UiIntent
+from app.core.domain.models import ExamProject
+from bw_gui.contracts.keybinding import UI_MODE_DIALOG, UI_MODE_EDITOR
+from bw_gui.theming import theme_canvas
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import WindowShortcutBinder, ui, widgets
+
+_STAGE_REGION = "region"
+_STAGE_CAPTURE = "capture"
+
+
+@dataclass
+class NamingWindowView:
+    """Widgets and state of the "Namen erfassen & umbenennen" window (one per open window)."""
+
+    popup: Any
+    canvas: Any
+    info_var: Any
+    hint_var: Any
+    name_var: Any
+    name_entry: Any
+    progress_var: Any
+    stage_button: Any
+    rename_button: Any
+    region_bar: Any
+    capture_bar: Any
+    bars: list[Any]
+    stage: str = _STAGE_REGION
+    page: int = 1
+    cursor: int = 0
+    scale: float = 1.0
+    photo: Any = None
+    drag_start: tuple[float, float] | None = None
+    drag_rect: int | None = None
+    pending_render: str | None = None
+    binder: Any = None
 
 
 class MainWindowNamingMixin:
-    def _build_reading_view_naming_panel(self) -> None:
-        self._naming_region_toolbar = widgets.Frame(self._reading_view, style="Surface.TFrame")
-        self._naming_region_hint_var = ui.StringVar(value="")
-        widgets.Label(
-            self._naming_region_toolbar,
-            textvariable=self._naming_region_hint_var,
-            style="Muted.TLabel",
-            justify=ui.LEFT,
-        ).pack(side=ui.LEFT, fill=ui.X, expand=True)
-        self._naming_enter_capture_button = widgets.Button(
-            self._naming_region_toolbar,
-            text="Namen erfassen ▶",
-            style="PrimaryAction.TButton",
-            command=self._enter_naming_capture,
-        )
-        self._naming_enter_capture_button.pack(side=ui.RIGHT)
-        self._attach_hover_help(
-            self._naming_enter_capture_button,
-            label="Weiter zur Namenserfassung (Namensbereich muss zuvor gezogen sein)",
-            shortcut=None,
-        )
+    """Menü "Klausur" → "Namen erfassen & umbenennen…": a window instead of a Zuschnitt sub-mode.
 
-        self._naming_capture_panel = widgets.Frame(self._reading_view, style="Surface.TFrame")
-        naming_capture_nav = widgets.Frame(self._naming_capture_panel, style="Surface.TFrame")
-        naming_capture_nav.pack(fill=ui.X)
-        back_to_naming_region_button = widgets.Button(
-            naming_capture_nav,
-            text="◀ Bereich anpassen",
-            style="SecondaryAction.TButton",
-            command=self._exit_naming_capture,
-        )
-        back_to_naming_region_button.pack(side=ui.LEFT)
-        prev_naming_student_button = widgets.Button(
-            naming_capture_nav,
-            text="◀ Person",
-            style="SecondaryAction.TButton",
-            command=lambda: self._change_naming_student(-1),
-        )
-        prev_naming_student_button.pack(side=ui.LEFT, padx=(14, 0))
-        self._attach_hover_help(prev_naming_student_button, label="Vorherige Person", shortcut="Links")
-        next_naming_student_button = widgets.Button(
-            naming_capture_nav,
-            text="Person ▶",
-            style="SecondaryAction.TButton",
-            command=lambda: self._change_naming_student(1),
-        )
-        next_naming_student_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(next_naming_student_button, label="Naechste Person", shortcut="Rechts")
+    Stage 1 sets the shared name field on the Superseite (drag a box; ↑/↓
+    page). Stage 2 walks the students on a crop of that field (←/→ person,
+    also inside the name field; Enter takes the name and moves on) and
+    "Alle umbenennen" runs the existing rollback-safe rename. Typed names
+    stay in ``_pending_student_names`` while the exam is open, also across
+    closing/reopening this window. Lifecycle like the import wizard: one
+    window, one idempotent end method, ``<Destroy>`` only for the toplevel
+    itself; the bars are packed before the canvas so they always stay visible.
+    """
 
-        self._naming_rename_all_button = widgets.Button(
-            naming_capture_nav,
-            text="Alle umbenennen",
-            style="PrimaryAction.TButton",
-            command=self._rename_all_students,
-        )
-        self._naming_rename_all_button.pack(side=ui.RIGHT)
-        self._attach_hover_help(
-            self._naming_rename_all_button,
-            label="Erst aktiv, wenn fuer alle Schueler:innen ein Name erfasst wurde",
-            shortcut=None,
-        )
-
-        naming_capture_form = widgets.Frame(self._naming_capture_panel, style="Surface.TFrame")
-        naming_capture_form.pack(fill=ui.X, pady=(6, 0))
-        widgets.Label(naming_capture_form, text="Name:", style="Muted.TLabel").pack(side=ui.LEFT)
-        self._naming_name_var = ui.StringVar(value="")
-        self._naming_entry = widgets.Entry(naming_capture_form, textvariable=self._naming_name_var)
-        self._naming_entry.pack(side=ui.LEFT, fill=ui.X, expand=True, padx=(8, 0))
-        self._naming_entry.bind("<FocusOut>", self._on_naming_fields_focus_out)
-        self._naming_entry.bind("<Return>", self._on_naming_fields_commit)
-        self._naming_entry.bind("<Escape>", self._on_naming_fields_escape)
-
-        self._naming_progress_var = ui.StringVar(value="")
-        widgets.Label(
-            self._naming_capture_panel,
-            textvariable=self._naming_progress_var,
-            style="Muted.TLabel",
-        ).pack(anchor=ui.W, pady=(4, 0))
-
-    def _start_naming_mode(self) -> None:
-        """Enter Namenmodus: region-definition sub-step (reuses the reading canvas)."""
-        if not self._current_exam or not self._current_exam.students:
+    def open_naming_window(self) -> None:
+        """Open (or bring to front) the naming window for the current exam."""
+        if self._current_exam is None or not self._current_exam.students:
             messagebox.showinfo("Hinweis", "Bitte zuerst eine Klausur öffnen.")
             return
-        self._stop_correction_mode(silent=True)
-        self._extra_mode_active = False
-        self._naming_mode_active = True
-        self._naming_capture_active = False
-        self._reading_active = True
-        self._reading_student_cursor = 0
-        self._reading_page = self._current_exam.name_region_page if self._current_exam.name_region else 1
-        self._selected_region_id = None
-        self._selected_region_kind = None
-        self._superpage_var.set(True)
-        self._set_detail_submode("naming")
-        self._show_view("reading")
-        self._refresh_naming_region_hint()
-        self._render_current_reading_page()
-        self._status_var.set("Namenmodus aktiv - Namensbereich ziehen oder anpassen")
-
-    def _refresh_naming_region_hint(self) -> None:
-        """Update the region-definition hint and gate the "Namen erfassen" button."""
+        view = self._naming_window_view
+        if view is not None and self._import_split_window_alive(view.popup):
+            view.popup.deiconify()
+            view.popup.lift()
+            view.popup.focus_force()
+            return
+        self._end_naming_window()
+        self._naming_window_view = self._build_naming_window()
         exam = self._current_exam
-        if exam is not None and exam.name_region is not None:
-            self._naming_region_hint_var.set(f"Namensbereich gesetzt (Seite {exam.name_region_page}).")
-            self._naming_enter_capture_button.configure(state="normal")
+        self._naming_window_view.page = exam.name_region_page if exam.name_region else 1
+        self._show_naming_stage(_STAGE_REGION)
+
+    def _build_naming_window(self) -> NamingWindowView:
+        popup = ui.Toplevel(self.root)
+        popup.title(f"Namen erfassen & umbenennen – {self._current_exam.exam_name}")
+        popup.transient(self.root)
+        popup.geometry("900x760")
+        self._register_popup_window(popup)
+
+        info_var = ui.StringVar(value="")
+        header = widgets.Frame(popup, padding=(10, 10, 10, 6))
+        header.pack(side=ui.TOP, fill=ui.X)
+        widgets.Label(header, textvariable=info_var, style="Muted.TLabel", anchor=ui.W).pack(side=ui.LEFT, fill=ui.X)
+
+        actions = widgets.Frame(popup, padding=(10, 4, 10, 10))
+        actions.pack(side=ui.BOTTOM, fill=ui.X)
+        stage_button = widgets.Button(actions, text="", style="SecondaryAction.TButton", command=self._toggle_naming_stage, takefocus=False)
+        stage_button.pack(side=ui.LEFT)
+        widgets.Button(actions, text="Schließen", style="SecondaryAction.TButton", command=self._end_naming_window, takefocus=False).pack(side=ui.RIGHT)
+        rename_button = widgets.Button(actions, text="Alle umbenennen", style="PrimaryAction.TButton", command=self._rename_all_students, takefocus=False)
+        rename_button.pack(side=ui.RIGHT, padx=(0, 8))
+
+        hint_var = ui.StringVar(value="")
+        region_bar = widgets.Frame(popup, padding=(10, 2, 10, 2))
+        widgets.Button(region_bar, text="▲ Seite", style="SecondaryAction.TButton", takefocus=False, command=lambda: self._change_naming_page(-1)).pack(side=ui.LEFT)
+        widgets.Button(region_bar, text="Seite ▼", style="SecondaryAction.TButton", takefocus=False, command=lambda: self._change_naming_page(1)).pack(side=ui.LEFT, padx=(8, 0))
+        widgets.Label(region_bar, textvariable=hint_var, style="Muted.TLabel", anchor=ui.W).pack(side=ui.LEFT, fill=ui.X, expand=True, padx=(12, 0))
+
+        capture_bar = widgets.Frame(popup, padding=(10, 2, 10, 2))
+        nav = widgets.Frame(capture_bar)
+        nav.pack(fill=ui.X)
+        widgets.Button(nav, text="◀ Person", style="SecondaryAction.TButton", takefocus=False, command=lambda: self._change_naming_student(-1)).pack(side=ui.LEFT)
+        widgets.Button(nav, text="Person ▶", style="SecondaryAction.TButton", takefocus=False, command=lambda: self._change_naming_student(1)).pack(side=ui.LEFT, padx=(8, 0))
+        widgets.Label(nav, text="Name:", style="Muted.TLabel").pack(side=ui.LEFT, padx=(16, 4))
+        name_var = ui.StringVar(value="")
+        name_entry = widgets.Entry(nav, textvariable=name_var, width=36)
+        name_entry.pack(side=ui.LEFT, fill=ui.X, expand=True)
+        name_entry.bind("<FocusOut>", lambda _event: self._commit_naming_field_if_possible())
+        progress_var = ui.StringVar(value="")
+        widgets.Label(capture_bar, textvariable=progress_var, style="Muted.TLabel", anchor=ui.W).pack(fill=ui.X, pady=(4, 0))
+
+        canvas_bg, canvas_border = self._canvas_theme_tokens()
+        canvas = ui.Canvas(popup, bg=canvas_bg, highlightthickness=1, highlightbackground=canvas_border, takefocus=0)
+        canvas.pack(side=ui.TOP, fill=ui.BOTH, expand=True, padx=10, pady=(0, 6))
+        theme_canvas(canvas, self._tooltip_theme_key)
+        canvas.bind("<ButtonPress-1>", self._on_naming_canvas_press)
+        canvas.bind("<B1-Motion>", self._on_naming_canvas_drag)
+        canvas.bind("<ButtonRelease-1>", self._on_naming_canvas_release)
+        canvas.bind("<Configure>", lambda _event: self._schedule_naming_render(), add="+")
+
+        view = NamingWindowView(
+            popup=popup, canvas=canvas, info_var=info_var, hint_var=hint_var, name_var=name_var, name_entry=name_entry,
+            progress_var=progress_var, stage_button=stage_button, rename_button=rename_button,
+            region_bar=region_bar, capture_bar=capture_bar, bars=[header, actions],
+        )
+        popup.protocol("WM_DELETE_WINDOW", self._end_naming_window)
+        popup.bind("<Destroy>", lambda event: self._on_naming_window_destroyed(event, view), add="+")
+        self._install_naming_keys(view)
+        popup.minsize(560, 420)
+        return view
+
+    def _install_naming_keys(self, view: NamingWindowView) -> None:
+        """←/→ person and Enter (stage 2), ↑/↓ page (stage 1) - also with focus in the name field."""
+        binder = WindowShortcutBinder(
+            view.popup, hsm_contract=self._hsm_contract, mode_provider=lambda: UI_MODE_DIALOG,
+            on_dispatch=self._record_laufkern_intent_dispatch,
+        )
+        for sequence, suffix, intent, action in (
+            ("<Left>", "prev_person", UiIntent.NAMING_PREV_PERSON, lambda: self._change_naming_student(-1)),
+            ("<Right>", "next_person", UiIntent.NAMING_NEXT_PERSON, lambda: self._change_naming_student(1)),
+            ("<Return>", "commit", UiIntent.NAMING_COMMIT, self._commit_and_next_naming_student),
+            ("<KP_Enter>", "commit_keypad", UiIntent.NAMING_COMMIT, self._commit_and_next_naming_student),
+            ("<Up>", "prev_page", UiIntent.NAMING_PREV_PAGE, lambda: self._change_naming_page(-1)),
+            ("<Down>", "next_page", UiIntent.NAMING_NEXT_PAGE, lambda: self._change_naming_page(1)),
+        ):
+            binder.bind(
+                sequence, self._naming_key_handler(action), binding_id=f"naming.{suffix}", intent=intent,
+                modes=(UI_MODE_DIALOG, UI_MODE_EDITOR), allow_when_text_input=True,
+            )
+        view.binder = binder
+        prefer_toplevel_bindings(view.name_entry, view.popup)
+
+    def _naming_key_handler(self, action):
+        def _handle(_event) -> str:
+            if self._naming_window_view is not None and self._current_exam is not None:
+                action()
+            return "break"
+
+        return _handle
+
+    def _show_naming_stage(self, stage: str) -> None:
+        """Switch between "Namensfeld festlegen" and "Namen erfassen" (bars packed before the canvas)."""
+        view = self._naming_window_view
+        if view is None:
+            return
+        if stage == _STAGE_CAPTURE and self._current_exam.name_region is None:
+            messagebox.showinfo("Hinweis", "Bitte zuerst das Namensfeld aufziehen.", parent=view.popup)
+            stage = _STAGE_REGION
+        view.stage = stage
+        view.region_bar.pack_forget()
+        view.capture_bar.pack_forget()
+        if stage == _STAGE_REGION:
+            view.region_bar.pack(side=ui.BOTTOM, fill=ui.X, before=view.canvas)
+            view.stage_button.configure(text="Namen erfassen ▶")
+            view.rename_button.pack_forget()
         else:
-            self._naming_region_hint_var.set("Noch kein Namensbereich gezogen - Bereich ueber den Namen ziehen.")
-            self._naming_enter_capture_button.configure(state="disabled")
+            view.capture_bar.pack(side=ui.BOTTOM, fill=ui.X, before=view.canvas)
+            view.stage_button.configure(text="◀ Namensfeld anpassen")
+            view.rename_button.pack(side=ui.RIGHT, padx=(0, 8))
+            view.cursor = min(view.cursor, len(self._current_exam.students) - 1)
+            self._load_naming_field()
+            view.popup.after_idle(self._focus_naming_entry)
+        self._render_naming_window()
+
+    def _toggle_naming_stage(self) -> None:
+        view = self._naming_window_view
+        if view is None:
+            return
+        if view.stage == _STAGE_CAPTURE:
+            self._commit_naming_field_if_possible()
+            self._show_naming_stage(_STAGE_REGION)
+        else:
+            self._show_naming_stage(_STAGE_CAPTURE)
+
+    def _schedule_naming_render(self) -> None:
+        """Debounced re-render after the canvas was resized."""
+        view = self._naming_window_view
+        if view is None:
+            return
+        if view.pending_render is not None:
+            view.popup.after_cancel(view.pending_render)
+        view.pending_render = view.popup.after(120, self._render_naming_window)
+
+    def _render_naming_window(self) -> None:
+        view = self._naming_window_view
+        if view is None or self._current_exam is None:
+            return
+        view.pending_render = None
+        if view.stage == _STAGE_REGION:
+            self._render_naming_region_stage()
+        else:
+            self._render_naming_capture_page()
+
+    def _end_naming_window(self) -> None:
+        """Close the naming window (idempotent). Typed names stay pending for this exam."""
+        view = self._naming_window_view
+        self._naming_window_view = None
+        if view is None:
+            return
+        self._commit_naming_field_if_possible(view)
+        self._destroy_import_split_window(view.popup)
+
+    def _on_naming_window_destroyed(self, event, view: NamingWindowView) -> None:
+        if event.widget is view.popup and self._naming_window_view is view:
+            self._naming_window_view = None
+            self._destroy_import_split_window(view.popup)
 
     def _check_name_region_geometry(self, exam: ExamProject, page_number: int) -> list[str]:
         """Report students whose page geometry at `page_number` differs from the first.
@@ -132,223 +242,27 @@ class MainWindowNamingMixin:
         (purely informational) - it does not normalize or exclude anything.
         """
         folder = Path(exam.folder_path)
-        reference_rect: fitz.Rect | None = None
-        reference_rotation: int | None = None
+        reference: tuple[fitz.Rect, int] | None = None
         mismatched: list[str] = []
         for student in exam.students:
-            if page_number > student.page_count:
+            if page_number > student.page_count or not (folder / student.pdf_filename).exists():
                 continue
-            pdf_path = folder / student.pdf_filename
-            if not pdf_path.exists():
-                continue
-            document = self._doc_cache.get(student.pdf_filename)
-            if document is None:
-                try:
-                    document = fitz.open(pdf_path)
-                except Exception:
-                    continue
-                self._doc_cache[student.pdf_filename] = document
             try:
-                page = document.load_page(page_number - 1)
+                page = self._naming_document(student.pdf_filename).load_page(page_number - 1)
             except Exception:
                 continue
-            rect = page.rect
-            rotation = int(page.rotation)
-            if reference_rect is None or reference_rotation is None:
-                reference_rect = rect
-                reference_rotation = rotation
+            if reference is None:
+                reference = (page.rect, int(page.rotation))
                 continue
-            size_matches = abs(rect.width - reference_rect.width) <= 1.0 and abs(rect.height - reference_rect.height) <= 1.0
-            if not size_matches or rotation != reference_rotation:
+            rect, rotation = reference
+            if abs(page.rect.width - rect.width) > 1.0 or abs(page.rect.height - rect.height) > 1.0 or int(page.rotation) != rotation:
                 mismatched.append(student.display_name or student.student_id)
         return mismatched
 
-    def _commit_name_region_from_drag(self, *, box: tuple[float, float, float, float], page_number: int) -> None:
-        """Persist a freshly dragged Namenmodus region and warn on geometry mismatches."""
-        self._reading_canvas.delete(self._drag_rect_id)
-        self._drag_rect_id = None
-        self._drag_start = None
-        if self._current_exam is None or self._controller is None:
-            return
-        updated = self._controller.set_name_region_immediate(
-            exam=self._current_exam,
-            box=box,
-            page_number=page_number,
-        )
-        self._current_exam = updated
-        self._refresh_naming_region_hint()
-        self._rerender_active_page()
-        mismatched = self._check_name_region_geometry(updated, page_number)
-        if mismatched:
-            messagebox.showwarning(
-                "Abweichende Seitengroesse",
-                "Der Namensbereich liegt bei folgenden Personen moeglicherweise an anderer "
-                "Stelle (abweichende Seitengroesse/Rotation):\n" + ", ".join(mismatched),
-            )
-
-    def _enter_naming_capture(self) -> None:
-        """Switch from region-definition to the per-student naming walk."""
-        if self._current_exam is None or self._current_exam.name_region is None:
-            messagebox.showinfo("Hinweis", "Bitte zuerst einen Namensbereich ziehen.")
-            return
-        self._naming_capture_active = True
-        self._reading_active = False
-        self._naming_cursor = 0
-        self._set_detail_submode("naming")
-        self._render_naming_capture_page()
-        self._refresh_naming_progress()
-        self._focus_naming_entry()
-        self._status_var.set("Namenserfassung aktiv")
-
-    def _exit_naming_capture(self) -> None:
-        """Return from the naming walk to region-definition (e.g. to re-align)."""
-        self._commit_naming_field_if_possible()
-        self._naming_capture_active = False
-        self._reading_active = True
-        self._set_detail_submode("naming")
-        self._refresh_naming_region_hint()
-        self._render_current_reading_page()
-        self._status_var.set("Namenmodus aktiv - Namensbereich ziehen oder anpassen")
-
-    def _change_naming_student(self, delta: int) -> None:
-        """Commit the current name, move to the next/previous student, refocus the entry."""
-        if not self._naming_capture_active or not self._current_exam or not self._current_exam.students:
-            return
-        self._commit_naming_field_if_possible()
-        self._naming_cursor = (self._naming_cursor + delta) % len(self._current_exam.students)
-        self._render_naming_capture_page()
-        self._refresh_naming_progress()
-        self._focus_naming_entry()
-
-    def _current_naming_student(self) -> StudentExam | None:
-        """Return the student currently shown in the naming-capture walk."""
-        if not self._current_exam or not self._current_exam.students:
-            return None
-        return self._current_exam.students[self._naming_cursor]
-
-    def _focus_naming_entry(self) -> None:
-        """Move focus into the name entry with its content fully selected."""
-        self._naming_entry.focus_set()
-        self._naming_entry.selection_range(0, ui.END)
-
-    def _render_naming_capture_page(self) -> None:
-        """Render the current student's PDF cropped to the shared name_region."""
-        exam = self._current_exam
-        student = self._current_naming_student()
-        if exam is None or student is None or exam.name_region is None:
-            return
-        self._naming_name_var.set(self._pending_student_names.get(student.student_id, ""))
-
-        pdf_path = Path(exam.folder_path) / student.pdf_filename
-        if not pdf_path.exists():
-            self._reading_canvas.delete("all")
-            self._reading_info_var.set(f"Datei fehlt: {student.pdf_filename}")
-            return
-
-        document = self._doc_cache.get(student.pdf_filename)
+    def _naming_document(self, pdf_filename: str) -> fitz.Document:
+        """Open (and cache) a student PDF of the current exam."""
+        document = self._doc_cache.get(pdf_filename)
         if document is None:
-            try:
-                document = fitz.open(pdf_path)
-            except Exception as exc:
-                self._reading_canvas.delete("all")
-                self._reading_info_var.set(f"Fehler beim PDF-Rendering: {exc}")
-                return
-            self._doc_cache[student.pdf_filename] = document
-
-        page_index = exam.name_region_page - 1
-        if page_index < 0 or page_index >= document.page_count:
-            self._reading_canvas.delete("all")
-            self._reading_info_var.set(f"Namensseite {exam.name_region_page} existiert nicht in {student.pdf_filename}")
-            return
-
-        try:
-            page = document.load_page(page_index)
-            clip = fitz.Rect(exam.name_region.x0, exam.name_region.y0, exam.name_region.x1, exam.name_region.y1)
-            clip = clip.intersect(page.rect)
-            if clip.is_empty:
-                clip = page.rect
-            target_width = 480.0
-            scale = target_width / max(clip.width, 1.0)
-            try:
-                pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=clip, alpha=False)
-            except TypeError:
-                pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=clip)
-        except Exception as exc:
-            self._reading_canvas.delete("all")
-            self._reading_info_var.set(f"Fehler beim PDF-Rendering: {exc}")
-            return
-
-        self._render_photo = ui.PhotoImage(data=pix.tobytes("ppm"), format="ppm")
-        self._reading_canvas.configure(width=pix.width, height=pix.height)
-        self._reading_canvas.delete("all")
-        self._canvas_image_id = self._reading_canvas.create_image(0, 0, anchor=ui.NW, image=self._render_photo)
-        self._reading_canvas.configure(scrollregion=(0, 0, pix.width, pix.height))
-        self._reading_info_var.set(
-            f"{student.display_name} ({self._naming_cursor + 1}/{len(exam.students)})"
-        )
-
-    def _refresh_naming_progress(self) -> None:
-        """Update the "N/M Namen erfasst" label and gate the rename-all button."""
-        exam = self._current_exam
-        if exam is None:
-            self._naming_progress_var.set("")
-            self._naming_rename_all_button.configure(state="disabled")
-            return
-        done = sum(1 for student in exam.students if self._pending_student_names.get(student.student_id, "").strip())
-        total = len(exam.students)
-        self._naming_progress_var.set(f"{done}/{total} Namen erfasst")
-        self._naming_rename_all_button.configure(state="normal" if done == total and total > 0 else "disabled")
-
-    def _commit_naming_field_if_possible(self) -> None:
-        """Store the currently typed name in-memory (no persistence/history entry yet)."""
-        student = self._current_naming_student()
-        if student is None:
-            return
-        name = self._naming_name_var.get().strip()
-        if name:
-            self._pending_student_names[student.student_id] = name
-        else:
-            self._pending_student_names.pop(student.student_id, None)
-        self._refresh_naming_progress()
-
-    def _on_naming_fields_focus_out(self, _event: ui.Event[ui.Misc]) -> None:
-        """Commit the pending name when the entry loses focus."""
-        self._commit_naming_field_if_possible()
-
-    def _on_naming_fields_commit(self, _event: ui.Event[ui.Misc]) -> None:
-        """Commit the pending name on <Return> and leave the field."""
-        self._commit_naming_field_if_possible()
-        self.root.focus_set()
-
-    def _on_naming_fields_escape(self, _event: ui.Event[ui.Misc]) -> None:
-        """Leave the name entry on <Escape> without a direct commit.
-
-        No commit call here: leaving the field triggers <FocusOut>, which is
-        the single commit path (see _commit_naming_field_if_possible).
-        """
-        self.root.focus_set()
-
-    def _rename_all_students(self) -> None:
-        """Trigger the batch rename once every student has a pending name."""
-        if self._current_exam is None or self._controller is None:
-            return
-        self._commit_naming_field_if_possible()
-        missing = [
-            student.display_name or student.student_id
-            for student in self._current_exam.students
-            if not self._pending_student_names.get(student.student_id, "").strip()
-        ]
-        if missing:
-            messagebox.showinfo("Hinweis", "Noch kein Name erfasst fuer: " + ", ".join(missing))
-            return
-        updated = self._controller.rename_students_immediate(
-            exam=self._current_exam,
-            name_by_student_id=dict(self._pending_student_names),
-        )
-        if updated is None:
-            return
-        self._current_exam = updated
-        self._pending_student_names.clear()
-        self._apply_detail_labels(updated)
-        self._render_naming_capture_page()
-        self._refresh_naming_progress()
+            document = fitz.open(Path(self._current_exam.folder_path) / pdf_filename)
+            self._doc_cache[pdf_filename] = document
+        return document

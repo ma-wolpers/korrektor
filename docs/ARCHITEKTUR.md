@@ -87,7 +87,7 @@ Eine oder mehrere Sammel-PDFs werden in einzelne Abgabe-PDFs aufgeteilt - eigens
 - Die Korrektur laeuft in einer eigenen Ansicht (separat von Klausur-Details und Einlesen) und nicht mehr als eingebetteter Formularblock in der Detailansicht.
 - Die Detailansicht bleibt Hub fuer den Moduswechsel (Einlesen, Extraseiten, Namen, Korrektur).
 - Im Extraseitenmodus werden keine neuen Aufgaben definiert; es sind nur Zuordnungen zu bereits vorhandenen Standard-Bereichen erlaubt.
-- Namenmodus (Namen aendern/PDFs umbenennen) hat zwei Teilschritte in derselben Ansicht: Bereich-Definition (teilt sich Canvas, Seiten-/Superseiten-Navigation mit dem Einlesemodus - ein Drag committet dort aber sofort `exam.name_region`, kein Draft/Aufgaben-Schritt) und Namenserfassung (eigenes, zugeschnittenes Einzelseiten-Rendering, Pfeiltasten wechseln Schueler:in, Name wird nur in-memory gesammelt bis "Alle umbenennen").
+- Namen erfassen & umbenennen ist kein Modus der Detailansicht mehr, sondern ein eigenes Fenster (Menü "Klausur"): Stufe 1 legt das gemeinsame Namensfeld auf der Superseite fest (Drag committet sofort `exam.name_region`), Stufe 2 erfasst Namen pro Person auf dem Namensfeld-Ausschnitt (nur in-memory bis "Alle umbenennen").
 
 ## Gemeinsame technische Mechanismen (nicht pro Modus duplizieren)
 

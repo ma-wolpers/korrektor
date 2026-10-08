@@ -100,6 +100,12 @@ class MainWindowMenuMixin:
         )
         return (undo_item, redo_item)
 
+    def _menu_items_exam(self):
+        """Menü "Klausur": actions on the open exam (the former Namenmodus lives here as a window)."""
+        return (
+            SharedMenuItem(type="command", label="Namen erfassen && umbenennen…", command=self.open_naming_window),
+        )
+
     def _menu_items_mode(self):
         return (
             SharedMenuItem(type="command", label="Zuschnitt starten", command=self._start_reading_mode),

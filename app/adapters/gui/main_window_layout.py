@@ -44,7 +44,6 @@ class MainWindowLayoutMixin:
     def _build_reading_view(self) -> None:
         self._build_reading_view_nav_bar()
         self._build_reading_view_extra_toolbar()
-        self._build_reading_view_naming_panel()
         self._build_reading_view_mode_row()
         self._build_reading_view_canvas()
         self._build_reading_view_region_editor()

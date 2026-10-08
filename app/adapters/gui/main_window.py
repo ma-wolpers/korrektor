@@ -50,6 +50,7 @@ from app.adapters.gui.main_window_correction_zoom import MainWindowCorrectionZoo
 from app.adapters.gui.main_window_correction_completion import MainWindowCorrectionCompletionMixin
 from app.adapters.gui.main_window_correction_form import MainWindowCorrectionFormMixin
 from app.adapters.gui.main_window_naming import MainWindowNamingMixin
+from app.adapters.gui.main_window_naming_capture import MainWindowNamingCaptureMixin
 from app.adapters.gui.main_window_extra_pages import MainWindowExtraPagesMixin
 from app.adapters.gui.main_window_extra_pages_popup import MainWindowExtraPagesPopupMixin
 from app.adapters.gui.main_window_import_split import MainWindowImportSplitMixin
@@ -92,6 +93,7 @@ class MainWindow(
     MainWindowCorrectionCompletionMixin,
     MainWindowCorrectionFormMixin,
     MainWindowNamingMixin,
+    MainWindowNamingCaptureMixin,
     MainWindowExtraPagesMixin,
     MainWindowExtraPagesPopupMixin,
     MainWindowImportSplitMixin,

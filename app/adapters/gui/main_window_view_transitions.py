@@ -43,18 +43,15 @@ class MainWindowViewTransitionsMixin:
         self._refresh_active_student_label()
 
     def _leave_reading_view(self) -> None:
-        was_naming = self._naming_mode_active
         self._reading_active = False
         self._extra_mode_active = False
-        self._naming_mode_active = False
-        self._naming_capture_active = False
         self._superpage_var.set(False)
         self._extra_sequence = []
         self._reading_mode_title_var.set("Zuschnitt")
         self._clear_pending_redraw()
         self._close_extra_popup()
         self._reading_info_var.set("Zuschnitt: bereit")
-        self._status_var.set("Namenmodus verlassen" if was_naming else "Zuschnitt verlassen")
+        self._status_var.set("Zuschnitt verlassen")
         self._show_detail_mode()
 
     def _return_to_overview(self) -> None:
@@ -63,9 +60,8 @@ class MainWindowViewTransitionsMixin:
         self._detail_exam_file = None
         self._reading_active = False
         self._extra_mode_active = False
-        self._naming_mode_active = False
-        self._naming_capture_active = False
         self._pending_student_names.clear()
+        self._end_naming_window()
         self._correction_mode_active = False
         self._superpage_var.set(False)
         self._selected_region_id = None
@@ -119,7 +115,7 @@ class MainWindowViewTransitionsMixin:
         self._correction_controls_frame.pack_forget()
 
     def _set_detail_submode(self, mode: str) -> None:
-        """Switch the Klausur-Detail view between correction/extra/reading/naming sub-modes.
+        """Switch the Klausur-Detail view between correction/extra (Zuschnitt Schritt 2)/reading sub-modes.
 
         Also toggles `_save_region_button` visibility: it is only shown in
         "extra" mode, since the standard Aufgaben/Punkte editor now commits
@@ -132,8 +128,6 @@ class MainWindowViewTransitionsMixin:
             self._show_view("correction")
             return
         self._hide_correction_controls()
-        self._naming_region_toolbar.pack_forget()
-        self._naming_capture_panel.pack_forget()
         self._finish_reading_button.pack(side=ui.RIGHT)
 
         if mode == "extra":
@@ -151,38 +145,6 @@ class MainWindowViewTransitionsMixin:
             self._extra_toolbar.pack(fill=ui.X, pady=(6, 0), before=self._reading_split)
             self._save_region_button.pack_forget()
             self._save_region_button.pack(side=ui.LEFT, before=self._delete_region_button)
-            return
-
-        if mode == "naming":
-            # Widgets toggled here live at the _reading_view level, as siblings
-            # of self._reading_split (the canvas/editor PanedWindow, packed
-            # once at construction and never forgotten). Re-packing a sibling
-            # after pack_forget() without `before=` would append it AFTER an
-            # already-packed self._reading_split, leaving it squeezed into no
-            # visible space - every pack() call here must anchor `before=
-            # self._reading_split` to land above the canvas as intended.
-            self._reading_mode_title_var.set("Namen")
-            self._zuschnitt_step_button.pack_forget()
-            self._extra_toolbar.pack_forget()
-            self._mode_row.pack_forget()
-            self._regions_editor.pack_forget()
-            if self._extra_overview_frame is not None:
-                self._extra_overview_frame.pack_forget()
-            self._save_region_button.pack_forget()
-            # "Einlesen abschliessen" finishes task-region marking - meaningless
-            # in Namenmodus, unlike the reading_nav frame it lives in, which
-            # also hosts "Zurueck zur Klausur" and stays visible in every submode.
-            self._finish_reading_button.pack_forget()
-            if self._naming_capture_active:
-                self._reading_toolbar.pack_forget()
-                self._naming_region_toolbar.pack_forget()
-                self._naming_capture_panel.pack(fill=ui.BOTH, pady=(10, 0), before=self._reading_split)
-            else:
-                self._naming_capture_panel.pack_forget()
-                self._reading_toolbar.pack(fill=ui.X, before=self._reading_split)
-                self._superpage_toggle.pack_forget()
-                self._superpage_toggle.pack(side=ui.RIGHT)
-                self._naming_region_toolbar.pack(fill=ui.X, pady=(6, 0), before=self._reading_split)
             return
 
         self._reading_mode_title_var.set("Zuschnitt · Schritt 1: Bereiche festlegen")

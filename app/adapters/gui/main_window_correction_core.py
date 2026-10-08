@@ -150,8 +150,6 @@ class MainWindowCorrectionCoreMixin:
         self._reading_active = False
         self._extra_mode_active = False
         self._extra_sequence = []
-        self._naming_mode_active = False
-        self._naming_capture_active = False
         self._close_extra_popup()
         self._correction_mode_active = True
         self._correction_zoom_percent = 100

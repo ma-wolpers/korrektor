@@ -47,15 +47,6 @@ class MainWindowViewStateMixin:
         mode_correction_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(mode_correction_button, label="Zur Korrektur wechseln", shortcut=None)
 
-        mode_naming_button = widgets.Button(
-            detail_actions,
-            text="Namen",
-            style="SecondaryAction.TButton",
-            command=self._start_naming_mode,
-        )
-        mode_naming_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(mode_naming_button, label="In den Namenmodus wechseln (PDFs umbenennen)", shortcut=None)
-
         export_detail_button = widgets.Button(
             detail_actions,
             text="Export",
