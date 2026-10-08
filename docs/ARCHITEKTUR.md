@@ -66,7 +66,7 @@
 
 ## PDF-Import (Importmodus)
 
-Eine oder mehrere Sammel-PDFs werden in einzelne Abgabe-PDFs aufgeteilt (Menü "Datei" → "PDF importieren && aufteilen...").
+Eine oder mehrere Sammel-PDFs werden in einzelne Abgabe-PDFs aufgeteilt - eigenständig über Menü "Datei" → "PDF importieren && aufteilen..." oder als Teil von "Neue Klausur" → "Große PDF(s) aufteilen". Im zweiten Fall bindet der Controller `_create_exam_from_split` als `on_split_complete` an die Session; der Callback läuft genau einmal nach erfolgreichem Schreiben (Session dann schon beendet) und legt die Klausur mit den im Assistenten eingegebenen Anzeigenamen an (`CreateExamUseCase(display_name_by_filename=...)`). Ein Zielordner, der schon PDFs enthält, wird in diesem Ablauf abgelehnt, weil alle PDFs eines Klausurordners als Abgaben geladen werden.
 
 - **Schichten:** Domain `pdf_split_planning.compute_split_ranges` + `pdf_split_naming` (Abschnitte, Name-Key, `plan_split_files`) → Infrastruktur `pdf_sources` (Inspektion), `pdf_merger.open_merged_pdf`, `pdf_splitter.write_split_outputs` → Adapter `ImportSplitSession`/`ImportSplitPending` (Zustand) + Mixins `main_window_import_split*.py` (Lebenszyklus, View, Input, Export, Reihenfolge).
 - **Seitennummern:** überall 1-basierte Seiten des (zusammengeführten) Gesamtdokuments, Bereiche inklusiv, Seite 1 ist implizit Grenze. 0-basierte PyMuPDF-Indizes nur im Render-Callback (`load_page`), im Splitter und im Merger.

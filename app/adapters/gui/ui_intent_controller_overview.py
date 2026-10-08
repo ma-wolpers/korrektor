@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
-from app.adapters.gui.dialog_services import filedialog, messagebox, simpledialog
+from app.adapters.gui.dialog_services import choicedialog, filedialog, messagebox, simpledialog
 from app.adapters.gui.view_models import ExamOverviewRow
+from bw_gui.dialogs import ChoiceOption
+
+_SOURCE_FOLDER = "folder"
+_SOURCE_SPLIT = "split"
 
 
 class UiIntentControllerOverviewMixin:
@@ -48,14 +53,67 @@ class UiIntentControllerOverviewMixin:
             )
 
     def create_exam(self) -> None:
-        folder = filedialog.askdirectory(title="Klausurordner wählen")
-        if not folder:
-            return
+        """"Neue Klausur" (button, menu, Ctrl+N): ask how the submissions are available, then create the exam.
 
-        suggested = Path(folder).name
+        - "Ordner mit einzelnen Abgaben": the previous flow (folder dialog,
+          then `_create_exam_from_folder`).
+        - "Große PDF(s) aufteilen": opens the PDF import wizard with
+          `_create_exam_from_split` as completion callback; the exam is
+          created automatically from the split folder. If an import is
+          already running, the wizard rejects the call (and says so) - the
+          callback is then never bound.
+        """
+        choice = choicedialog.askchoice(
+            "Neue Klausur",
+            "Wie liegen die Abgaben vor?",
+            (
+                ChoiceOption(
+                    _SOURCE_FOLDER,
+                    "Ordner mit einzelnen Abgaben",
+                    "Eine PDF pro Schüler:in liegt schon in einem Ordner.",
+                ),
+                ChoiceOption(
+                    _SOURCE_SPLIT,
+                    "Große PDF(s) aufteilen",
+                    "Eine oder mehrere Sammel-PDFs im Importmodus aufteilen; danach wird die Klausur automatisch angelegt.",
+                ),
+            ),
+        )
+        if choice == _SOURCE_FOLDER:
+            folder = filedialog.askdirectory(title="Klausurordner wählen")
+            if folder:
+                self._create_exam_from_folder(Path(folder))
+        elif choice == _SOURCE_SPLIT:
+            if not self._app.open_import_split_wizard(on_split_complete=self._create_exam_from_split):
+                self._app.set_status("Neue Klausur: PDF-Import nicht gestartet")
+
+    def _create_exam_from_split(self, output_dir: Path, display_name_by_filename: Mapping[str, str]) -> None:
+        """Completion callback of the import wizard: create the exam from the freshly split folder.
+
+        Uses the names typed in the wizard as display names. If the exam is
+        not created (name dialog cancelled or an error), the user is told
+        where the split PDFs are, so they are never silently orphaned.
+        """
+        if not self._create_exam_from_folder(output_dir, display_name_by_filename=display_name_by_filename):
+            messagebox.showinfo(
+                "Neue Klausur nicht angelegt",
+                f"Die aufgeteilten PDFs liegen in:\n{output_dir}\n\n"
+                "Du kannst den Ordner später über 'Neue Klausur' → 'Ordner mit einzelnen Abgaben' öffnen.",
+            )
+
+    def _create_exam_from_folder(
+        self, folder: Path, *, display_name_by_filename: Mapping[str, str] | None = None
+    ) -> bool:
+        """Ask for name/class/subject, create the exam for ``folder``, open it in reading mode.
+
+        Returns ``True`` if the exam was created, ``False`` if the user
+        cancelled the name dialog or creation failed (the error is shown).
+        ``display_name_by_filename`` is passed through to `CreateExamUseCase`.
+        """
+        suggested = folder.name
         exam_name = simpledialog.askstring("Neue Klausur", "Name der Klausur:", initialvalue=suggested)
         if exam_name is None:
-            return
+            return False
         # Optional, leer lassen erlaubt - nur Platzhalter fuers Namensschema
         # des zentralen Exportmodus ({Klasse}/{Fach}), keine Pflichtangabe.
         school_class = simpledialog.askstring("Neue Klausur", "Klasse (optional):", initialvalue="") or ""
@@ -63,11 +121,15 @@ class UiIntentControllerOverviewMixin:
 
         try:
             result = self._deps.create_exam_usecase.execute(
-                folder_path=Path(folder), exam_name=exam_name, school_class=school_class, subject=subject
+                folder_path=folder,
+                exam_name=exam_name,
+                school_class=school_class,
+                subject=subject,
+                display_name_by_filename=display_name_by_filename,
             )
         except Exception as exc:  # pragma: no cover - UI messaging
             messagebox.showerror("Fehler", str(exc))
-            return
+            return False
 
         payload = result.exam.to_dict()
         exam_file = result.exam_file
@@ -81,6 +143,7 @@ class UiIntentControllerOverviewMixin:
         self.refresh_exam_overview()
         self._app.open_exam_detail(result.exam, result.exam_file)
         self._app.start_reading_mode_for_current_exam()
+        return True
 
     def open_selected_exam(self) -> None:
         """Open the exam selected in the overview, reporting a broken file instead of crashing.

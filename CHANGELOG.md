@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- AI guardrails: the undo/redo contract now also tracks `_create_exam_from_folder` - the shared exam-creation tail-helper behind "Neue Klausur" (folder choice and PDF-import completion) - and accepts it as the history-registering helper of `create_exam`.
+- "Neue Klausur" (Knopf, Menü, Strg+N) fragt jetzt zuerst, wie die Abgaben vorliegen: **"Ordner mit einzelnen Abgaben"** führt wie bisher zur Ordnerauswahl; **"Große PDF(s) aufteilen"** öffnet den PDF-Import. Nach dem Aufteilen wird der neue Ordner automatisch als Klausur angelegt und im Einlesemodus geöffnet - mit genau den im Import eingegebenen Namen als Anzeigenamen (die Dateien heißen wie im Namenmodus, z. B. `Anna_Müller.pdf`). Der Zielordner muss dafür leer von PDFs sein. Bricht man danach die Namensabfrage ab, nennt Korrektor den Ordner, in dem die aufgeteilten PDFs liegen.
 - Extraseiten-Popup: Die Knöpfe ◀/▶/Schließen bleiben jetzt immer sichtbar (vorher drückte eine A4-Seite sie aus dem Fenster). Die Seite wird seitenbreit angezeigt, ist scrollbar und beginnt beim Blättern oben; beim Verkleinern schrumpft nur die Vorschau.
 - PDF-Import ("Datei" → "PDF importieren && aufteilen...") deutlich erweitert:
   - **Mehrere PDFs auf einmal:** Die Dateien werden vor dem Aufteilen zu einem Dokument zusammengeführt. Die Reihenfolge lässt sich vorher anpassen (▲/▼ bzw. Strg+↑/↓, Start: nach Dateiname sortiert); die Kopfzeile zeigt, aus welcher Datei die aktuelle Seite stammt. Nicht lesbare, passwortgeschützte oder leere PDFs werden vorab gemeinsam gemeldet.

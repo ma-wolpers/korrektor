@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
@@ -27,7 +28,27 @@ class CreateExamUseCase:
         exam_name: str | None = None,
         school_class: str = "",
         subject: str = "",
+        display_name_by_filename: Mapping[str, str] | None = None,
     ) -> CreateExamResult:
+        """Create and save a new exam from a folder with one PDF per student.
+
+        Args:
+            folder_path: Exam folder; every ``*.pdf`` in it becomes one student.
+            exam_name: Name of the exam (default: the folder name).
+            school_class: Optional class, only used by export filename templates.
+            subject: Optional subject, only used by export filename templates.
+            display_name_by_filename: Optional ``{pdf_filename: display_name}``
+                from the PDF import wizard, so a student shows exactly the
+                name typed there ("Anna Müller") although the file follows
+                the Namenmodus convention (``Anna_Müller.pdf``). Files without
+                an entry keep the previous rule: display name = file stem.
+                ``student_id`` is always derived from the file stem, so the
+                folder flow behaves exactly as before.
+
+        Raises:
+            ValueError: The folder is already indexed by another exam, or it
+                contains no PDF.
+        """
         resolved_folder = folder_path.resolve()
         existing_name = self._find_exam_name_for_folder(resolved_folder)
         if existing_name is not None:
@@ -46,9 +67,11 @@ class CreateExamUseCase:
         created = utc_now_iso()
 
         students: list[StudentExam] = []
+        display_names = display_name_by_filename or {}
         for pdf_filename, page_count in scan_entries:
-            display_name = Path(pdf_filename).stem
-            student_id = slugify(display_name)
+            stem = Path(pdf_filename).stem
+            display_name = display_names.get(pdf_filename, "").strip() or stem
+            student_id = slugify(stem)
             extras = [page for page in range(standard_page_count + 1, page_count + 1)]
             students.append(
                 StudentExam(

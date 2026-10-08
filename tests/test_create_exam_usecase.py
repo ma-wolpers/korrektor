@@ -87,3 +87,24 @@ def test_execute_defaults_school_class_and_subject_to_empty(tmp_path: Path) -> N
 
     assert result.exam.school_class == ""
     assert result.exam.subject == ""
+
+
+def test_execute_uses_display_names_from_import_wizard_and_falls_back_to_stem(tmp_path: Path) -> None:
+    """Names typed in the PDF import wizard become display names; unmapped files keep the stem."""
+    exam_folder = tmp_path / "exam"
+    exam_folder.mkdir(parents=True)
+    usecase = CreateExamUseCase(
+        exam_repo=JsonExamRepository(index_root=tmp_path / "index"),
+        pdf_scan_repo=_FakePdfScanRepository(),
+    )
+
+    result = usecase.execute(
+        folder_path=exam_folder,
+        exam_name="Mathe",
+        display_name_by_filename={"Alice.pdf": "Alice Müller", "Unrelated.pdf": "x"},
+    )
+
+    by_file = {student.pdf_filename: student for student in result.exam.students}
+    assert by_file["Alice.pdf"].display_name == "Alice Müller"
+    assert by_file["Bob.pdf"].display_name == "Bob"
+    assert by_file["Alice.pdf"].student_id == "alice"

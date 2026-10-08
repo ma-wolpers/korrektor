@@ -4,9 +4,10 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 
-from bw_gui.dialogs import FileDialogService, MessageDialogService, TextPromptDialogService
+from bw_gui.dialogs import ChoiceDialogService, FileDialogService, MessageDialogService, TextPromptDialogService
 
 
 messagebox = MessageDialogService()
 simpledialog = TextPromptDialogService()
 filedialog = FileDialogService()
+choicedialog = ChoiceDialogService()

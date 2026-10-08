@@ -535,8 +535,24 @@ def _check_undo_redo_contracts(errors: list[str]) -> None:
     # deliberately exempt - they mutate a global store, not an open exam,
     # and never go through the exam-content undo/redo history by design
     # (see that file's docstring).
-    baseline_mutators = {"create_exam", "delete_selected_exam", "update_exam_index_dir", "finish_reading_mode"}
-    history_helpers = {"_record_history_action", "_record_exam_payload_action", "_save_annotation_mutation_immediate", "_apply_superposition_clones"}
+    # Exam creation: `create_exam` (folder choice) and the PDF-import
+    # completion callback `_create_exam_from_split` both go through the
+    # shared tail-helper `_create_exam_from_folder`, which is itself tracked
+    # here and must call `_record_history_action` directly.
+    baseline_mutators = {
+        "create_exam",
+        "_create_exam_from_folder",
+        "delete_selected_exam",
+        "update_exam_index_dir",
+        "finish_reading_mode",
+    }
+    history_helpers = {
+        "_record_history_action",
+        "_record_exam_payload_action",
+        "_save_annotation_mutation_immediate",
+        "_apply_superposition_clones",
+        "_create_exam_from_folder",
+    }
 
     for rel_path in controller_files:
         try:
