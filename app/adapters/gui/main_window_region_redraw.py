@@ -19,7 +19,7 @@ class MainWindowRegionRedrawMixin:
             messagebox.showinfo("Hinweis", "Bitte zuerst einen bestehenden Bereich auswählen (kein Draft).")
             return
         if self._extra_mode_active and self._selected_region_kind != "extra":
-            messagebox.showinfo("Hinweis", "Im Extraseitenmodus kann nur eine Extraseiten-Zuordnung neu gezogen werden.")
+            messagebox.showinfo("Hinweis", "Im Zuschnitt, Schritt 2 kann nur eine Extraseiten-Zuordnung neu gezogen werden.")
             return
         if not self._extra_mode_active and self._selected_region_kind != "region":
             messagebox.showinfo("Hinweis", "Im Zuschnitt kann nur ein Standardbereich neu gezogen werden.")

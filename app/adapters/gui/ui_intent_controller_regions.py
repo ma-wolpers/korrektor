@@ -86,7 +86,7 @@ class UiIntentControllerRegionsMixin:
         if page_number > exam.standard_page_count:
             messagebox.showerror(
                 "Ungültige Eingabe",
-                "Im Extraseitenmodus können keine Aufgaben definiert werden. Bitte nur Bereich(e) zuordnen.",
+                "Im Zuschnitt, Schritt 2 können keine Aufgaben definiert werden. Bitte nur Bereich(e) zuordnen.",
             )
             return None
 
