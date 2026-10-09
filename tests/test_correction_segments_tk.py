@@ -57,9 +57,6 @@ def correction(korrektor_window, tmp_path, monkeypatch):
     yield window
     window._stop_correction_mode(silent=True)
     window._return_to_overview()
-    # The shared window's PDF cache is keyed by file name only (see the open
-    # follow-up); keep later tests with an "Anna.pdf" from seeing this one.
-    window.invalidate_doc_cache(["Anna.pdf", "Ben.pdf"])
     window.update()
 
 

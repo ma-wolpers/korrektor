@@ -119,7 +119,8 @@ class MainWindowOverviewMixin:
         return self._rows_by_tree_id.get(first)
 
     def open_exam_detail(self, exam: ExamProject, exam_file: Path) -> None:
-        """Show the Klausur-Detail view for `exam`, resetting all mode state."""
+        """Show the Klausur-Detail view for `exam`, resetting all mode state (and the PDF cache, see below)."""
+        self._close_all_cached_documents()
         self._detail_exam_file = exam_file
         self._current_exam = exam
         self._student_cursor = 0
@@ -237,6 +238,17 @@ class MainWindowOverviewMixin:
 
     def set_status(self, text: str) -> None:
         self._status_var.set(text)
+
+    def _close_all_cached_documents(self) -> None:
+        """Close and drop every cached PDF document.
+
+        The cache is keyed by file name, which is only unique *within* one
+        exam - two exams commonly both contain e.g. ``Abgabe_01.pdf`` (import
+        split). Without this, opening the second exam showed pages of the
+        first. Runs whenever an exam is opened and when returning to the
+        overview (which also releases the Windows file locks of the PDFs).
+        """
+        self.invalidate_doc_cache(list(self._doc_cache))
 
     def invalidate_doc_cache(self, pdf_filenames: Iterable[str]) -> None:
         """Close and evict cached PDF documents for the given filenames.

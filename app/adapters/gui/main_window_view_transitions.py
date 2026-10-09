@@ -57,6 +57,7 @@ class MainWindowViewTransitionsMixin:
 
     def _return_to_overview(self) -> None:
         """Close the current exam and all its active mode state, showing the overview."""
+        self._close_all_cached_documents()
         self._current_exam = None
         self._detail_exam_file = None
         self._reading_active = False
