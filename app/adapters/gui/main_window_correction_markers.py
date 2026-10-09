@@ -179,18 +179,6 @@ class MainWindowCorrectionMarkersMixin:
     def _normalize_rotation_deg(raw_deg: float) -> float:
         return normalize_rotation_deg(raw_deg)
 
-    def _canvas_to_pdf_coords(self, x: float, y: float) -> tuple[float, float] | None:
-        if self._correction_clip_box is None or self._correction_scale <= 0:
-            return None
-        clip_x0, clip_y0, _clip_x1, _clip_y1 = self._correction_clip_box
-        return clip_x0 + (x / self._correction_scale), clip_y0 + (y / self._correction_scale)
-
-    def _pdf_to_canvas_coords(self, x: float, y: float) -> tuple[float, float] | None:
-        if self._correction_clip_box is None or self._correction_scale <= 0:
-            return None
-        clip_x0, clip_y0, _clip_x1, _clip_y1 = self._correction_clip_box
-        return (x - clip_x0) * self._correction_scale, (y - clip_y0) * self._correction_scale
-
     def _on_correction_canvas_press(self, event: ui.Event[ui.Misc]):
         """Handle a click on the correction canvas: Supersymbol apply, or normal select/place."""
         if not self._correction_mode_active:
@@ -218,8 +206,11 @@ class MainWindowCorrectionMarkersMixin:
             if annotation_id is not None:
                 self._correction_selected_annotation_id = annotation_id
                 annotation = self._annotation_by_id(annotation_id)
-                pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y)
+                segment = self._segment_for_annotation(annotation) if annotation is not None else None
+                pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y, segment)
                 if annotation is not None and pdf_pos is not None and self._current_exam is not None:
+                    # A drag stays in the segment it started in (several regions may be stacked).
+                    self._correction_drag_segment = segment
                     self._correction_drag_annotation_id = annotation_id
                     self._correction_drag_offset_pdf = (annotation.x - pdf_pos[0], annotation.y - pdf_pos[1])
                     self._correction_drag_alt_override = self._event_has_alt_modifier(event)
@@ -248,6 +239,7 @@ class MainWindowCorrectionMarkersMixin:
         return "break"
 
     def _on_correction_canvas_drag(self, event: ui.Event[ui.Misc]):
+        """Live-move the dragged mark (or its sync group) within the segment the drag started in; persisted on release."""
         if not self._correction_mode_active or self._current_exam is None:
             return None
         if self._correction_drag_annotation_id is None or self._correction_drag_offset_pdf is None:
@@ -258,7 +250,7 @@ class MainWindowCorrectionMarkersMixin:
 
         canvas_x = float(self._correction_canvas.canvasx(event.x))
         canvas_y = float(self._correction_canvas.canvasy(event.y))
-        pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y)
+        pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y, self._correction_drag_segment)
         if pdf_pos is None:
             return "break"
         target_x = pdf_pos[0] + self._correction_drag_offset_pdf[0]
@@ -298,6 +290,7 @@ class MainWindowCorrectionMarkersMixin:
         before_payload = self._correction_drag_before_payload
         self._correction_drag_annotation_id = None
         self._correction_drag_offset_pdf = None
+        self._correction_drag_segment = None
         self._correction_drag_alt_override = False
         self._correction_drag_before_payload = None
         self._correction_drag_moved = False

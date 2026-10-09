@@ -22,7 +22,7 @@ class MainWindowCorrectionZoomMixin:
         self._refresh_correction_zoom_label()
         # Cancel first: _render_correction_preview() below would otherwise
         # silently overwrite the filtered composite's coordinate mapping
-        # (_correction_clip_box/_correction_scale) while a click would still
+        # (`_correction_segments`) while a click would still
         # be treated as a Supersymbol placement, misplacing it.
         self._cancel_supersymbol_filter()
         self._render_correction_preview()

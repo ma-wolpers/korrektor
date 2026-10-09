@@ -82,7 +82,7 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
 
         superposition_row = widgets.Frame(supersymbol_controls, style="Surface.TFrame")
         superposition_row.pack(fill=ui.X, pady=(6, 0))
-        widgets.Label(superposition_row, text="Superposition (alle Personen des Bereichs)", style="Muted.TLabel").pack(
+        widgets.Label(superposition_row, text="Superposition (alle Personen, erster Superseiten-Bereich der Aufgabe)", style="Muted.TLabel").pack(
             anchor=ui.W
         )
         superposition_buttons = widgets.Frame(superposition_row, style="Surface.TFrame")
@@ -139,11 +139,11 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
         self._superposition_page_next_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(
             self._superposition_page_prev_button,
-            label="Noten-Superposition: eine Seite zurück (unabhängig vom Bereich)",
+            label="Noten-Superposition: eine Seite zurück (unabhängig von der Aufgabe)",
         )
         self._attach_hover_help(
             self._superposition_page_next_button,
-            label="Noten-Superposition: eine Seite vor (unabhängig vom Bereich)",
+            label="Noten-Superposition: eine Seite vor (unabhängig von der Aufgabe)",
         )
         superposition_page_nav.pack(anchor=ui.W, pady=(4, 0))
         superposition_page_nav.pack_forget()
@@ -221,7 +221,7 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
             return
         template = self._current_correction_template()
         if template is None:
-            messagebox.showinfo("Hinweis", "Bitte zuerst einen Bereich wählen.")
+            messagebox.showinfo("Hinweis", "Diese Aufgabe liegt nur in Einzelseiten-Bereichen – Supersymbol braucht einen Superseiten-Bereich.")
             return
         task_codes = self._resolve_supersymbol_task_codes(template)
         if not task_codes:
@@ -293,15 +293,12 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
 
         Full page (uncropped) by default, matching the Supersymbol-Filter
         and the Noten-Superposition (which deliberately keeps the whole
-        page, see `_start_superposition_preview`'s docstring): sets
-        `_correction_clip_box` to the whole reference page (origin at
-        0,0), so the existing `_canvas_to_pdf_coords` conversion already
-        yields correct absolute PDF coordinates. When `clip` is given (the
-        Punkte-Superposition's Bereich crop), the rendered image instead
-        represents just that box - `_correction_clip_box` is set to the
-        clip's own origin, exactly like the normal single-student
-        Korrektur-Vorschau (`main_window_correction_core.py`), so a click
-        still converts to the correct absolute PDF position.
+        page, see `_start_superposition_preview`'s docstring): installs a
+        single correction segment covering the whole reference page
+        (origin 0,0), so `_canvas_to_pdf_coords` yields absolute PDF
+        coordinates. When `clip` is given (the Punkte-Superposition's
+        Bereich crop), the segment instead covers just that box, exactly
+        like one segment of the normal Korrektur-Vorschau.
         """
         built = self._build_superposed_pixmap(students=students, page_number=page_number, clip=clip)
         if built is None:
@@ -314,15 +311,17 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
         self._correction_photo = ui.PhotoImage(data=pgm_header + pixmap.samples, format="ppm")
         scale = pixmap.width / max(reference_rect.width, 1.0)
         if clip is not None:
-            self._correction_clip_box = (
-                float(reference_rect.x0),
-                float(reference_rect.y0),
-                float(reference_rect.x1),
-                float(reference_rect.y1),
-            )
+            clip_box = (float(reference_rect.x0), float(reference_rect.y0), float(reference_rect.x1), float(reference_rect.y1))
         else:
-            self._correction_clip_box = (0.0, 0.0, float(reference_rect.width), float(reference_rect.height))
-        self._correction_scale = scale
+            clip_box = (0.0, 0.0, float(reference_rect.width), float(reference_rect.height))
+        template = self._current_correction_template()
+        self._install_single_segment(
+            region_id=template.region_id if template is not None else "",
+            page_number=page_number,
+            clip_box=clip_box,
+            scale=scale,
+            height=float(pixmap.height),
+        )
         self._correction_canvas.delete("all")
         self._correction_canvas.create_image(0, 0, anchor=ui.NW, image=self._correction_photo)
         self._correction_canvas.configure(scrollregion=(0, 0, pixmap.width, pixmap.height))

@@ -237,6 +237,13 @@ class UiIntentControllerAnnotationsMixin:
         annotation = self._find_annotation(exam, annotation_id)
         if annotation is None:
             return None
+        region = next((item for item in exam.regions if item.region_id == annotation.region_id), None)
+        if region is not None and region.student_pdf:
+            messagebox.showinfo(
+                "Durchdrücken nicht möglich",
+                "Dieses Symbol liegt in einem Einzelseiten-Bereich, den nur diese Person hat – Durchdrücken geht nur in Superseiten-Bereichen.",
+            )
+            return None
 
         before_payload = exam.to_dict()
         previous_annotations = list(exam.pdf_annotations)

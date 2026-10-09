@@ -31,3 +31,24 @@ class CorrectionTemplate:
     page_number: int
     box: tuple[float, float, float, float]
     tasks: list[TaskDefinition]
+
+
+@dataclass(slots=True)
+class CorrectionSegment:
+    """One region crop on the correction canvas (several are stacked for a task spanning regions).
+
+    ``clip_box`` is the PDF-point rectangle that was rendered, ``scale`` the
+    pixels per point and ``y_offset`` the canvas y of the image's top edge;
+    ``height`` is the image height in pixels. Canvas <-> PDF conversion of a
+    point always goes through exactly one segment (see
+    `MainWindowCorrectionSegmentsMixin`). ``region_id`` is empty only for a
+    full-page Supersymbol/Superposition preview without a region.
+    """
+
+    region_id: str
+    page_number: int
+    clip_box: tuple[float, float, float, float]
+    scale: float
+    y_offset: float
+    height: float
+    is_single_page: bool = False

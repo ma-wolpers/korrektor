@@ -136,7 +136,7 @@ class MainWindowOverviewMixin:
         self._correction_student_indices = []
         self._correction_cursor = 0
 
-        self._refresh_correction_area_choices(exam)
+        self._refresh_correction_start_choices(exam)
         self._apply_detail_labels(exam)
         self._refresh_grading_scale_assignment_choices()
         self._status_var.set(f"Detailansicht: {exam.exam_name}")
@@ -267,7 +267,7 @@ class MainWindowOverviewMixin:
             idx = self._correction_student_indices[self._correction_cursor]
             student = self._current_exam.students[idx]
             self._active_student.set(
-                f"Aktive Person: {student.display_name} ({self._correction_cursor + 1}/{len(self._correction_student_indices)}) | Bereich {self._correction_area_var.get()}"
+                f"Aktive Person: {student.display_name} ({self._correction_cursor + 1}/{len(self._correction_student_indices)}) | Aufgabe {self._selected_correction_task()[0] or '-'}"
             )
             return
 

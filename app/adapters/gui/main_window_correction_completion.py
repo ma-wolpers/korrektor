@@ -34,7 +34,7 @@ class MainWindowCorrectionCompletionMixin:
         # "all" requests a reset (False), a click from "none" requests True.
         self._correction_finished_all_check = Switch(
             correction_form,
-            text="Bereich: alle als fertig markieren",
+            text="Aufgabe: alle als fertig markieren",
             variable=self._correction_finished_all_var,
             on_change=self._on_correction_finished_all_toggled,
             mixed_click_target=False,
@@ -96,7 +96,7 @@ class MainWindowCorrectionCompletionMixin:
         if self._controller is None or self._current_exam is None:
             return False
         student = self._current_correction_student()
-        template = self._current_correction_template()
+        template = self._current_correction_task_scope()
         if student is None or template is None:
             return False
         scores = self._controller.load_scores_for_exam(exam=self._current_exam)
@@ -107,7 +107,7 @@ class MainWindowCorrectionCompletionMixin:
         if self._controller is None or self._current_exam is None:
             return False
         student = self._current_correction_student()
-        template = self._current_correction_template()
+        template = self._current_correction_task_scope()
         if student is None or template is None:
             return False
         return self._controller.are_person_tasks_finished(
@@ -150,7 +150,7 @@ class MainWindowCorrectionCompletionMixin:
         if self._correction_finished_check is None:
             return
 
-        template = self._current_correction_template() if self._correction_mode_active else None
+        template = self._current_correction_task_scope() if self._correction_mode_active else None
         student = self._current_correction_student() if self._correction_mode_active else None
         scores: dict[str, dict[str, float]] = {}
         if self._controller is not None and self._current_exam is not None and template is not None:
@@ -220,13 +220,13 @@ class MainWindowCorrectionCompletionMixin:
             return
 
         student = self._current_correction_student()
-        template = self._current_correction_template()
+        template = self._current_correction_task_scope()
         if student is None or template is None:
             return
 
         if requested and not self._all_tasks_scored_for_current_area():
             self._correction_finished_var.set(False)
-            messagebox.showinfo("Hinweis", "Bitte zuerst alle Aufgaben im Bereich bewerten.")
+            messagebox.showinfo("Hinweis", "Bitte die Aufgabe zuerst bewerten.")
             self._refresh_correction_completion_controls()
             return
 
@@ -263,7 +263,7 @@ class MainWindowCorrectionCompletionMixin:
             self._refresh_correction_completion_controls()
             return
 
-        template = self._current_correction_template()
+        template = self._current_correction_task_scope()
         if template is None:
             self._refresh_correction_completion_controls()
             return
@@ -280,7 +280,7 @@ class MainWindowCorrectionCompletionMixin:
 
         scores = self._controller.load_scores_for_exam(exam=self._current_exam)
         if requested and not self._are_all_tasks_scored(scores=scores, template=template, student_ids=student_ids):
-            messagebox.showinfo("Hinweis", "Bitte zuerst alle Aufgaben aller Personen im Bereich bewerten.")
+            messagebox.showinfo("Hinweis", "Bitte die Aufgabe zuerst bei allen Personen bewerten.")
             self._refresh_correction_completion_controls()
             return
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from app.adapters.gui.dialog_services import messagebox
-from app.core.domain.models import ExamProject
 from app.core.domain.task_spec import TaskSpec, format_task_specs, parse_task_specs
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
@@ -18,24 +17,6 @@ class MainWindowRegionSpecsMixin:
     Superseiten und Einzelseiten gemeinsam), hier nur zustandslose
     Formatierung/Parsing/Lookup.
     """
-
-    def _refresh_correction_area_choices(self, exam: ExamProject) -> None:
-        """Area combo of the correction view: labels of Superseiten-Bereiche (until the view becomes task-centric)."""
-        areas = sorted(
-            {
-                region.assigned_area_codes[0].strip().upper()
-                for region in exam.regions
-                if not region.student_pdf and region.assigned_area_codes and region.assigned_area_codes[0].strip()
-            }
-        )
-        if not areas:
-            areas = ["A"]
-        values = tuple(areas)
-        self._correction_area_combo["values"] = values
-        if hasattr(self, "_correction_area_combo_view"):
-            self._correction_area_combo_view["values"] = values
-        if self._correction_area_var.get() not in areas:
-            self._correction_area_var.set(areas[0])
 
     def _refresh_task_input_mode(self) -> None:
         """Show the quick entry or the form text with a matching example."""

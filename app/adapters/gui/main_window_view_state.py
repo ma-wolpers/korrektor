@@ -152,16 +152,16 @@ class MainWindowViewStateMixin:
 
         correction_header = widgets.Frame(self._correction_controls_frame, style="Surface.TFrame")
         correction_header.pack(fill=ui.X, pady=(6, 6))
-        widgets.Label(correction_header, text="Bereich", style="Muted.TLabel").pack(side=ui.LEFT)
-        self._correction_area_var = ui.StringVar(value="A")
-        self._correction_area_combo = widgets.Combobox(
+        widgets.Label(correction_header, text="Ab Aufgabe", style="Muted.TLabel").pack(side=ui.LEFT)
+        self._correction_start_task_var = ui.StringVar(value="-")
+        self._correction_start_task_combo = widgets.Combobox(
             correction_header,
-            textvariable=self._correction_area_var,
+            textvariable=self._correction_start_task_var,
             state="readonly",
             width=8,
-            values=("A",),
+            values=("-",),
         )
-        self._correction_area_combo.pack(side=ui.LEFT, padx=(8, 8))
+        self._correction_start_task_combo.pack(side=ui.LEFT, padx=(8, 8))
         start_correction_button = widgets.Button(
             correction_header,
             text="Korrektur starten",
@@ -169,7 +169,7 @@ class MainWindowViewStateMixin:
             command=self._start_correction_mode,
         )
         start_correction_button.pack(side=ui.LEFT)
-        self._attach_hover_help(start_correction_button, label="Korrektur für den gewählten Bereich starten", shortcut=None)
+        self._attach_hover_help(start_correction_button, label="Korrektur ab der gewählten Aufgabe starten", shortcut=None)
 
         stop_correction_button = widgets.Button(
             correction_header,

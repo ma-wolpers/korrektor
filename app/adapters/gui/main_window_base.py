@@ -115,7 +115,6 @@ class MainWindowBase(BwBaseWindow):
         self._redraw_target_region_id: str | None = None
         self._redraw_on_next_box: bool = False
         self._correction_templates: dict[str, CorrectionTemplate] = {}
-        self._correction_label_to_region_id: dict[str, str] = {}
         self._correction_task_items: list[tuple[str, float]] = []
         self._correction_photo: ui.PhotoImage | None = None
         self._correction_zoom_percent = 100
@@ -138,8 +137,10 @@ class MainWindowBase(BwBaseWindow):
         self._correction_drag_before_payload: dict[str, object] | None = None
         self._correction_drag_moved = False
         self._correction_annotation_items: dict[str, int] = {}
-        self._correction_clip_box: tuple[float, float, float, float] | None = None
-        self._correction_scale = 1.0
+        # Task-centric correction: one segment per region of the current task (stacked).
+        self._correction_segments: list = []
+        self._correction_photos: list = []
+        self._correction_drag_segment = None
         self._annotation_clipboard: dict[str, object] | None = None
         self._correction_finished_check: Switch | None = None
         self._correction_finished_all_check: Switch | None = None

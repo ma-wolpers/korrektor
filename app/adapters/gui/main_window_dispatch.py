@@ -179,7 +179,7 @@ class MainWindowDispatchMixin:
         ):
             return
         if self._active_view == "correction" and self._correction_mode_active:
-            self._cycle_correction_area(-1)
+            self._cycle_correction_main_task(-1)
         elif self._active_view == "scan_workshop":
             self._scan_move_page(-1)
 
@@ -189,7 +189,7 @@ class MainWindowDispatchMixin:
         ):
             return
         if self._active_view == "correction" and self._correction_mode_active:
-            self._cycle_correction_area(1)
+            self._cycle_correction_main_task(1)
         elif self._active_view == "scan_workshop":
             self._scan_move_page(1)
 

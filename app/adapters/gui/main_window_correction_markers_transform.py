@@ -191,10 +191,10 @@ class MainWindowCorrectionMarkersTransformMixin:
         if self._current_exam is None or self._controller is None:
             return False
         student = self._current_correction_student()
-        template = self._current_correction_template()
-        if student is None or template is None:
+        segment = self._segment_at(canvas_y)
+        if student is None or segment is None or not segment.region_id:
             return False
-        pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y)
+        pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y, segment)
         if pdf_pos is None:
             return False
 
@@ -203,14 +203,14 @@ class MainWindowCorrectionMarkersTransformMixin:
         annotation = PdfAnnotation(
             annotation_id=f"ann-{uuid4().hex[:12]}",
             student_pdf=student.pdf_filename,
-            page_number=template.page_number,
+            page_number=segment.page_number,
             annotation_type=annotation_type,
             content=content,
             color_hex=self._current_marker_color_hex(),
             x=pdf_pos[0],
             y=pdf_pos[1],
             task_code=task_code or "",
-            region_id=template.region_id,
+            region_id=segment.region_id,
             font_size=default_font_size,
             rotation_deg=0.0,
             sync_group_id="",

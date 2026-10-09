@@ -14,18 +14,16 @@ from bw_gui.runtime import ui
 
 class MainWindowCorrectionMarkersClipboardMixin:
     def _current_correction_annotations(self) -> list[PdfAnnotation]:
-        """List annotations for the current student/page, filtered by region_id."""
+        """Marks of the current person that belong to one of the shown segments (see `_segment_for_annotation`)."""
         if self._current_exam is None:
             return []
         student = self._current_correction_student()
-        template = self._current_correction_template()
-        if student is None or template is None:
+        if student is None or not self._correction_segments:
             return []
         return [
             item
             for item in self._current_exam.pdf_annotations
-            if item.student_pdf == student.pdf_filename and item.page_number == template.page_number
-            and (not item.region_id or item.region_id == template.region_id)
+            if item.student_pdf == student.pdf_filename and self._segment_for_annotation(item) is not None
         ]
 
     def _selected_correction_annotation(self) -> PdfAnnotation | None:
@@ -96,7 +94,8 @@ class MainWindowCorrectionMarkersClipboardMixin:
             return False
 
         student = self._current_correction_student()
-        template = self._current_correction_template()
+        segment = self._paste_target_segment()
+        template = self._correction_templates.get(segment.region_id) if segment is not None else None
         if student is None or template is None:
             return False
 
@@ -115,7 +114,7 @@ class MainWindowCorrectionMarkersClipboardMixin:
             color_hex=self._normalize_marker_color_hex(self._annotation_clipboard.get("color_hex")),
             x=target_x,
             y=target_y,
-            task_code=str(self._annotation_clipboard.get("task_code", "")).strip().upper(),
+            task_code=self._selected_correction_task()[0] or "",
             region_id=template.region_id,
             font_size=self._normalize_marker_font_size(self._annotation_clipboard.get("font_size", 14.0)),
             rotation_deg=self._normalize_rotation_deg(float(self._annotation_clipboard.get("rotation_deg", 0.0))),
@@ -130,6 +129,12 @@ class MainWindowCorrectionMarkersClipboardMixin:
         self._render_correction_annotations()
         self._status_var.set("Markierung eingefügt")
         return True
+
+    def _paste_target_segment(self):
+        """Segment a paste goes to: the one of the selected mark, else the first shown region."""
+        selected = self._selected_correction_annotation()
+        segment = self._segment_for_annotation(selected) if selected is not None else None
+        return segment or next((item for item in self._correction_segments if item.region_id), None)
 
     def _annotation_by_id(self, annotation_id: str) -> PdfAnnotation | None:
         if self._current_exam is None:
@@ -161,6 +166,7 @@ class MainWindowCorrectionMarkersClipboardMixin:
         return None
 
     def _render_correction_annotations(self) -> None:
+        """Draw the person's marks of all shown segments, each converted through its own segment."""
         if self._correction_canvas is None:
             return
         self._correction_canvas.delete("correction_annotation")
@@ -174,11 +180,12 @@ class MainWindowCorrectionMarkersClipboardMixin:
             return
 
         for annotation in annotations:
-            canvas_pos = self._pdf_to_canvas_coords(annotation.x, annotation.y)
+            segment = self._segment_for_annotation(annotation)
+            canvas_pos = self._pdf_to_canvas_coords(annotation.x, annotation.y, segment)
             if canvas_pos is None:
                 continue
             canvas_x, canvas_y = canvas_pos
-            font_size = max(8, int(round(float(annotation.font_size) * self._correction_scale)))
+            font_size = max(8, int(round(float(annotation.font_size) * segment.scale)))
             item_id = self._correction_canvas.create_text(
                 canvas_x,
                 canvas_y,

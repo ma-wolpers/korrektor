@@ -93,24 +93,13 @@ class MainWindowCorrectionFormMixin:
         self._apply_detail_labels(updated)
         return True
 
-    def _on_correction_area_changed(self, _event: ui.Event[ui.Misc]) -> None:
-        if not self._correction_mode_active:
-            return
-        self._save_current_correction_score()
-        self._save_current_correction_comment()
-        self._correction_selected_annotation_id = None
-        self._refresh_correction_task_choices(load_saved_points=True)
-        self._refresh_correction_completion_controls()
-        self._focus_first_input_field()
-
     def _on_correction_task_changed(self, _event: ui.Event[ui.Misc]) -> None:
+        """Task chosen in the combo: save the current entries, then show all regions of the new task."""
         if not self._correction_mode_active:
             return
         self._save_current_correction_score()
         self._save_current_correction_comment()
-        self._correction_selected_annotation_id = None
-        self._refresh_correction_task_meta(load_saved_points=True)
-        self._refresh_correction_completion_controls()
+        self._on_correction_task_switched()
         self._focus_first_input_field()
 
     def _on_correction_points_focus_out(self, _event: ui.Event[ui.Misc]) -> None:

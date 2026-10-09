@@ -57,7 +57,7 @@ class MainWindowSuperpositionMixin:
             return
         template = self._current_correction_template()
         if template is None:
-            messagebox.showinfo("Hinweis", "Bitte zuerst einen Bereich wählen.")
+            messagebox.showinfo("Hinweis", "Diese Aufgabe liegt nur in Einzelseiten-Bereichen – Superposition braucht einen Superseiten-Bereich.")
             return
         target_students = [self._current_exam.students[index] for index in self._correction_student_indices]
         if not target_students:
