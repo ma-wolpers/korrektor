@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- Das Fenster "PDF aufteilen" begrenzt seine Startgröße auf den Monitor, auf dem es öffnet, statt auf den Hauptmonitor.
+
 ## Unreleased
 - **Behoben:** Wer nacheinander zwei Klausuren mit gleich benannten PDFs öffnete (z. B. `Abgabe_01.pdf` nach dem Aufteilen), konnte in der zweiten Klausur Seiten der ersten sehen. Außerdem gibt Korrektor die PDFs beim Zurückkehren zur Übersicht frei (unter Windows lassen sich Ordner dann wieder verschieben).
 - **Scan-Werkstatt: Seiteninhalt verschieben.** Strg+Shift+Pfeile verschieben den Inhalt der aktuellen Seite um 0,5 cm (Schritt in den Einstellungen änderbar, 0,1–5 cm), auch per Knöpfe „←→↑↓“ oder durch Eintippen von x/y in cm. Verschieben, Drehen, Löschen und Umsortieren lassen sich frei kombinieren; Symbole und Einzelseiten-Bereiche wandern mit. **Geändert:** Die 90°-Drehung liegt jetzt auf **Shift+←/→** (vorher Strg+Shift+←/→).

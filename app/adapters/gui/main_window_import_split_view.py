@@ -18,6 +18,7 @@ from app.adapters.gui.import_split_texts import (
 )
 from app.core.domain.pdf_split_naming import SplitSection, find_other_sections_with_name, plan_split_files
 from app.infrastructure.repositories.file_utils import build_pdf_filename_from_name
+from bw_gui.runtime.screen_placement import work_area_for
 from bw_gui.theming import theme_canvas
 from bw_gui.widgets import Checkbox, ScrollableImagePreview
 
@@ -305,8 +306,11 @@ class MainWindowImportSplitViewMixin:
         min_height = bars_height + _PREVIEW_MIN_HEIGHT + 20
         popup.minsize(min_width, min_height)
         if initial:
-            width = min(max(min_width, 1100), int(popup.winfo_screenwidth()) - 80)
-            height = min(max(min_height, 860), int(popup.winfo_screenheight()) - 80)
+            # Cap against the work area of the popup's own monitor (bw-gui screen
+            # placement), not winfo_screen* (primary monitor only on Windows).
+            work = work_area_for(popup)
+            width = min(max(min_width, 1100), work.width - 80)
+            height = min(max(min_height, 860), work.height - 80)
             popup.geometry(f"{width}x{height}")
 
     def _apply_import_split_theme(self) -> None:
