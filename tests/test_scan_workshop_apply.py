@@ -219,7 +219,7 @@ def test_rollback_reports_files_it_could_not_restore(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize(
     ("text", "expected"),
-    [("3,5", 3.5), (" -2° ", -2.0), ("1.25", 1.25), ("", 0.0), ("abc", None), ("1,2,3", None)],
+    [("3,5", 3.5), (" -2° ", -2.0), ("1.25", 1.25), ("", 0.0), ("abc", None), ("1,2,3", None), ("0,5 cm", 0.5), ("-1cm", -1.0)],
 )
 def test_parse_rotation_input(text, expected):
     assert parse_rotation_input(text) == expected

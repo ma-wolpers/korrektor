@@ -130,6 +130,7 @@ class MainWindowBase(BwBaseWindow):
         self._default_annotation_color_hex = self._normalize_marker_color_hex(settings.default_annotation_color)
         self._default_annotation_font_size = self._normalize_marker_font_size(settings.default_annotation_pdf_font_size)
         self._scan_rotation_step_deg = settings.scan_rotation_step_deg
+        self._scan_shift_step_cm = settings.scan_shift_step_cm
         self._correction_selected_annotation_id: str | None = None
         self._correction_drag_annotation_id: str | None = None
         self._correction_drag_offset_pdf: tuple[float, float] | None = None
@@ -192,6 +193,10 @@ class MainWindowBase(BwBaseWindow):
                 UiIntent.SCAN_ROTATE_CCW,
                 UiIntent.SCAN_ROTATE_90_CW,
                 UiIntent.SCAN_ROTATE_90_CCW,
+                UiIntent.SCAN_SHIFT_LEFT,
+                UiIntent.SCAN_SHIFT_RIGHT,
+                UiIntent.SCAN_SHIFT_UP,
+                UiIntent.SCAN_SHIFT_DOWN,
                 UiIntent.NAMING_PREV_PERSON,
                 UiIntent.NAMING_NEXT_PERSON,
                 UiIntent.NAMING_COMMIT,

@@ -168,3 +168,75 @@ def test_deleting_every_page_is_rejected(tmp_path):
 
 def test_fresh_state_is_unchanged():
     assert not PdfEditState.fresh(3).is_changed()
+
+
+_CM = 72.0 / 2.54
+
+
+def test_shift_is_applied_after_rotation_in_edited_page_coordinates():
+    transform = PageTransform(100.0, 200.0, 90.0, offset_x=10.0, offset_y=-5.0)
+    assert transform.target_size == (200.0, 100.0)  # a shift never changes the page size
+    assert transform.map_point(50.0, 0.0) == pytest.approx((210.0, 45.0))
+    assert PageTransform(100.0, 200.0, 0.0, 3.0, 4.0).map_point(1.0, 2.0) == pytest.approx((4.0, 6.0))
+
+
+@pytest.mark.parametrize("edit", [PageEdit(offset_x_pt=0.5 * _CM), PageEdit(rotation_deg=2.0, offset_y_pt=-_CM), PageEdit(rotation_deg=90.0, offset_x_pt=_CM)])
+def test_shifted_content_lands_where_map_point_says_and_preview_equals_result(tmp_path, edit):
+    source_path = _pdf(tmp_path / "a.pdf", 1)
+    target = tmp_path / "out.pdf"
+    write_edited_pdf(source_path, [1], {1: edit}, target)
+    source, edited = fitz.open(source_path), fitz.open(target)
+    try:
+        expected = source_transform(source, 1, edit).map_point(*_word_center(source[0], "P1"))
+        assert _word_center(edited[0], "P1") == pytest.approx(expected, abs=1.5)
+        preview = render_edited_page(source, 1, edit, zoom=0.5)
+        result = edited[0].get_pixmap(matrix=fitz.Matrix(0.5, 0.5), alpha=False)
+        assert preview.samples == result.samples
+    finally:
+        source.close()
+        edited.close()
+
+
+def test_half_centimetre_shift_moves_the_word_by_14_17_points(tmp_path):
+    source_path = _pdf(tmp_path / "a.pdf", 1)
+    write_edited_pdf(source_path, [1], {1: PageEdit(offset_x_pt=0.5 * _CM)}, tmp_path / "out.pdf")
+    source, edited = fitz.open(source_path), fitz.open(tmp_path / "out.pdf")
+    try:
+        before, after = _word_center(source[0], "P1"), _word_center(edited[0], "P1")
+        assert after[0] - before[0] == pytest.approx(14.17, abs=0.05) and after[1] == pytest.approx(before[1], abs=0.05)
+    finally:
+        source.close()
+        edited.close()
+
+
+def test_order_delete_rotate_and_shift_combine_independently(tmp_path):
+    """A2: all four edits at once; deletion/order semantics unchanged, edits stay with the original page."""
+    session = ScanWorkshopSession([_student("a.pdf", 3)])
+    session.go_page(2)  # page 3
+    session.rotate_by(2.0)
+    session.shift_by(5.0, -3.0)
+    session.move_page(-2)  # page 3 to the front
+    session.go_page(2)  # position 3 = page 2
+    session.toggle_delete()
+    state = session.current_state
+    assert state.order == [3, 1, 2] and state.page_mapping() == {1: 2, 2: None, 3: 1}
+    assert state.edit_for(3) == PageEdit(rotation_deg=2.0, offset_x_pt=5.0, offset_y_pt=-3.0)
+
+    count = write_edited_pdf(_pdf(tmp_path / "a.pdf", 3), state.order, state.edits, tmp_path / "out.pdf")
+    assert count == 2 and _texts(tmp_path / "out.pdf") == ["P3", "P1"]
+
+
+def test_set_offset_and_reset_to_unchanged():
+    session = ScanWorkshopSession([_student("a.pdf", 1)])
+    session.shift_by(2.0, 0.0)
+    session.set_offset(y_pt=4.0)
+    assert session.current_edit == PageEdit(offset_x_pt=2.0, offset_y_pt=4.0) and session.changed_pdfs() == ["a.pdf"]
+    session.set_offset(0.0, 0.0)
+    assert session.current_state.edits == {} and not session.changed_pdfs()
+
+
+def test_shift_step_setting_is_clamped():
+    from app.infrastructure.repositories.json_app_settings_repository import clamp_scan_shift_step
+
+    assert clamp_scan_shift_step("0,5") == 0.5 and clamp_scan_shift_step(9) == 5.0 and clamp_scan_shift_step(0) == 0.1
+    assert clamp_scan_shift_step("abc") == 0.5

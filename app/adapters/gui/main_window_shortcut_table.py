@@ -221,17 +221,35 @@ class MainWindowShortcutTableMixin:
             intent=UiIntent.SCAN_ROTATE_CW,
             modes=(UI_MODE_PREVIEW,),
         )
+        # Shift+←/→ = 90° in the Scan-Werkstatt. Tk fires only the most specific
+        # binding of a tag, so these also carry the plain ←/→ behaviour for every
+        # other view (same modes as <Left>/<Right>, see `_on_shift_arrow_key`).
         self._bind_runtime_shortcut(
-            "<Control-Shift-Left>",
-            lambda _event: self._scan_rotate_quarter_key(-1),
+            "<Shift-Left>",
+            lambda event: self._on_shift_arrow_key(-1, event),
             binding_id="scan.rotate_90_ccw",
             intent=UiIntent.SCAN_ROTATE_90_CCW,
-            modes=(UI_MODE_PREVIEW,),
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
         )
         self._bind_runtime_shortcut(
-            "<Control-Shift-Right>",
-            lambda _event: self._scan_rotate_quarter_key(1),
+            "<Shift-Right>",
+            lambda event: self._on_shift_arrow_key(1, event),
             binding_id="scan.rotate_90_cw",
             intent=UiIntent.SCAN_ROTATE_90_CW,
-            modes=(UI_MODE_PREVIEW,),
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
         )
+        for sequence, steps, binding_id, intent in (
+            ("<Control-Shift-Left>", (-1, 0), "scan.shift_left", UiIntent.SCAN_SHIFT_LEFT),
+            ("<Control-Shift-Right>", (1, 0), "scan.shift_right", UiIntent.SCAN_SHIFT_RIGHT),
+            ("<Control-Shift-Up>", (0, -1), "scan.shift_up", UiIntent.SCAN_SHIFT_UP),
+            ("<Control-Shift-Down>", (0, 1), "scan.shift_down", UiIntent.SCAN_SHIFT_DOWN),
+        ):
+            self._bind_runtime_shortcut(
+                sequence,
+                lambda _event, steps=steps: self._scan_shift_key(*steps),
+                binding_id=binding_id,
+                intent=intent,
+                modes=(UI_MODE_PREVIEW,),
+            )

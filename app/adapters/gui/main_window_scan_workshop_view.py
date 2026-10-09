@@ -15,15 +15,23 @@ _CROSSHAIR_COLOR = "#e11d48"
 _LOCKED_HINT = "gesperrt: Auswertungsseite zuerst entfernen (Auswertung → von der PDF entfernen)"
 
 
+POINTS_PER_CM = 72.0 / 2.54
+
+
 def parse_rotation_input(text: str) -> float | None:
-    """Degree field input -> clockwise degrees: accepts "3,5", "3.5", "-2°", " 1 "; ``None`` if invalid."""
-    cleaned = text.strip().replace("°", "").replace(",", ".").strip()
+    """Degree/shift field input -> number: accepts "3,5", "3.5", "-2°", "0,5 cm", " 1 "; empty = 0; ``None`` if invalid."""
+    cleaned = text.strip().replace("°", "").replace("cm", "").replace(",", ".").strip()
     if not cleaned:
         return 0.0
     try:
         return float(cleaned)
     except ValueError:
         return None
+
+
+def _format_cm(points: float) -> str:
+    """Shift in points -> field text in cm with decimal comma ("0,5", "12,25", "0")."""
+    return f"{round(points / POINTS_PER_CM, 2) + 0.0:g}".replace(".", ",")
 
 
 class MainWindowScanWorkshopViewMixin:
@@ -96,6 +104,8 @@ class MainWindowScanWorkshopViewMixin:
             f"Seite {session.position}/{len(state.order)} (Original {session.current_original_page}) · "
             f"Drehung {edit.rotation_deg:+.1f}°"
         )
+        if edit.is_shifted:
+            info += f" · Verschiebung {edit.offset_x_pt / POINTS_PER_CM:+.1f}/{edit.offset_y_pt / POINTS_PER_CM:+.1f} cm"
         if edit.deleted:
             info += " · wird gelöscht"
         if session.is_current_locked():
@@ -107,6 +117,8 @@ class MainWindowScanWorkshopViewMixin:
         view.suppress_degree = True
         try:
             view.degree_var.set(f"{edit.rotation_deg:g}")
+            view.shift_x_var.set(_format_cm(edit.offset_x_pt))
+            view.shift_y_var.set(_format_cm(edit.offset_y_pt))
         finally:
             view.suppress_degree = False
         view.degree_hint_var.set("")
@@ -114,8 +126,9 @@ class MainWindowScanWorkshopViewMixin:
         tree.delete(*tree.get_children())
         for position, original in enumerate(state.order, start=1):
             page_edit = state.edit_for(original)
-            status = "gelöscht" if page_edit.deleted else ("gedreht" if page_edit.rotation_deg else "")
-            iid = tree.insert("", ui.END, values=(position, original, f"{page_edit.rotation_deg:g}°", status))
+            status = "gelöscht" if page_edit.deleted else ("geändert" if page_edit.rotation_deg or page_edit.is_shifted else "")
+            shift = f"{page_edit.offset_x_pt / POINTS_PER_CM:+.1f}/{page_edit.offset_y_pt / POINTS_PER_CM:+.1f}" if page_edit.is_shifted else ""
+            iid = tree.insert("", ui.END, values=(position, original, f"{page_edit.rotation_deg:g}°", shift, status))
             if position == session.position:
                 tree.selection_set(iid)
                 tree.see(iid)
@@ -160,8 +173,48 @@ class MainWindowScanWorkshopViewMixin:
         self._scan_after(self._scan_session.rotate_by(direction * self._scan_rotation_step_deg), locked_message=True)
         return "break"
 
+    def _scan_shift_key(self, dx_steps: int, dy_steps: int):
+        """Strg+Shift+Pfeile and the buttons: move the content by the configured step (cm); ``"break"`` only when handled."""
+        if not self._scan_active():
+            return None
+        step = self._scan_shift_step_cm * POINTS_PER_CM
+        self._scan_after(self._scan_session.shift_by(dx_steps * step, dy_steps * step), locked_message=True)
+        return "break"
+
+    def _on_shift_arrow_key(self, direction: int, event):
+        """Shift+←/→: 90° in the Scan-Werkstatt; elsewhere, or while typing in a field, the plain ←/→ behaviour."""
+        if self._scan_active() and not self._is_editable_widget(self.root.focus_get()):
+            return self._scan_rotate_quarter_key(direction)
+        return (self._on_right_key if direction > 0 else self._on_left_key)(event)
+
+    def _on_scan_shift_typed(self, _event=None) -> None:
+        """Typing in a shift field flushes 600 ms after the last key (like the degree field)."""
+        view = self._scan_view
+        if view is None or view.suppress_degree:
+            return
+        if view.shift_flush is not None:
+            view.canvas.after_cancel(view.shift_flush)
+        view.shift_flush = view.canvas.after(600, self._flush_scan_shift)
+
+    def _flush_scan_shift(self) -> None:
+        """Apply the typed x/y shift in cm (after the delay, on Enter or focus-out); invalid input only shows a hint."""
+        view, session = self._scan_view, self._scan_session
+        if view is None or session is None:
+            return
+        if view.shift_flush is not None:
+            view.canvas.after_cancel(view.shift_flush)
+            view.shift_flush = None
+        x_cm, y_cm = parse_rotation_input(view.shift_x_var.get()), parse_rotation_input(view.shift_y_var.get())
+        if x_cm is None or y_cm is None:
+            view.degree_hint_var.set("Ungültige Verschiebung (cm)")
+            return
+        edit = session.current_edit
+        x_pt, y_pt = x_cm * POINTS_PER_CM, y_cm * POINTS_PER_CM
+        if abs(x_pt - edit.offset_x_pt) > 1e-6 or abs(y_pt - edit.offset_y_pt) > 1e-6:
+            self._scan_after(session.set_offset(x_pt, y_pt), locked_message=True)
+
     def _scan_rotate_quarter_key(self, direction: int):
-        """Strg+Shift+←/→ and the 90° buttons: quarter turn; ``"break"`` only when handled."""
+        """Shift+←/→ and the 90° buttons: quarter turn; ``"break"`` only when handled."""
         if not self._scan_active():
             return None
         self._scan_after(self._scan_session.rotate_quarter(direction), locked_message=True)

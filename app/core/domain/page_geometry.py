@@ -34,13 +34,17 @@ class PageTransform:
 
     The edited page keeps the source size (width/height swapped after an odd
     number of quarter turns); the content is rotated clockwise by
-    ``rotation_deg`` around the page center at scale 1:1, so corners may be
-    clipped and uncovered areas stay white.
+    ``rotation_deg`` around the page center at scale 1:1 and then shifted by
+    ``offset_x``/``offset_y`` points (in coordinates of the edited page,
+    positive = right/down). Content pushed over the edge is clipped,
+    uncovered areas stay white.
     """
 
     source_width: float
     source_height: float
     rotation_deg: float
+    offset_x: float = 0.0
+    offset_y: float = 0.0
 
     @property
     def target_size(self) -> tuple[float, float]:
@@ -50,24 +54,24 @@ class PageTransform:
         return self.source_width, self.source_height
 
     def map_point(self, x: float, y: float) -> tuple[float, float]:
-        """Map a point of the source page to the edited page (center rotation, clockwise positive)."""
+        """Map a point of the source page to the edited page (center rotation clockwise positive, then the shift)."""
         rad = math.radians(self.rotation_deg)
         dx, dy = x - self.source_width / 2, y - self.source_height / 2
         target_width, target_height = self.target_size
         return (
-            target_width / 2 + dx * math.cos(rad) - dy * math.sin(rad),
-            target_height / 2 + dx * math.sin(rad) + dy * math.cos(rad),
+            target_width / 2 + dx * math.cos(rad) - dy * math.sin(rad) + self.offset_x,
+            target_height / 2 + dx * math.sin(rad) + dy * math.cos(rad) + self.offset_y,
         )
 
     def bounding_box_of_rotated_source(self) -> tuple[float, float, float, float]:
-        """Rectangle (on the edited page) the rotated source page occupies, centered; used for drawing."""
+        """Rectangle (on the edited page) the rotated source page occupies - centered, then shifted; used for drawing."""
         rad = math.radians(self.rotation_deg)
         width = self.source_width * abs(math.cos(rad)) + self.source_height * abs(math.sin(rad))
         height = self.source_width * abs(math.sin(rad)) + self.source_height * abs(math.cos(rad))
         target_width, target_height = self.target_size
         return (
-            target_width / 2 - width / 2,
-            target_height / 2 - height / 2,
-            target_width / 2 + width / 2,
-            target_height / 2 + height / 2,
+            target_width / 2 - width / 2 + self.offset_x,
+            target_height / 2 - height / 2 + self.offset_y,
+            target_width / 2 + width / 2 + self.offset_x,
+            target_height / 2 + height / 2 + self.offset_y,
         )

@@ -16,9 +16,21 @@ class AppRuntimeSettings:
     default_annotation_pdf_font_size: float = 14.0
     # Scan-Werkstatt: Strg+←/→ step in degrees (product decision: default 2.0, allowed 0.1-45).
     scan_rotation_step_deg: float = 2.0
+    # Scan-Werkstatt: Strg+Shift+Pfeile step in cm (product decision: default 0.5, allowed 0.1-5).
+    scan_shift_step_cm: float = 0.5
 
 
 SCAN_ROTATION_STEP_RANGE = (0.1, 45.0)
+SCAN_SHIFT_STEP_RANGE = (0.1, 5.0)
+
+
+def clamp_scan_shift_step(value: object) -> float:
+    """Scan-Werkstatt shift step in cm, clamped to 0.1-5 (invalid input -> default 0.5)."""
+    try:
+        step = float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        return 0.5
+    return max(SCAN_SHIFT_STEP_RANGE[0], min(SCAN_SHIFT_STEP_RANGE[1], step))
 
 
 def clamp_scan_rotation_step(value: object) -> float:
@@ -89,10 +101,11 @@ class JsonAppSettingsRepository:
             default_annotation_color=default_color,
             default_annotation_pdf_font_size=default_size,
             scan_rotation_step_deg=clamp_scan_rotation_step(raw.get("scan_rotation_step_deg", 2.0)),
+            scan_shift_step_cm=clamp_scan_shift_step(raw.get("scan_shift_step_cm", 0.5)),
         )
 
     def save(self, settings: AppRuntimeSettings) -> AppRuntimeSettings:
-        """Write all runtime settings atomically (including `scan_rotation_step_deg`)."""
+        """Write all runtime settings atomically (including the Scan-Werkstatt rotation and shift steps)."""
         normalized = settings.exam_index_dir.resolve()
         normalized.mkdir(parents=True, exist_ok=True)
         color = settings.default_annotation_color.strip()
@@ -104,6 +117,7 @@ class JsonAppSettingsRepository:
             "default_annotation_color": color,
             "default_annotation_pdf_font_size": size,
             "scan_rotation_step_deg": clamp_scan_rotation_step(settings.scan_rotation_step_deg),
+            "scan_shift_step_cm": clamp_scan_shift_step(settings.scan_shift_step_cm),
         }
         atomic_write_json(self._settings_file, payload)
         return AppRuntimeSettings(
@@ -111,6 +125,7 @@ class JsonAppSettingsRepository:
             default_annotation_color=color,
             default_annotation_pdf_font_size=size,
             scan_rotation_step_deg=clamp_scan_rotation_step(settings.scan_rotation_step_deg),
+            scan_shift_step_cm=clamp_scan_shift_step(settings.scan_shift_step_cm),
         )
 
     def save_exam_index_dir(self, exam_index_dir: Path) -> AppRuntimeSettings:
@@ -122,5 +137,6 @@ class JsonAppSettingsRepository:
                 default_annotation_color=current.default_annotation_color,
                 default_annotation_pdf_font_size=current.default_annotation_pdf_font_size,
                 scan_rotation_step_deg=current.scan_rotation_step_deg,
+                scan_shift_step_cm=current.scan_shift_step_cm,
             )
         )

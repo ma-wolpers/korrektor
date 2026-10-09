@@ -101,3 +101,53 @@ def test_keys_navigate_rotate_and_delete(scan_window):
     state = window._scan_session.states["a.pdf"]
     assert state.edit_for(2).rotation_deg == pytest.approx(window._scan_rotation_step_deg)
     assert state.edit_for(2).deleted and window._scan_session.student_index == 1
+
+
+_CM = 72.0 / 2.54
+
+
+def test_shift_buttons_and_fields(scan_window):
+    window, _folder = scan_window
+    assert window._scan_shift_key(1, 0) == "break"
+    edit = window._scan_session.current_edit
+    assert edit.offset_x_pt == pytest.approx(window._scan_shift_step_cm * _CM) and edit.rotation_deg == 0.0
+    assert "Verschiebung +0.5/+0.0 cm" in window._scan_view.info_var.get()
+
+    window._scan_view.shift_x_var.set("0")
+    window._scan_view.shift_y_var.set("1,5 cm")
+    window._flush_scan_shift()
+    edit = window._scan_session.current_edit
+    assert (edit.offset_x_pt, edit.offset_y_pt) == pytest.approx((0.0, 1.5 * _CM))
+    assert window._scan_view.shift_y_var.get() == "1,5"
+
+
+def test_shift_arrow_outside_the_scan_workshop_keeps_plain_arrow_behaviour(scan_window, monkeypatch):
+    window, _folder = scan_window
+    seen = []
+    monkeypatch.setattr(window, "_on_right_key", lambda event: seen.append("right"))
+    monkeypatch.setattr(window, "_active_view", "detail")
+
+    window._on_shift_arrow_key(1, None)
+
+    assert seen == ["right"] and window._scan_session.current_edit.rotation_deg == 0.0
+
+
+@FOCUS_ONLY
+def test_shift_arrow_turns_90_and_ctrl_shift_arrows_shift_without_side_effects(scan_window):
+    window, _folder = scan_window
+    canvas = window._scan_view.canvas
+    canvas.focus_force()
+    settle(window)
+
+    canvas.event_generate("<Shift-Right>")
+    settle(window)
+    session = window._scan_session
+    assert session.current_edit.rotation_deg == pytest.approx(90.0) and session.student_index == 0
+
+    canvas.event_generate("<Control-Shift-Right>")
+    canvas.event_generate("<Control-Shift-Down>")
+    settle(window)
+    edit = session.current_edit
+    step = window._scan_shift_step_cm * _CM
+    assert (edit.offset_x_pt, edit.offset_y_pt) == pytest.approx((step, step))
+    assert edit.rotation_deg == pytest.approx(90.0) and session.student_index == 0 and session.position == 1

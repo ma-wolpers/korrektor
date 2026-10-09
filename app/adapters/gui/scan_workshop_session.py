@@ -123,12 +123,26 @@ class ScanWorkshopSession:
         return self._update_edit(lambda edit: replace(edit, rotation_deg=normalize_rotation(edit.rotation_deg + degrees)))
 
     def rotate_quarter(self, direction: int) -> bool:
-        """Strg+Shift+←/→: rotate by 90° (``direction`` +1 clockwise, -1 counter-clockwise)."""
+        """Shift+←/→: rotate by 90° (``direction`` +1 clockwise, -1 counter-clockwise)."""
         return self.rotate_by(90.0 * direction)
 
     def set_rotation(self, degrees: float) -> bool:
         """Degree field: set the absolute clockwise rotation of the current page."""
         return self._update_edit(lambda edit: replace(edit, rotation_deg=normalize_rotation(degrees)))
+
+    def shift_by(self, dx_pt: float, dy_pt: float) -> bool:
+        """Strg+Shift+Pfeile or the buttons: move the current page's content (points, right/down positive)."""
+        return self._update_edit(lambda edit: replace(edit, offset_x_pt=edit.offset_x_pt + dx_pt, offset_y_pt=edit.offset_y_pt + dy_pt))
+
+    def set_offset(self, x_pt: float | None = None, y_pt: float | None = None) -> bool:
+        """Shift fields: set the absolute shift of the current page (``None`` keeps that axis)."""
+        return self._update_edit(
+            lambda edit: replace(
+                edit,
+                offset_x_pt=edit.offset_x_pt if x_pt is None else x_pt,
+                offset_y_pt=edit.offset_y_pt if y_pt is None else y_pt,
+            )
+        )
 
     def set_crosshair(self, fraction_x: float, fraction_y: float) -> None:
         """Place the crosshair (fractions of the page, clamped to 0..1)."""

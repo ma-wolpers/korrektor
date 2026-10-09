@@ -95,3 +95,18 @@ def test_page_count_and_dropped_report():
     anna = [item for item in result.dropped if item.startswith("Anna: ")]
     assert len(anna) == 3 and all("Seite 2" in item for item in anna)
     assert original.students[0].page_count == 3 and len(original.pdf_annotations) == 3  # input untouched
+
+
+def test_shift_moves_marks_and_einzelseiten_boxes_with_the_content():
+    exam = _exam()
+    shifted = PageTransform(*_A4, 0.0, offset_x=10.0, offset_y=-4.0)
+    transforms = {page: PageTransform(*_A4, 0.0) for page in (1, 2, 3)}
+    transforms[1] = shifted
+    plan = {"a.pdf": PdfPagePlan(mapping={1: 1, 2: 2, 3: 3}, transforms=transforms, new_page_count=3)}
+
+    result = remap_exam(exam, plan)
+
+    mark = next(item for item in result.exam.pdf_annotations if item.annotation_id == "m1")
+    assert (mark.x, mark.y) == pytest.approx((110.0, 196.0)) and mark.rotation_deg == pytest.approx(10.0)
+    box = next(region.box for region in result.exam.regions if region.region_id == "e1")
+    assert (box.x0, box.y0, box.x1, box.y1) == pytest.approx((110.0, 196.0, 310.0, 246.0))

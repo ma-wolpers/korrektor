@@ -13,7 +13,10 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
 
-SCAN_KEY_HELP = "←/→ Person · ↑/↓ Seite · Strg+↑/↓ verschieben · Entf löschen · Strg+←/→ drehen · Strg+Shift+←/→ 90° · Klick: Fadenkreuz"
+SCAN_KEY_HELP = (
+    "←/→ Person · ↑/↓ Seite · Strg+↑/↓ Seite umsortieren · Entf löschen · Strg+←/→ drehen · Shift+←/→ 90° · "
+    "Strg+Shift+Pfeile Inhalt verschieben · Klick: Fadenkreuz"
+)
 _MAX_LISTED = 15
 
 
@@ -26,6 +29,9 @@ class ScanWorkshopView:
     degree_var: Any
     degree_hint_var: Any
     degree_entry: Any
+    shift_x_var: Any
+    shift_y_var: Any
+    shift_entries: Any
     canvas: Any
     page_tree: Any
     delete_button: Any
@@ -33,6 +39,7 @@ class ScanWorkshopView:
     image_box: tuple[float, float, float, float] = (0.0, 0.0, 1.0, 1.0)
     pending_render: str | None = None
     degree_flush: str | None = None
+    shift_flush: str | None = None
     suppress_degree: bool = False
 
 
@@ -82,15 +89,32 @@ class MainWindowScanWorkshopMixin:
         degree_entry.bind("<KeyRelease>", self._on_scan_degree_typed)
         degree_entry.bind("<Return>", lambda _event: self._flush_scan_degree())
         degree_entry.bind("<FocusOut>", lambda _event: self._flush_scan_degree())
+        shift_row = widgets.Frame(root, style="Surface.TFrame")
+        shift_row.pack(side=ui.BOTTOM, fill=ui.X, pady=(6, 0))
+        widgets.Label(shift_row, text="Inhalt verschieben:", style="Muted.TLabel").pack(side=ui.LEFT, padx=(0, 6))
+        for text, steps in (("←", (-1, 0)), ("→", (1, 0)), ("↑", (0, -1)), ("↓", (0, 1))):
+            widgets.Button(shift_row, text=text, style="SecondaryAction.TButton", width=3, takefocus=False,
+                           command=lambda steps=steps: self._scan_shift_key(*steps)).pack(side=ui.LEFT, padx=(0, 4))
+        shift_x_var, shift_y_var = ui.StringVar(value="0"), ui.StringVar(value="0")
+        shift_entries = []
+        for label, variable in (("x", shift_x_var), ("y", shift_y_var)):
+            widgets.Label(shift_row, text=label, style="Muted.TLabel").pack(side=ui.LEFT, padx=(8, 2))
+            entry = widgets.Entry(shift_row, textvariable=variable, width=6)
+            entry.pack(side=ui.LEFT)
+            widgets.Label(shift_row, text="cm", style="Muted.TLabel").pack(side=ui.LEFT, padx=(2, 0))
+            entry.bind("<KeyRelease>", self._on_scan_shift_typed)
+            entry.bind("<Return>", lambda _event: self._flush_scan_shift())
+            entry.bind("<FocusOut>", lambda _event: self._flush_scan_shift())
+            shift_entries.append(entry)
         widgets.Label(root, text=SCAN_KEY_HELP, style="Muted.TLabel", anchor=ui.W).pack(side=ui.BOTTOM, fill=ui.X, pady=(4, 0))
 
         middle = widgets.Frame(root, style="Surface.TFrame")
         middle.pack(side=ui.TOP, fill=ui.BOTH, expand=True, pady=(8, 0))
-        list_panel = widgets.Frame(middle, width=250)
+        list_panel = widgets.Frame(middle, width=320)
         list_panel.pack(side=ui.RIGHT, fill=ui.Y, padx=(8, 0))
         list_panel.pack_propagate(False)
-        page_tree = widgets.Treeview(list_panel, columns=("pos", "orig", "rot", "status"), show="headings", takefocus=False)
-        for column, title, width in (("pos", "Pos.", 40), ("orig", "Original", 60), ("rot", "Drehung", 60), ("status", "Status", 80)):
+        page_tree = widgets.Treeview(list_panel, columns=("pos", "orig", "rot", "shift", "status"), show="headings", takefocus=False)
+        for column, title, width in (("pos", "Pos.", 40), ("orig", "Original", 60), ("rot", "Drehung", 60), ("shift", "Versch. cm", 70), ("status", "Status", 80)):
             page_tree.heading(column, text=title)
             page_tree.column(column, width=width, anchor=ui.CENTER, stretch=column == "status")
         page_tree.pack(fill=ui.BOTH, expand=True)
@@ -104,7 +128,7 @@ class MainWindowScanWorkshopMixin:
 
         self._scan_view = ScanWorkshopView(
             info_var=info_var, pending_var=pending_var, degree_var=degree_var, degree_hint_var=degree_hint_var,
-            degree_entry=degree_entry, canvas=canvas, page_tree=page_tree, delete_button=delete_button,
+            degree_entry=degree_entry, shift_x_var=shift_x_var, shift_y_var=shift_y_var, shift_entries=shift_entries, canvas=canvas, page_tree=page_tree, delete_button=delete_button,
         )
 
     def _start_scan_workshop(self) -> None:
