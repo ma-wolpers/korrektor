@@ -43,11 +43,7 @@ class MainWindowRegionFormMixin:
                 self._extra_area_codes_var.set(",".join(code.strip().upper() for code in draft.area_codes if code.strip()))
                 self._rerender_active_page()
                 return
-            quick_text = ";".join(f"{code}:{points:g}" for code, points in draft.task_specs)
-            form_text = "\n".join(f"{code}:{points:g}" for code, points in draft.task_specs)
-            self._quick_tasks_var.set(quick_text)
-            self._form_tasks_text.delete("1.0", ui.END)
-            self._form_tasks_text.insert("1.0", form_text)
+            self._show_task_specs_in_editor(list(draft.task_specs))
             self._rerender_active_page()
             return
 
@@ -77,11 +73,7 @@ class MainWindowRegionFormMixin:
             self._rerender_active_page()
             return
 
-        quick_text = ";".join(f"{task.code}:{task.max_points:g}" for task in region.tasks)
-        form_text = "\n".join(f"{task.code}:{task.max_points:g}" for task in region.tasks)
-        self._quick_tasks_var.set(quick_text)
-        self._form_tasks_text.delete("1.0", ui.END)
-        self._form_tasks_text.insert("1.0", form_text)
+        self._show_task_specs_in_editor([(task.code, task.max_points) for task in region.tasks])
         self._rerender_active_page()
 
     def _commit_reading_fields_if_possible(self) -> None:

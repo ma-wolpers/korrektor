@@ -71,6 +71,12 @@
 - "Für alle Personen (Seite N)" nur für Seitenzahlen ohne Bereich bei allen; `plan_page_for_all` schließt zugeordnete Seiten (und bei der Zuordnung auch bewusste "ohne Bewertung"-Marken) immer aus.
 - Extraseiten erhalten keine eigene Aufgabenpflege; sie werden nur vorhandenen Standard-Bereichen zugeordnet.
 
+## Aufgaben-Eingabe (Kurzschreibweise)
+
+- Grammatik in `app/core/domain/task_spec.py` (reine Funktion, einzige Quelle für Schnell- und Formularmodus): Einträge durch `;`/Zeilenumbruch getrennt, Eintrag = `Codes[:Punkte]`; Läufe nur am Code-Ende (ein Buchstabe `4a-d`, Zahlen `2.1-4`, Langform `4a-4d`); Codes kanonisch groß. Punkte: bei einem Code ist `,` Dezimalkomma, bei mehreren Codes trennt `,` die Werte (genau n oder einer für alle, Dezimalpunkt). Ohne `:` = Verweis auf eine vorhandene Aufgabe (`points=None`), nur wo der Aufrufer das zulässt.
+- `format_task_specs` ist die Umkehrung (Läufe zusammengefasst); Vertrag `parse(format(parse(x))) == parse(x)`.
+- GRENZE: Aufgaben-Codes mit `-`, `;` oder `:` lassen sich in dieser Schreibweise nicht eingeben bzw. nicht verlustfrei anzeigen (Altbestände bleiben gültig, nur das erneute Bearbeiten im Editor scheitert mit Meldung).
+
 ## Scan-Werkstatt (PDF-Seiten vor dem Zuschnitt bearbeiten)
 
 - **Schichten:** Geometrie `core/domain/page_geometry.py` (`PageTransform`: Drehung im Uhrzeigersinn um die Seitenmitte, Maßstab 1:1, 90°-Vielfache tauschen die Maße) → Remap `core/domain/page_remap.py` (rein) → PDF `infrastructure/pdf/page_editing.py` (`render_edited_page` für die Vorschau und `write_edited_pdf` für das Ergebnis nutzen dieselbe Transformation) und `pdf_replacement.py` (Dateitausch) → Adapter `scan_workshop_session.py` (Tk-frei: `PdfEditState`, `ScanWorkshopSession`), `ui_intent_controller_scan_workshop.py`, View `main_window_scan_workshop*.py`.
