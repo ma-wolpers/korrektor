@@ -29,56 +29,55 @@ class ExamStructureError(Exception):
 
 
 def validate_regions(exam: ExamProject) -> None:
-    """Enforce the region identity invariants Korrekturmodus depends on.
+    """Enforce the region/task invariants of schema v2 (on load and before every region save).
 
-    Checks, in order, that every region has a non-empty `region_id`, that no
-    two regions share a `region_id`, that no two regions share a primary
-    `assigned_area_codes[0]` label, and that no `TaskDefinition.code` is used
-    by more than one region (required because `korrektor_scores.csv` keys
-    columns by `task_code` alone, exam-wide). Raises `ExamStructureError`
-    naming the exam and the conflicting identifiers on the first violated
-    invariant found.
+    In order: every region has a non-empty, unique ``region_id`` and a unique
+    display label; every Einzelseiten-Bereich belongs to a known student PDF;
+    every region has at least one task code, none twice, each defined in
+    ``exam.tasks``; task codes in ``exam.tasks`` are non-empty and unique
+    (``korrektor_scores.csv`` keys columns by code alone); every task is
+    referenced by at least one region. Raises `ExamStructureError` naming
+    the exam and the first violated invariant. Not checked here (reported,
+    never fatal for existing data): the shared-page rule for Superseiten
+    and the mark references (see `task_regions`).
     """
+    prefix = f"Klausur '{exam.exam_name}' ({exam.exam_id})"
     empty_region_ids = sum(1 for region in exam.regions if not region.region_id.strip())
     if empty_region_ids:
-        raise ExamStructureError(
-            f"Klausur '{exam.exam_name}' ({exam.exam_id}): {empty_region_ids} Region(en) ohne region_id."
-        )
+        raise ExamStructureError(f"{prefix}: {empty_region_ids} Region(en) ohne region_id.")
+    _reject_duplicates(prefix, "doppelte region_id(s)", [region.region_id for region in exam.regions])
+    labels = [region.assigned_area_codes[0].strip().upper() for region in exam.regions if region.assigned_area_codes and region.assigned_area_codes[0].strip()]
+    _reject_duplicates(prefix, "mehrere Bereiche mit demselben Bereichs-Label", labels)
 
-    region_id_counts: dict[str, int] = {}
-    for region in exam.regions:
-        region_id_counts[region.region_id] = region_id_counts.get(region.region_id, 0) + 1
-    duplicate_region_ids = sorted(region_id for region_id, count in region_id_counts.items() if count > 1)
-    if duplicate_region_ids:
-        raise ExamStructureError(
-            f"Klausur '{exam.exam_name}' ({exam.exam_id}): doppelte region_id(s): {', '.join(duplicate_region_ids)}."
-        )
+    known_pdfs = {student.pdf_filename for student in exam.students}
+    foreign = sorted({region.student_pdf for region in exam.regions if region.student_pdf and region.student_pdf not in known_pdfs})
+    if foreign:
+        raise ExamStructureError(f"{prefix}: Einzelseiten-Bereich(e) zu unbekannter PDF: {', '.join(foreign)}.")
 
-    label_counts: dict[str, int] = {}
+    task_codes = [task.code.strip().upper() for task in exam.tasks]
+    if any(not code for code in task_codes):
+        raise ExamStructureError(f"{prefix}: Aufgabe ohne Code.")
+    _reject_duplicates(prefix, "Aufgaben-Code(s) mehrfach definiert", task_codes)
+    defined = set(task_codes)
     for region in exam.regions:
-        if not region.assigned_area_codes:
-            continue
-        label = region.assigned_area_codes[0].strip().upper()
-        if not label:
-            continue
-        label_counts[label] = label_counts.get(label, 0) + 1
-    duplicate_labels = sorted(label for label, count in label_counts.items() if count > 1)
-    if duplicate_labels:
-        raise ExamStructureError(
-            f"Klausur '{exam.exam_name}' ({exam.exam_id}): mehrere Bereiche mit demselben Bereichs-Label: "
-            f"{', '.join(duplicate_labels)}."
-        )
+        label = region.assigned_area_codes[0] if region.assigned_area_codes else region.region_id
+        if not region.task_codes:
+            raise ExamStructureError(f"{prefix}: Bereich {label} hat keine Aufgabe.")
+        _reject_duplicates(prefix, f"Bereich {label} nennt Aufgabe(n) mehrfach", region.task_codes)
+        undefined = sorted(set(region.task_codes) - defined)
+        if undefined:
+            raise ExamStructureError(f"{prefix}: Bereich {label} verweist auf unbekannte Aufgabe(n): {', '.join(undefined)}.")
+    referenced = {code for region in exam.regions for code in region.task_codes}
+    orphans = sorted(defined - referenced)
+    if orphans:
+        raise ExamStructureError(f"{prefix}: Aufgabe(n) ohne Bereich: {', '.join(orphans)}.")
 
-    task_code_counts: dict[str, int] = {}
-    for region in exam.regions:
-        for task in region.tasks:
-            code = task.code.strip().upper()
-            if not code:
-                continue
-            task_code_counts[code] = task_code_counts.get(code, 0) + 1
-    duplicate_task_codes = sorted(code for code, count in task_code_counts.items() if count > 1)
-    if duplicate_task_codes:
-        raise ExamStructureError(
-            f"Klausur '{exam.exam_name}' ({exam.exam_id}): Aufgaben-Code(s) in mehreren Bereichen vergeben "
-            f"(muss klausurweit eindeutig sein): {', '.join(duplicate_task_codes)}."
-        )
+
+def _reject_duplicates(prefix: str, what: str, values: list[str]) -> None:
+    """Raise `ExamStructureError` if ``values`` contains duplicates."""
+    counts: dict[str, int] = {}
+    for value in values:
+        counts[value] = counts.get(value, 0) + 1
+    duplicates = sorted(value for value, count in counts.items() if count > 1)
+    if duplicates:
+        raise ExamStructureError(f"{prefix}: {what}: {', '.join(duplicates)}.")

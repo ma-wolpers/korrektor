@@ -41,7 +41,7 @@ def test_exam_project_from_dict_drops_assignment_to_unknown_category() -> None:
         "created_at": now,
         "updated_at": now,
         "standard_page_count": 1,
-        "extra_page_assignments": [],
+        "schema_version": 2,
         "task_categories": [{"category_id": "cat-1", "name": "Geometrie"}],
         "task_category_assignments": {"1A": "cat-1", "1B": "cat-missing"},
     }
@@ -89,11 +89,12 @@ def _setup(tmp_path: Path) -> tuple[UiIntentController, ExamProject]:
                 student_pdf="",
                 page_number=1,
                 box=RegionBox(0, 0, 100, 100),
-                tasks=[TaskDefinition(code="1A", name="1A", max_points=5.0), TaskDefinition(code="1B", name="1B", max_points=3.0)],
+                task_codes=["1A", "1B"],
                 assigned_area_codes=["A"],
                 is_read_complete=True,
             ),
         ],
+        tasks=[TaskDefinition(code="1A", name="1A", max_points=5.0), TaskDefinition(code="1B", name="1B", max_points=3.0)],
     )
     controller._deps.exam_repository.save_exam(exam)
     return controller, exam

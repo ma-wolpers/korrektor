@@ -7,6 +7,7 @@ import fitz
 from app.adapters.gui.dialog_services import messagebox
 from app.adapters.gui.main_window_types import CorrectionTemplate
 from app.core.domain.models import ExamProject, StudentExam, TaskDefinition
+from app.core.domain.task_regions import tasks_of_region
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
@@ -212,8 +213,10 @@ class MainWindowCorrectionCoreMixin:
         that is now rejected earlier, at load time.
         """
         templates: dict[str, CorrectionTemplate] = {}
+        # Superseiten-Bereiche only until the correction becomes task-centric
+        # (then all regions of the current task are shown, see the plan's Teil 3).
         ordered_regions = sorted(
-            (region for region in exam.regions if region.assigned_area_codes),
+            (region for region in exam.regions if region.assigned_area_codes and not region.student_pdf),
             key=lambda item: (item.assigned_area_codes[0], item.page_number, item.region_id),
         )
         for region in ordered_regions:
@@ -225,7 +228,7 @@ class MainWindowCorrectionCoreMixin:
                 area_code=area_code,
                 page_number=region.page_number,
                 box=(region.box.x0, region.box.y0, region.box.x1, region.box.y1),
-                tasks=[TaskDefinition(code=task.code, name=task.name, max_points=task.max_points) for task in region.tasks],
+                tasks=[TaskDefinition(code=task.code, name=task.name, max_points=task.max_points) for task in tasks_of_region(exam, region)],
             )
         return templates
 

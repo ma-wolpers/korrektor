@@ -131,6 +131,7 @@ def _parse_points(text: str, count: int, entry: str) -> list[float]:
 
 
 def _number(text: str, entry: str) -> float:
+    """Parse one points value (``.`` as decimal point); must be a finite number >= 0."""
     try:
         value = float(text)
     except ValueError:
@@ -158,6 +159,7 @@ def format_task_specs(items, *, separator: str = "; ") -> str:
 
 
 def _continues_run(previous: TaskSpec, current: TaskSpec) -> bool:
+    """True if ``current`` directly follows ``previous`` in a run (same prefix, next letter/number, both with or both without points)."""
     if (previous.points is None) != (current.points is None):
         return False
     before, after = _CODE_TAIL.match(previous.code), _CODE_TAIL.match(current.code)
@@ -173,6 +175,7 @@ def _continues_run(previous: TaskSpec, current: TaskSpec) -> bool:
 
 
 def _format_group(group: list[TaskSpec]) -> str:
+    """Format one run: a single code, ``4A-D`` without points, or with one shared or n individual values."""
     if len(group) == 1:
         spec = group[0]
         return spec.code if spec.points is None else f"{spec.code}:{_format_number(spec.points, decimal=',')}"
@@ -187,6 +190,7 @@ def _format_group(group: list[TaskSpec]) -> str:
 
 
 def _format_number(value: float, *, decimal: str) -> str:
+    """``1.5`` with the given decimal separator (``,`` for a single code, ``.`` inside lists)."""
     return f"{value:g}".replace(".", decimal)
 
 

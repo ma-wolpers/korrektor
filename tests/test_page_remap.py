@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.core.domain.models import ExamProject, ExtraPageAssignment, PdfAnnotation, RegionBox, StudentExam, UnscoredPage
+from app.core.domain.models import ExamProject, PdfAnnotation, RegionAssignment, RegionBox, StudentExam, TaskDefinition, UnscoredPage
 from app.core.domain.page_geometry import PageTransform
 from app.core.domain.page_remap import PdfPagePlan, remap_exam
 
@@ -26,10 +26,12 @@ def _exam() -> ExamProject:
             StudentExam(student_id="b", display_name="Ben", pdf_filename="b.pdf", page_count=3),
         ],
         pdf_annotations=[mark("m1", "a.pdf", 1, rotation=10.0), mark("m2", "a.pdf", 2), mark("m3", "b.pdf", 2)],
-        extra_page_assignments=[
-            ExtraPageAssignment("e1", "a.pdf", 1, RegionBox(0.0, 0.0, *_A4), ["A1"]),
-            ExtraPageAssignment("e2", "a.pdf", 2, RegionBox(0.0, 0.0, *_A4), ["A2"]),
+        regions=[
+            RegionAssignment("sup", "", 1, RegionBox(0.0, 0.0, 100.0, 100.0), ["1A"], ["A"]),
+            RegionAssignment("e1", "a.pdf", 1, RegionBox(100.0, 200.0, 300.0, 250.0), ["1A"], ["B"]),
+            RegionAssignment("e2", "a.pdf", 2, RegionBox(0.0, 0.0, *_A4), ["2A"], ["C"]),
         ],
+        tasks=[TaskDefinition("1A", "1A", 2.0), TaskDefinition("2A", "2A", 1.0)],
         unscored_pages=[UnscoredPage("a.pdf", 3), UnscoredPage("a.pdf", 2), UnscoredPage("b.pdf", 3)],
     )
 
@@ -52,12 +54,31 @@ def test_annotations_move_with_their_page_and_turn_with_it():
     assert by_id["m3"].page_number == 2  # other person untouched
 
 
-def test_extra_assignment_box_becomes_the_full_new_page():
+def test_einzelseiten_region_moves_with_its_page_and_its_box_is_transformed():
     result = remap_exam(_exam(), _plan())
-    (assignment,) = result.exam.extra_page_assignments
+    by_id = {region.region_id: region for region in result.exam.regions}
 
-    assert assignment.assignment_id == "e1" and assignment.page_number == 2
-    assert (assignment.box.x0, assignment.box.y0, assignment.box.x1, assignment.box.y1) == pytest.approx((0, 0, 842, 595))
+    assert set(by_id) == {"sup", "e1"}  # e2 lay on the deleted page 2
+    assert by_id["sup"].page_number == 1  # Superseiten-Bereiche stay
+    moved = by_id["e1"]
+    transform = PageTransform(*_A4, 90.0)
+    corners = [transform.map_point(x, y) for x in (100.0, 300.0) for y in (200.0, 250.0)]
+    assert moved.page_number == 2
+    assert (moved.box.x0, moved.box.y0, moved.box.x1, moved.box.y1) == pytest.approx(
+        (min(c[0] for c in corners), min(c[1] for c in corners), max(c[0] for c in corners), max(c[1] for c in corners))
+    )
+    assert [task.code for task in result.exam.tasks] == ["1A"]  # 2A only had the deleted region
+    assert any("Aufgabe 2A" in item for item in result.dropped)
+
+
+def test_superseiten_region_on_a_page_someone_loses_is_rejected():
+    """Rule A4: deleting Anna's only page 1 would leave Superseiten-Bereich A on a page she no longer has."""
+    exam = _exam()
+    transforms = {page: PageTransform(*_A4, 0.0) for page in (1, 2, 3)}
+    plan = {"a.pdf": PdfPagePlan(mapping={1: None, 2: None, 3: None}, transforms=transforms, new_page_count=0)}
+
+    with pytest.raises(ValueError, match="Bereich A liegt auf Seite 1, die Anna nicht hat"):
+        remap_exam(exam, plan)
 
 
 def test_unscored_pages_are_renumbered_or_dropped():
@@ -71,5 +92,6 @@ def test_page_count_and_dropped_report():
     result = remap_exam(original, _plan())
 
     assert [student.page_count for student in result.exam.students] == [2, 3]
-    assert len(result.dropped) == 3 and all(item.startswith("Anna: ") and "Seite 2" in item for item in result.dropped)
+    anna = [item for item in result.dropped if item.startswith("Anna: ")]
+    assert len(anna) == 3 and all("Seite 2" in item for item in anna)
     assert original.students[0].page_count == 3 and len(original.pdf_annotations) == 3  # input untouched

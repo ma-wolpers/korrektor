@@ -45,7 +45,7 @@ class MainWindowViewStateMixin:
             command=self._start_reading_mode,
         )
         mode_reading_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(mode_reading_button, label="Zum Zuschnitt wechseln (Schritt 1: Bereiche, Schritt 2: Seiten ohne Bereich)", shortcut=None)
+        self._attach_hover_help(mode_reading_button, label="Zum Zuschnitt wechseln (Schritt 1: Superseiten, Schritt 2: Einzelseiten)", shortcut=None)
 
         mode_correction_button = widgets.Button(
             detail_actions,
@@ -182,12 +182,12 @@ class MainWindowViewStateMixin:
 
         show_extras_button = widgets.Button(
             correction_header,
-            text="Extraseiten ansehen",
+            text="Einzelseiten ansehen",
             style="SecondaryAction.TButton",
             command=self._toggle_extra_pages_popup_for_current,
         )
         show_extras_button.pack(side=ui.RIGHT)
-        self._attach_hover_help(show_extras_button, label="Extraseiten-Popup der aktuellen Person öffnen", shortcut=None)
+        self._attach_hover_help(show_extras_button, label="Einzelseiten mit Bereichen der aktuellen Person ansehen", shortcut=None)
 
         form = widgets.Frame(self._correction_controls_frame, style="Surface.TFrame")
         form.pack(fill=ui.X, pady=(8, 0))

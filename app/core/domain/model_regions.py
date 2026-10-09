@@ -1,4 +1,4 @@
-"""Domain models: tasks, region templates, extra-page assignments, unscored pages, task categories."""
+"""Domain models: tasks, regions (Superseiten/Einzelseiten), unscored pages, task categories."""
 
 from __future__ import annotations
 
@@ -55,74 +55,57 @@ class RegionBox:
 
 @dataclass(slots=True)
 class RegionAssignment:
+    """A marked area ("Bereich") that holds one or more tasks (schema v2).
+
+    ``student_pdf == ""``: **Superseiten-Bereich** - the same box on page
+    ``page_number`` of every student (Zuschnitt Schritt 1). ``student_pdf``
+    set: **Einzelseiten-Bereich** - only on that student's PDF (Zuschnitt
+    Schritt 2). ``task_codes`` reference `ExamProject.tasks` (canonical upper
+    case); a task may be referenced by any number of regions, which is how a
+    task spans a page break or continues on an extra sheet. ``box`` is in
+    PyMuPDF page points of the rendered (visible) page, origin top left.
+    ``assigned_area_codes[0]`` is the automatic, exam-wide unique display
+    label (A, B, ...), never used as an identity - ``region_id`` is.
+    """
+
     region_id: str
     student_pdf: str
     page_number: int
     box: RegionBox
-    tasks: list[TaskDefinition] = field(default_factory=list)
+    task_codes: list[str] = field(default_factory=list)
     assigned_area_codes: list[str] = field(default_factory=list)
     is_read_complete: bool = False
     is_corrected: bool = False
-    is_extra_page: bool = False
+
+    @property
+    def is_single_page(self) -> bool:
+        """True for an Einzelseiten-Bereich (bound to one student's PDF)."""
+        return bool(self.student_pdf)
 
     def to_dict(self) -> dict[str, Any]:
+        """Schema-v2 dict (``task_codes`` instead of the v1 ``tasks``; no ``is_extra_page``)."""
         return {
             "region_id": self.region_id,
             "student_pdf": self.student_pdf,
             "page_number": self.page_number,
             "box": self.box.to_dict(),
-            "tasks": [task.to_dict() for task in self.tasks],
+            "task_codes": list(self.task_codes),
             "assigned_area_codes": list(self.assigned_area_codes),
             "is_read_complete": self.is_read_complete,
             "is_corrected": self.is_corrected,
-            "is_extra_page": self.is_extra_page,
         }
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "RegionAssignment":
+        """Parse a schema-v2 region; codes are canonicalised to upper case."""
         return cls(
             region_id=str(raw.get("region_id", "")).strip(),
             student_pdf=str(raw.get("student_pdf", "")).strip(),
             page_number=int(raw.get("page_number", 1)),
             box=RegionBox.from_dict(raw.get("box", {})),
-            tasks=[TaskDefinition.from_dict(item) for item in raw.get("tasks", [])],
+            task_codes=[str(code).strip().upper() for code in raw.get("task_codes", []) if str(code).strip()],
             assigned_area_codes=[str(code).strip() for code in raw.get("assigned_area_codes", [])],
             is_read_complete=bool(raw.get("is_read_complete", False)),
-            is_corrected=bool(raw.get("is_corrected", False)),
-            is_extra_page=bool(raw.get("is_extra_page", False)),
-        )
-
-
-@dataclass(slots=True)
-class ExtraPageAssignment:
-    assignment_id: str
-    student_pdf: str
-    page_number: int
-    box: RegionBox
-    assigned_area_codes: list[str] = field(default_factory=list)
-    is_read_complete: bool = True
-    is_corrected: bool = False
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "assignment_id": self.assignment_id,
-            "student_pdf": self.student_pdf,
-            "page_number": self.page_number,
-            "box": self.box.to_dict(),
-            "assigned_area_codes": list(self.assigned_area_codes),
-            "is_read_complete": self.is_read_complete,
-            "is_corrected": self.is_corrected,
-        }
-
-    @classmethod
-    def from_dict(cls, raw: dict[str, Any]) -> "ExtraPageAssignment":
-        return cls(
-            assignment_id=str(raw.get("assignment_id", raw.get("region_id", ""))).strip(),
-            student_pdf=str(raw.get("student_pdf", "")).strip(),
-            page_number=int(raw.get("page_number", 1)),
-            box=RegionBox.from_dict(raw.get("box", {})),
-            assigned_area_codes=[str(code).strip() for code in raw.get("assigned_area_codes", [])],
-            is_read_complete=bool(raw.get("is_read_complete", True)),
             is_corrected=bool(raw.get("is_corrected", False)),
         )
 
@@ -159,8 +142,9 @@ class UnscoredPage:
     """A page of one student's PDF that is deliberately not scored ("ohne Bewertung", Zuschnitt Schritt 2).
 
     ``page_number`` is 1-based within ``student_pdf`` (the per-PDF level of
-    the page-numbering convention). Such a page has no template region and
-    no extra-page assignment and is therefore not an open page.
+    the page-numbering convention). Such a page has no Superseiten-Bereich
+    on its page number and no Einzelseiten-Bereich, and is therefore not an
+    open page.
     """
 
     student_pdf: str

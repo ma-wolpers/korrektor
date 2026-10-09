@@ -38,7 +38,7 @@ def test_execute_skips_broken_or_missing_exams_but_still_lists_valid_ones(tmp_pa
     _register_folder(repo, tmp_path / "a", _valid_raw_exam("exam-a", "Anna"))
     _register_folder(repo, tmp_path / "c", _valid_raw_exam("exam-c", "Clara"))
     broken = _valid_raw_exam("exam-b", "Bruno")
-    broken.pop("extra_page_assignments")  # unsupported legacy schema -> ValueError on load
+    broken["schema_version"] = 99  # unknown (future) schema -> ValueError on load
     _register_folder(repo, tmp_path / "b", broken)
     _register_folder(repo, tmp_path / "gone", _valid_raw_exam("exam-g", "Gina"))
     shutil.rmtree(tmp_path / "gone")

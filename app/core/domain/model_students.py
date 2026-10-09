@@ -1,4 +1,4 @@
-"""Domain models per student: the student's PDF, per-area completion, placed correction marks."""
+"""Domain models per student: the student's PDF, per-task completion, placed correction marks."""
 
 from __future__ import annotations
 
@@ -7,32 +7,29 @@ from typing import Any
 
 
 @dataclass(slots=True)
-class PersonAreaCompletion:
-    """Finished-status for one person on one region.
+class PersonTaskCompletion:
+    """"Fertig" for one person on one (sub)task (schema v2; was per region before).
 
-    `region_id` references `RegionAssignment.region_id` — the region's
-    stable technical identity, not its (renameable, potentially reused)
-    `assigned_area_codes` display label. Raw JSON keyed by the legacy
-    `area_code` field is migrated to `region_id` before this class ever
-    parses it (see `app/infrastructure/repositories/legacy_migration.py`).
+    ``task_code`` references `ExamProject.tasks` (canonical upper case).
+    While finished, the person's points for that task are locked in the
+    correction view. Schema-v1 completions per region were migrated to one
+    entry per task of that region (`app/core/domain/schema_migration.py`).
     """
 
     student_id: str
-    region_id: str
+    task_code: str
     is_finished: bool = True
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "student_id": self.student_id,
-            "region_id": self.region_id,
-            "is_finished": self.is_finished,
-        }
+        """Dict for ``person_task_completions``."""
+        return {"student_id": self.student_id, "task_code": self.task_code, "is_finished": self.is_finished}
 
     @classmethod
-    def from_dict(cls, raw: dict[str, Any]) -> "PersonAreaCompletion":
+    def from_dict(cls, raw: dict[str, Any]) -> "PersonTaskCompletion":
+        """Parse one entry; the task code is canonicalised to upper case."""
         return cls(
             student_id=str(raw.get("student_id", "")).strip(),
-            region_id=str(raw.get("region_id", "")).strip(),
+            task_code=str(raw.get("task_code", "")).strip().upper(),
             is_finished=bool(raw.get("is_finished", True)),
         )
 

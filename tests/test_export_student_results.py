@@ -46,11 +46,12 @@ def _setup(tmp_path: Path) -> tuple[UiIntentController, ExamProject]:
                 student_pdf="",
                 page_number=1,
                 box=RegionBox(0, 0, 100, 100),
-                tasks=[TaskDefinition(code="1A", name="1A", max_points=5.0)],
+                task_codes=["1A"],
                 assigned_area_codes=["A"],
                 is_read_complete=True,
             ),
         ],
+        tasks=[TaskDefinition(code="1A", name="1A", max_points=5.0)],
     )
     controller._deps.exam_repository.save_exam(exam)
     return controller, exam

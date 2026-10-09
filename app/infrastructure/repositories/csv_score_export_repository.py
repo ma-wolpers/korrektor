@@ -42,14 +42,11 @@ class CsvScoreExportRepository(ScoreExportRepository):
     def _ordered_task_codes_and_max_points(exam: ExamProject) -> tuple[list[str], dict[str, float]]:
         ordered_codes: list[str] = []
         max_points_by_code: dict[str, float] = {}
-        for region in exam.regions:
-            for task in region.tasks:
-                code = task.code.strip().upper()
-                if not code:
-                    continue
-                if code not in max_points_by_code:
-                    ordered_codes.append(code)
-                    max_points_by_code[code] = float(task.max_points)
+        for task in exam.tasks:
+            code = task.code.strip().upper()
+            if code and code not in max_points_by_code:
+                ordered_codes.append(code)
+                max_points_by_code[code] = float(task.max_points)
         return ordered_codes, max_points_by_code
 
     @staticmethod

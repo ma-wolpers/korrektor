@@ -1,76 +1,77 @@
 from __future__ import annotations
 
-from uuid import uuid4
-
-from app.core.domain.page_coverage import pages_missing_markings
 from app.adapters.gui.dialog_services import messagebox
-from app.core.domain.models import ExamProject, RegionAssignment, RegionBox, TaskDefinition
-from app.core.domain.validation import ExamConflictError
+from app.core.domain.models import ExamProject, RegionBox
+from app.core.domain.page_coverage import pages_missing_markings
+from app.core.domain.region_edit import RegionEditResult, apply_region_delete, apply_region_upsert, region_placement_error
+from app.core.domain.task_regions import TaskChangePlan, plan_task_changes
+from app.core.domain.task_spec import TaskSpec
+from app.core.domain.validation import ExamConflictError, ExamStructureError
+
+_MAX_LISTED = 12
 
 
 class UiIntentControllerRegionsMixin:
-    @staticmethod
-    def _existing_standard_area_codes(exam: ExamProject) -> set[str]:
-        return {
-            code.strip().upper()
-            for region in exam.regions
-            for code in region.assigned_area_codes
-            if code.strip()
-        }
+    """Regions (Superseiten and Einzelseiten) with their tasks - every edit is one undoable `_immediate` action.
+
+    Order of checks in `upsert_region_immediate` (binding): placement (rule
+    A4) -> unknown codes -> point change of a scored task (rejected) -> code
+    re-created with old CSV scores of a different maximum (rejected, A5) ->
+    confirm point changes -> pure edit on a copy (`region_edit`) -> confirm
+    removed marks -> save -> one history action with full payload snapshots.
+    Any "no"/error leaves the exam and the files unchanged.
+    """
 
     @staticmethod
     def _existing_task_codes(exam: ExamProject) -> set[str]:
-        return {
-            task.code.strip().upper()
-            for region in exam.regions
-            for task in region.tasks
-            if task.code.strip()
-        }
+        """Codes of the exam's tasks (comments and scores may only reference these)."""
+        return {task.code for task in exam.tasks}
 
-    def _reject_max_points_change_for_scored_tasks(
-        self, *, exam: ExamProject, region_id: str | None, new_tasks: list[TaskDefinition]
-    ) -> bool:
-        """Block editing `max_points` for a task that already has recorded scores; show a clear error.
+    def _reject_scored_point_changes(self, *, exam: ExamProject, plan: TaskChangePlan) -> bool:
+        """Block changing ``max_points`` of a task that already has recorded scores; ``True`` = rejected.
 
-        Meilenstein 2.7 der Korrektor-Wunschliste: `TaskDefinition.max_points`
-        must stay historically stable once a task has been graded, so an
-        already-computed Note-/Kompetenzwert never silently drifts under
-        someone's feet. `upsert_region_immediate` is the single place
-        `RegionAssignment.tasks` gets (re-)written, so this check runs here
-        rather than duplicated per call site. Only compares against an
-        *existing* region (a brand-new one, `region_id is None`, has no
-        history to protect); only the max_points actually changed matters,
-        not whether the task existed before with the same value. Returns
-        `True` (and shows the error) if the edit must be rejected.
+        Meilenstein 2.7: `TaskDefinition.max_points` stays historically stable
+        once a task has been graded, so a computed grade never drifts. Since
+        points belong to the task (not the region), this checks the task
+        exam-wide, whichever region the edit came from.
         """
-        if region_id is None:
+        if not plan.changed:
             return False
-        existing_region = next((region for region in exam.regions if region.region_id == region_id), None)
-        if existing_region is None:
-            return False
-        old_max_points_by_code = {task.code: task.max_points for task in existing_region.tasks}
-        changed_codes = [
-            task.code
-            for task in new_tasks
-            if task.code in old_max_points_by_code and task.max_points != old_max_points_by_code[task.code]
-        ]
-        if not changed_codes:
-            return False
-
         scores = self._deps.score_repository.load_scores(exam=exam)
         already_scored = sorted(
-            code for code in changed_codes if any(code in student_scores for student_scores in scores.values())
+            code for code, _old, _new in plan.changed if any(code in student_scores for student_scores in scores.values())
         )
         if not already_scored:
             return False
-
-        joined = ", ".join(already_scored)
         messagebox.showerror(
             "Änderung abgelehnt",
-            f"Die maximale Punktzahl von bereits bewerteten Aufgaben ({joined}) kann nicht mehr geändert werden, "
-            "damit bereits erfasste Punkte/Noten nicht rückwirkend verfälscht werden.",
+            f"Die maximale Punktzahl von bereits bewerteten Aufgaben ({', '.join(already_scored)}) kann nicht mehr "
+            "geändert werden, damit bereits erfasste Punkte/Noten nicht rückwirkend verfälscht werden.",
         )
         return True
+
+    def _check_recreated_tasks(self, *, exam: ExamProject, plan: TaskChangePlan) -> str | None:
+        """Rule A5 for codes created (again) while old scores remain in the CSV.
+
+        Same maximum: the old scores apply again (returns a status note).
+        Different maximum: rejected with a way out (returns ``None``). The
+        CSV is never deleted. Returns ``""`` when nothing applies.
+        """
+        recorded = self._deps.score_repository.load_recorded_max_points(exam=exam)
+        notes = []
+        for code, points in plan.new:
+            if code not in recorded:
+                continue
+            old_max, count = recorded[code]
+            if abs(old_max - points) > 1e-9:
+                messagebox.showerror(
+                    "Alte Bewertungen vorhanden",
+                    f"Für {code} sind noch Bewertungen von {count} Person(en) mit max. {old_max:g} P. gespeichert. "
+                    f"Bitte {code}:{old_max:g} verwenden oder einen anderen Aufgaben-Code wählen.",
+                )
+                return None
+            notes.append(f"alte Bewertungen von {count} Person(en) für {code} wieder aktiv")
+        return "; ".join(notes)
 
     def upsert_region_immediate(
         self,
@@ -79,85 +80,107 @@ class UiIntentControllerRegionsMixin:
         student_pdf: str,
         page_number: int,
         box: tuple[float, float, float, float],
-        task_specs: list[tuple[str, float]],
-        area_codes: list[str],
+        task_specs: list,
+        area_codes: list[str] | None = None,
         region_id: str | None = None,
     ) -> ExamProject | None:
-        if page_number > exam.standard_page_count:
+        """Create or change a region (``student_pdf == ""`` = Superseiten, else Einzelseiten); see the class docstring.
+
+        ``task_specs`` are `TaskSpec`s or ``(code, points | None)`` tuples;
+        ``points=None`` references an existing task. ``area_codes[0]`` is the
+        preferred display label of a new region (the draft's label).
+        """
+        specs = [
+            spec if isinstance(spec, TaskSpec) else TaskSpec(str(spec[0]).strip().upper(), spec[1])
+            for spec in task_specs
+            if (spec.code if isinstance(spec, TaskSpec) else str(spec[0])).strip()
+        ]
+        if not specs:
+            messagebox.showerror("Ungültige Eingabe", "Bitte mindestens eine Aufgabe angeben, z. B. 4a:2 oder 4a-c:1,2,1.")
+            return None
+        problem = region_placement_error(exam, student_pdf, page_number)
+        if problem:
+            messagebox.showerror("Bereich nicht möglich", problem)
+            return None
+        plan = plan_task_changes(exam, specs)
+        if plan.unknown:
+            first = plan.unknown[0]
             messagebox.showerror(
-                "Ungültige Eingabe",
-                "Im Zuschnitt, Schritt 2 können keine Aufgaben definiert werden. Bitte nur Bereich(e) zuordnen.",
+                "Unbekannte Aufgabe",
+                f"{', '.join(plan.unknown)} ist noch nicht festgelegt – Punkte angeben, z. B. {first}:2.",
             )
             return None
-
-        before_payload = exam.to_dict()
-        tasks = [
-            TaskDefinition(code=code.strip().upper(), name=code.strip().upper(), max_points=max_points)
-            for code, max_points in task_specs
-            if code.strip()
-        ]
-        if not tasks:
-            messagebox.showerror("Ungültige Eingabe", "Bitte mindestens eine Aufgabe mit Code und Punkten angeben.")
+        if self._reject_scored_point_changes(exam=exam, plan=plan):
             return None
-
-        if not area_codes:
-            messagebox.showerror("Ungültige Eingabe", "Bitte mindestens einen Aufgabenbereich angeben, z. B. A.")
+        note = self._check_recreated_tasks(exam=exam, plan=plan)
+        if note is None:
             return None
-
-        blocked = self._reject_max_points_change_for_scored_tasks(exam=exam, region_id=region_id, new_tasks=tasks)
-        if blocked:
+        if plan.changed and not messagebox.askyesno(
+            "Punkte ändern?",
+            "\n".join(f"{code}: {old:g} → {new:g} P." for code, old, new in plan.changed)
+            + "\n\nDie Punkte gelten für alle Bereiche dieser Aufgaben. Ändern?",
+        ):
             return None
-
-        region = RegionAssignment(
-            region_id=region_id or f"r-{uuid4().hex[:12]}",
-            student_pdf="",
-            page_number=page_number,
-            box=RegionBox(x0=box[0], y0=box[1], x1=box[2], y1=box[3]),
-            tasks=tasks,
-            assigned_area_codes=area_codes,
-            is_read_complete=True,
-            is_corrected=False,
-            is_extra_page=False,
-        )
         try:
-            updated = self._deps.upsert_region_usecase.execute(exam=exam, region=region)
+            result = apply_region_upsert(
+                exam,
+                region_id=region_id,
+                student_pdf=student_pdf,
+                page_number=page_number,
+                box=box,
+                specs=specs,
+                label=(area_codes or [None])[0],
+            )
+        except ExamStructureError as exc:
+            messagebox.showerror("Bereich nicht gespeichert", str(exc))
+            return None
+        label = next(r.assigned_area_codes[0] for r in result.exam.regions if r.region_id == result.region_id)
+        return self._save_region_edit(exam, result, description=f"Bereich gespeichert: {label}", note=note)
+
+    def delete_region_immediate(self, *, exam: ExamProject, region_id: str) -> ExamProject:
+        """Remove one region (other regions keep id and label); orphaned tasks and invalid marks go with it.
+
+        Returns the unchanged ``exam`` if the user declines or saving fails.
+        """
+        try:
+            result = apply_region_delete(exam, region_id)
+        except ExamStructureError as exc:
+            messagebox.showerror("Bereich nicht gelöscht", str(exc))
+            return exam
+        updated = self._save_region_edit(exam, result, description="Bereich gelöscht", note="")
+        return exam if updated is None else updated
+
+    def _save_region_edit(self, exam: ExamProject, result: RegionEditResult, *, description: str, note: str) -> ExamProject | None:
+        """Confirm removed marks, save ``result.exam`` and record one history action (payload snapshots)."""
+        if result.removed_marks:
+            listed = list(result.removed_marks[:_MAX_LISTED])
+            if len(result.removed_marks) > _MAX_LISTED:
+                listed.append(f"… und {len(result.removed_marks) - _MAX_LISTED} weitere")
+            if not messagebox.askyesno(
+                "Symbole werden entfernt",
+                "Diese Symbole gehören danach zu keiner Aufgabe ihres Bereichs mehr und werden entfernt:\n"
+                + "\n".join(f"• {item}" for item in listed)
+                + "\n\nRückgängig ist mit Strg+Z möglich. Fortfahren?",
+            ):
+                return None
+        before_payload = exam.to_dict()
+        try:
+            exam_file = self._deps.exam_repository.save_exam(result.exam)
         except ExamConflictError as exc:
             messagebox.showerror("Speichern abgebrochen", str(exc))
             return None
-        self._record_exam_payload_action(
-            description=f"Bereich gespeichert: {region.assigned_area_codes[0]}",
-            exam_id=updated.exam_id,
-            before_payload=before_payload,
-            after_payload=updated.to_dict(),
-        )
-        self.refresh_exam_overview()
-        self._app.set_status("Bereich sofort gespeichert")
-        return updated
-
-    def delete_region_immediate(self, *, exam: ExamProject, region_id: str) -> ExamProject:
-        """Remove one region without touching any other region's identity.
-
-        Previously this relabeled every remaining region's `assigned_area_codes`
-        by list index, which silently rewrote other regions' visible labels
-        (and, before the region_id migration, corrupted any stored reference
-        keyed by that label) on every unrelated deletion. Area codes are now
-        stable once assigned (see `_next_area_label`) and `region_id` is the
-        only technical identity, so no relabeling is needed here.
-        """
-        before_payload = exam.to_dict()
-        exam.regions = [region for region in exam.regions if region.region_id != region_id]
-        exam_file = self._save_exam_guarded(exam)
-        if exam_file is None:
-            return exam
         updated = self._deps.exam_repository.load_exam(exam_file)
         self._record_exam_payload_action(
-            description="Bereich gelöscht",
+            description=description,
             exam_id=updated.exam_id,
             before_payload=before_payload,
             after_payload=updated.to_dict(),
         )
         self.refresh_exam_overview()
-        self._app.set_status("Bereich gelöscht")
+        extras = [note] if note else []
+        if result.pruned_tasks:
+            extras.append(f"Aufgabe(n) ohne Bereich entfernt: {', '.join(result.pruned_tasks)}")
+        self._app.set_status(" · ".join([description, *extras]))
         return updated
 
     def finish_reading_mode(self, *, exam: ExamProject) -> ExamProject:

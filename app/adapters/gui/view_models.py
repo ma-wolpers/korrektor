@@ -11,7 +11,7 @@ class ExamOverviewRow:
     reading_percent: float
     correction_percent: float
     region_count: int
-    corrected_region_count: int
+    corrected_task_count: int
     reading_complete: bool
     has_open_flags: bool
     source_file: Path

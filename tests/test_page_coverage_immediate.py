@@ -1,4 +1,4 @@
-"""Controller actions of Zuschnitt Schritt 2 ("ohne Bewertung", "für alle zuordnen") with undo."""
+"""Controller actions of Zuschnitt Schritt 2 ("ohne Bewertung", also "bei allen") with undo."""
 
 from pathlib import Path
 
@@ -7,7 +7,7 @@ import pytest
 from app.adapters.bootstrap.wiring import build_gui_dependencies
 from app.adapters.gui import ui_intent_controller as uic_module
 from app.adapters.gui.ui_intent_controller import UiIntentController
-from app.core.domain.models import ExamProject, ExtraPageAssignment, RegionAssignment, RegionBox, StudentExam, TaskDefinition, UnscoredPage, utc_now_iso
+from app.core.domain.models import ExamProject, RegionAssignment, RegionBox, StudentExam, TaskDefinition, UnscoredPage, utc_now_iso
 from app.core.domain.page_coverage import plan_page_for_all
 
 
@@ -29,6 +29,7 @@ class _FakeApp:
 def controller_and_exam(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
     monkeypatch.setattr(uic_module.messagebox, "showerror", lambda *args, **kwargs: None)
+    monkeypatch.setattr(uic_module.messagebox, "showinfo", lambda *args, **kwargs: None)
     folder = tmp_path / "exam"
     folder.mkdir()
     now = utc_now_iso()
@@ -46,27 +47,29 @@ def controller_and_exam(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         regions=[
             RegionAssignment(
                 region_id="r2", student_pdf="", page_number=2, box=RegionBox(0, 0, 10, 10),
-                tasks=[TaskDefinition(code="1A", name="1A", max_points=2.0)], assigned_area_codes=["A"],
-            )
+                task_codes=["1A"], assigned_area_codes=["A"],
+            ),
+            RegionAssignment(
+                region_id="x-ben", student_pdf="Ben.pdf", page_number=1, box=RegionBox(0, 0, 1, 1),
+                task_codes=["1A"], assigned_area_codes=["B"],
+            ),
         ],
-        extra_page_assignments=[
-            ExtraPageAssignment(assignment_id="x-ben", student_pdf="Ben.pdf", page_number=1, box=RegionBox(0, 0, 1, 1), assigned_area_codes=["A"])
-        ],
+        tasks=[TaskDefinition(code="1A", name="1A", max_points=2.0)],
     )
     controller = UiIntentController(app=_FakeApp(), deps=build_gui_dependencies(tmp_path / "repo"))
     exam_file = controller._deps.exam_repository.save_exam(exam)
     return controller, controller._deps.exam_repository.load_exam(exam_file)
 
 
-def test_unscored_for_all_is_one_undo_step_and_skips_assigned_pages(controller_and_exam):
+def test_unscored_for_all_is_one_undo_step_and_skips_pages_with_einzelseiten_region(controller_and_exam):
     controller, exam = controller_and_exam
-    plan = plan_page_for_all(exam, 1, "unscore")
+    plan = plan_page_for_all(exam, 1)
     assert plan.excluded == ("Ben.pdf",)
 
     updated = controller.set_pages_unscored_immediate(exam=exam, student_pdfs=list(plan.affected), page_number=1, unscored=True)
 
     assert set(updated.unscored_pages) == {UnscoredPage("Anna.pdf", 1), UnscoredPage("Cem.pdf", 1)}
-    assert [a.student_pdf for a in updated.extra_page_assignments] == ["Ben.pdf"]
+    assert [r.student_pdf for r in updated.regions if r.student_pdf] == ["Ben.pdf"]
     controller.undo()
     reloaded = controller._deps.exam_repository.load_exam(controller._deps.exam_repository.exam_file_for_id("exam-1"))
     assert reloaded.unscored_pages == []
@@ -79,26 +82,13 @@ def test_unmarking_removes_only_marks(controller_and_exam):
     updated = controller.set_pages_unscored_immediate(exam=exam, student_pdfs=["Cem.pdf"], page_number=1, unscored=False)
 
     assert updated.unscored_pages == [UnscoredPage("Anna.pdf", 1)]
-    assert len(updated.extra_page_assignments) == 1
+    assert len(updated.regions) == 2
 
 
-def test_assign_for_all_only_for_planned_students(controller_and_exam):
+def test_page_with_einzelseiten_region_is_never_marked_unscored(controller_and_exam, monkeypatch):
     controller, exam = controller_and_exam
-    exam = controller.set_pages_unscored_immediate(exam=exam, student_pdfs=["Cem.pdf"], page_number=1, unscored=True)
-    plan = plan_page_for_all(exam, 1, "assign")
-    assert plan.affected == ("Anna.pdf",)
+    shown = []
+    monkeypatch.setattr(uic_module.messagebox, "showinfo", lambda title, text, **_: shown.append(text))
 
-    updated = controller.assign_extra_pages_for_all_immediate(
-        exam=exam, page_number=1, box_by_pdf={pdf: (0, 0, 595, 842) for pdf in plan.affected}, area_codes=["a"]
-    )
-
-    by_pdf = {a.student_pdf: a for a in updated.extra_page_assignments}
-    assert set(by_pdf) == {"Anna.pdf", "Ben.pdf"}
-    assert by_pdf["Anna.pdf"].assigned_area_codes == ["A"]
-    assert updated.unscored_pages == [UnscoredPage("Cem.pdf", 1)]
-
-
-def test_assign_for_all_rejects_unknown_area(controller_and_exam):
-    controller, exam = controller_and_exam
-
-    assert controller.assign_extra_pages_for_all_immediate(exam=exam, page_number=1, box_by_pdf={"Anna.pdf": (0, 0, 1, 1)}, area_codes=["Z"]) is None
+    assert controller.set_pages_unscored_immediate(exam=exam, student_pdfs=["Ben.pdf"], page_number=1, unscored=True) is None
+    assert "Einzelseiten-Bereich" in shown[0]

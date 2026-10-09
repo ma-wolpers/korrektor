@@ -70,6 +70,7 @@ from app.adapters.gui.main_window_reading import MainWindowReadingMixin
 from app.adapters.gui.main_window_correction_core import MainWindowCorrectionCoreMixin
 from app.adapters.gui.main_window_region_editor import MainWindowRegionEditorMixin
 from app.adapters.gui.main_window_region_form import MainWindowRegionFormMixin
+from app.adapters.gui.main_window_task_checklist import MainWindowTaskChecklistMixin
 from app.adapters.gui.main_window_page_render import MainWindowPageRenderMixin
 from app.adapters.gui.main_window_region_redraw import MainWindowRegionRedrawMixin
 from app.adapters.gui.main_window_region_specs import MainWindowRegionSpecsMixin
@@ -116,6 +117,7 @@ class MainWindow(
     MainWindowCorrectionCoreMixin,
     MainWindowRegionEditorMixin,
     MainWindowRegionFormMixin,
+    MainWindowTaskChecklistMixin,
     MainWindowPageRenderMixin,
     MainWindowRegionRedrawMixin,
     MainWindowRegionSpecsMixin,

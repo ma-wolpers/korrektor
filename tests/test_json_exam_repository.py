@@ -1,5 +1,6 @@
 import json
 import shutil
+import json
 from pathlib import Path
 
 import pytest
@@ -181,7 +182,7 @@ def test_save_exam_allows_sequential_saves_from_the_same_session(tmp_path: Path)
     assert repo.load_exam(exam_file).exam_name == "Mathe (Runde 3)"
 
 
-def test_load_exam_rejects_legacy_schema_without_extra_assignments(tmp_path: Path) -> None:
+def test_load_exam_migrates_v1_without_extra_assignments_and_rejects_unknown_schema(tmp_path: Path) -> None:
     index_root = tmp_path / "index"
     index_root.mkdir(parents=True)
 
@@ -205,6 +206,12 @@ def test_load_exam_rejects_legacy_schema_without_extra_assignments(tmp_path: Pat
 
     repo = JsonExamRepository(index_root=index_root)
 
+    exam = repo.load_exam(exam_file)  # schema v1 (no schema_version): migrated, not rejected
+    assert exam.regions == [] and exam.tasks == []
+
+    future = json.loads(exam_file.read_text(encoding="utf-8"))
+    future["schema_version"] = 99
+    exam_file.write_text(json.dumps(future), encoding="utf-8")
     with pytest.raises(ValueError, match="legacy\\.exam\\.json"):
         repo.load_exam(exam_file)
 
@@ -272,16 +279,19 @@ def test_load_exam_rejects_duplicate_area_code_labels(tmp_path: Path) -> None:
         repo.load_exam(exam_file)
 
 
-def test_load_exam_rejects_duplicate_task_codes_across_regions(tmp_path: Path) -> None:
+def test_load_exam_accepts_one_task_in_several_regions(tmp_path: Path) -> None:
+    """Schema v2: a task may span regions; in v1 data the first definition's points win."""
     raw = _base_two_region_raw_exam()
-    raw["regions"][1]["tasks"] = [{"code": "1a", "name": "1a", "max_points": 2.0}]  # collides with region r-a
+    first_code = raw["regions"][0]["tasks"][0]["code"]
+    raw["regions"][1]["tasks"] = [{"code": first_code, "name": first_code, "max_points": 99.0}]
 
     index_root = tmp_path / "index"
-    exam_file = _write_raw_exam(index_root, "duplicate_task.exam.json", raw)
-    repo = JsonExamRepository(index_root=index_root)
+    exam_file = _write_raw_exam(index_root, "shared_task.exam.json", raw)
+    exam = JsonExamRepository(index_root=index_root).load_exam(exam_file)
 
-    with pytest.raises(ExamStructureError, match="Aufgaben-Code"):
-        repo.load_exam(exam_file)
+    code = first_code.strip().upper()
+    assert [region.task_codes for region in exam.regions] == [[code], [code]]
+    assert [(task.code, task.max_points) for task in exam.tasks] == [(code, raw["regions"][0]["tasks"][0]["max_points"])]
 
 
 def test_load_exam_backfills_missing_region_id(tmp_path: Path) -> None:
@@ -321,7 +331,8 @@ def test_load_exam_migrates_unambiguous_legacy_area_code_reference(tmp_path: Pat
 
     exam = repo.load_exam(exam_file)
 
-    assert exam.person_area_completions[0].region_id == "r-a"
+    region_codes = next(region.task_codes for region in exam.regions if region.region_id == "r-a")
+    assert [(item.student_id, item.task_code) for item in exam.person_task_completions] == [("alice", code) for code in region_codes]
     assert exam.pdf_annotations[0].region_id == "r-a"
 
 

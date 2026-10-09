@@ -66,7 +66,7 @@ class MainWindowOverviewMixin:
             "read": "Zuschnitt %",
             "corr": "Korrektur %",
             "regions": "Bereiche",
-            "done": "Korrigiert",
+            "done": "Aufgaben fertig",
             "complete": "Vollständig",
             "flags": "Offen",
         }
@@ -92,7 +92,7 @@ class MainWindowOverviewMixin:
                     f"{row.reading_percent:.0f}",
                     f"{row.correction_percent:.0f}",
                     row.region_count,
-                    row.corrected_region_count,
+                    row.corrected_task_count,
                     "Ja" if row.reading_complete else "Nein",
                     "Ja" if row.has_open_flags else "Nein",
                 ),
@@ -226,10 +226,10 @@ class MainWindowOverviewMixin:
         self._detail_name.set(f"Name: {exam.exam_name}")
         self._detail_pages.set(f"Standardseiten: {exam.standard_page_count}")
         self._detail_students.set(f"Schüler:innen: {len(exam.students)}")
-        self._detail_regions.set(f"Fertig korrigiert {progress.fully_finished_area_count}/{progress.total_area_count}")
+        self._detail_regions.set(f"Fertig korrigiert {progress.corrected_task_count}/{progress.total_task_count} Aufgaben")
         flags = []
         if progress.has_unassigned_extra_pages:
-            flags.append("Extraseiten offen")
+            flags.append("Einzelseiten offen")
         if progress.has_missing_page_markings:
             flags.append("Seitenmarkierung fehlt")
         self._detail_status.set("Status: " + (", ".join(flags) if flags else "Keine offenen Warnungen"))

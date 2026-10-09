@@ -23,7 +23,7 @@ class UiIntentControllerStudentResultMixin:
         student = next((item for item in exam.students if item.student_id == student_id), None)
         if student is None:
             return None
-        all_tasks = [task for region in exam.regions for task in region.tasks]
+        all_tasks = list(exam.tasks)
         return compute_student_result(
             student_id=student.student_id,
             display_name=student.display_name,

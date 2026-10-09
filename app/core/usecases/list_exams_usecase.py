@@ -16,7 +16,7 @@ class ExamOverview:
     reading_percent: float
     correction_percent: float
     region_count: int
-    corrected_region_count: int
+    corrected_task_count: int
     reading_complete: bool
     has_unassigned_extra_pages: bool
     has_missing_page_markings: bool
@@ -63,7 +63,7 @@ class ListExamsUseCase:
                     reading_percent=progress.reading_percent,
                     correction_percent=progress.correction_percent,
                     region_count=progress.region_count,
-                    corrected_region_count=progress.corrected_region_count,
+                    corrected_task_count=progress.corrected_task_count,
                     reading_complete=exam.is_reading_complete,
                     has_unassigned_extra_pages=progress.has_unassigned_extra_pages,
                     has_missing_page_markings=progress.has_missing_page_markings,

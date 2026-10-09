@@ -91,6 +91,31 @@ class CsvScoreRepository(ScoreRepository):
                 scores[student_id] = student_scores
         return scores
 
+    def load_recorded_max_points(self, *, exam: ExamProject) -> dict[str, tuple[float, int]]:
+        """``{task_code: (max_points stored with the scores, number of persons scored)}``.
+
+        Only rows with a points value count. Used when a task code is
+        created (again): old scores in the CSV must never be silently reused
+        with a different maximum (rule A5 - the CSV itself is never deleted).
+        """
+        csv_path = Path(exam.folder_path) / SCORES_FILENAME
+        rows, task_columns = self._read_rows(csv_path)
+        recorded: dict[str, tuple[float, int]] = {}
+        for column in task_columns:
+            if not column.endswith("_points"):
+                continue
+            code = column[: -len("_points")]
+            for row in rows:
+                if not row.get(column, "").strip():
+                    continue
+                try:
+                    max_points = float(row.get(f"{code}_max", "").strip())
+                except ValueError:
+                    continue
+                previous = recorded.get(code)
+                recorded[code] = (previous[0] if previous else max_points, (previous[1] if previous else 0) + 1)
+        return recorded
+
     def _read_rows(self, csv_path: Path) -> tuple[list[dict[str, str]], list[str]]:
         if not csv_path.exists():
             return [], []

@@ -42,7 +42,7 @@ class UiIntentControllerOverviewMixin:
                 reading_percent=item.reading_percent,
                 correction_percent=item.correction_percent,
                 region_count=item.region_count,
-                corrected_region_count=item.corrected_region_count,
+                corrected_task_count=item.corrected_task_count,
                 reading_complete=item.reading_complete,
                 has_open_flags=item.has_unassigned_extra_pages or item.has_missing_page_markings,
                 source_file=item.exam_file,

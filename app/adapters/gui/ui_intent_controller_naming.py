@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
@@ -115,9 +116,12 @@ class UiIntentControllerNamingMixin:
                 continue
             student.display_name = name_by_student_id[student.student_id].strip()
             student.pdf_filename = new_filename
-        for assignment in exam.extra_page_assignments:
-            if assignment.student_pdf in old_to_new:
-                assignment.student_pdf = old_to_new[assignment.student_pdf]
+        for region in exam.regions:
+            if region.student_pdf in old_to_new:
+                region.student_pdf = old_to_new[region.student_pdf]
+        exam.unscored_pages = [
+            replace(page, student_pdf=old_to_new.get(page.student_pdf, page.student_pdf)) for page in exam.unscored_pages
+        ]
         for annotation in exam.pdf_annotations:
             if annotation.student_pdf in old_to_new:
                 annotation.student_pdf = old_to_new[annotation.student_pdf]

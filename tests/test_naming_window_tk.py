@@ -22,7 +22,6 @@ def _open_exam(window, tmp_path):
         updated_at=now,
         standard_page_count=1,
         students=[StudentExam(student_id=n.lower(), display_name=n, pdf_filename=f"{n}.pdf", page_count=1) for n in ("Abgabe_01", "Abgabe_02")],
-        extra_page_assignments=[],
     )
     exam_file = window.deps.exam_repository.save_exam(exam)
     window.open_exam_detail(window.deps.exam_repository.load_exam(exam_file), exam_file)

@@ -12,6 +12,7 @@ from app.infrastructure.repositories.csv_score_repository import SCORES_FILENAME
 from app.infrastructure.repositories.exam_registry import ExamRegistry
 from app.infrastructure.repositories.file_utils import atomic_write_bytes, atomic_write_json
 from app.infrastructure.repositories.legacy_exam_migration import LegacyMigrationReport, migrate_legacy_index
+from app.core.domain.schema_migration import migrate_v1_tasks
 from app.infrastructure.repositories.legacy_migration import migrate_legacy_area_code_references
 
 EXAM_DATA_FILENAME = "korrektor_klausur.json"
@@ -107,7 +108,9 @@ class JsonExamRepository(ExamRepository):
         """Load, migrate and validate one exam data file; ``folder_path`` is set from its location.
 
         Pipeline: raw JSON -> legacy area_code-to-region_id migration (on the
-        raw dict) -> ``folder_path`` replaced by the file's folder ->
+        raw dict) -> schema v1 -> v2 (`migrate_v1_tasks`, idempotent; the
+        file is rewritten as v2 on the next save) -> ``folder_path`` replaced
+        by the file's folder ->
         `ExamProject.from_dict` (raises `ValueError` for an unsupported schema)
         -> `validate_regions` (raises `ExamStructureError`). A missing file
         raises `ExamFolderMissingError` (a `ValueError`), so the overview lists
@@ -117,7 +120,7 @@ class JsonExamRepository(ExamRepository):
             raise ExamFolderMissingError(f"Ordner oder Klausurdatei nicht gefunden: {exam_file.parent}")
         with exam_file.open("r", encoding="utf-8") as handle:
             raw = json.load(handle)
-        raw = migrate_legacy_area_code_references(raw)
+        raw = migrate_v1_tasks(migrate_legacy_area_code_references(raw))
         raw["folder_path"] = str(exam_file.parent.resolve())
         try:
             exam = ExamProject.from_dict(raw)

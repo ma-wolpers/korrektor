@@ -73,11 +73,12 @@ def test_save_correction_annotations_to_pdfs_real_file_roundtrip(tmp_path: Path,
                 student_pdf="",
                 page_number=1,
                 box=RegionBox(0, 0, 100, 100),
-                tasks=[TaskDefinition(code="1A", name="1A", max_points=10.0)],
+                task_codes=["1A"],
                 assigned_area_codes=["A"],
                 is_read_complete=True,
             ),
         ],
+        tasks=[TaskDefinition(code="1A", name="1A", max_points=10.0)],
         pdf_annotations=[
             PdfAnnotation(
                 annotation_id="anno-1",

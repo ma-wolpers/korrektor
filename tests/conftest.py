@@ -10,6 +10,36 @@ from bw_gui.testing.background_windows import pytest_configure, pytest_unconfigu
 
 import pytest  # noqa: E402
 
+_DIALOG_METHODS = {
+    "messagebox": ("showerror", "showwarning", "showinfo", "askyesno", "askyesnocancel", "askretrycancel"),
+    "simpledialog": ("askstring",),
+    "choicedialog": ("askchoice",),
+    "filedialog": ("askdirectory", "askopenfilename", "askopenfilenames", "asksaveasfilename"),
+}
+
+
+@pytest.fixture(autouse=True)
+def _no_unpatched_dialogs(monkeypatch):
+    """Safety net: a modal dialog a test did not replace fails the test instead of blocking the run.
+
+    Every dialog of `app.adapters.gui.dialog_services` raises an
+    `AssertionError` naming the dialog and its title. Tests that expect a
+    dialog patch it themselves (module/test fixtures run after this
+    conftest fixture, so their ``monkeypatch.setattr`` wins).
+    """
+    from app.adapters.gui import dialog_services
+
+    def _refuse(kind):
+        def refuse(*args, **kwargs):
+            title = args[0] if args else kwargs.get("title", "")
+            raise AssertionError(f"Unerwarteter Dialog im Test: {kind}({title!r}) - bitte im Test ersetzen")
+        return refuse
+
+    for service_name, methods in _DIALOG_METHODS.items():
+        service = getattr(dialog_services, service_name)
+        for method in methods:
+            monkeypatch.setattr(service, method, _refuse(f"{service_name}.{method}"))
+
 
 @pytest.fixture(scope="session")
 def korrektor_window(tmp_path_factory):

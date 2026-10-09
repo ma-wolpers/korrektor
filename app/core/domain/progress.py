@@ -8,71 +8,55 @@ from app.core.domain.page_coverage import open_pages, pages_missing_markings
 
 @dataclass(slots=True)
 class ExamProgress:
+    """Overview numbers of one exam (schema v2: correction progress counts tasks, not regions)."""
+
     reading_percent: float
     correction_percent: float
     region_count: int
-    corrected_region_count: int
-    fully_finished_area_count: int
-    total_area_count: int
+    corrected_task_count: int
+    total_task_count: int
     has_unassigned_extra_pages: bool
     has_missing_page_markings: bool
 
 
 class ProgressCalculator:
     def compute(self, exam: ExamProject) -> ExamProgress:
-        """Compute reading/correction progress metrics for one exam.
+        """Compute Zuschnitt/correction progress metrics for one exam.
 
-        "Fully finished" areas are matched via `PersonAreaCompletion.region_id`
-        against `RegionAssignment.region_id` — the stable technical identity,
-        not the (renameable) `assigned_area_codes` label.
+        Zuschnitt: share of regions (Superseiten and Einzelseiten) flagged
+        ``is_read_complete``. Correction: a task counts as finished when every
+        student has a finished `PersonTaskCompletion` for its code - the only
+        correction signal the app maintains (``RegionAssignment.is_corrected``
+        is a legacy field nothing sets).
         """
-        region_count = len(exam.regions) + len(exam.extra_page_assignments)
-
-        read_complete_count = (
-            sum(1 for region in exam.regions if region.is_read_complete)
-            + sum(1 for assignment in exam.extra_page_assignments if assignment.is_read_complete)
-        )
+        region_count = len(exam.regions)
+        read_complete_count = sum(1 for region in exam.regions if region.is_read_complete)
         reading_percent = 100.0 if region_count == 0 else (read_complete_count / region_count) * 100.0
 
-        # Extra pages are computed (pages without a template region, see
-        # page_coverage); a page is open unless it is assigned or "ohne Bewertung".
+        # Einzelseiten are computed (pages without a Superseiten-Bereich, see
+        # page_coverage); a page is open unless it has an Einzelseiten-Bereich or is "ohne Bewertung".
         has_unassigned_extra_pages = bool(open_pages(exam))
         has_missing_page_markings = bool(pages_missing_markings(exam))
 
-        area_codes = {
-            code.strip().upper()
-            for region in exam.regions
-            for code in region.assigned_area_codes
-            if code.strip()
-        }
-        region_ids = {region.region_id for region in exam.regions if region.assigned_area_codes}
         student_ids = {student.student_id for student in exam.students}
         finished_pairs = {
-            (item.student_id, item.region_id.strip())
-            for item in exam.person_area_completions
-            if item.is_finished and item.student_id.strip() and item.region_id.strip()
+            (item.student_id, item.task_code)
+            for item in exam.person_task_completions
+            if item.is_finished and item.student_id.strip() and item.task_code.strip()
         }
-        fully_finished_area_count = sum(
+        corrected_task_count = sum(
             1
-            for region_id in region_ids
-            if student_ids and all((student_id, region_id) in finished_pairs for student_id in student_ids)
+            for task in exam.tasks
+            if student_ids and all((student_id, task.code) in finished_pairs for student_id in student_ids)
         )
-        total_area_count = len(area_codes)
-        # corrected_region_count/correction_percent are the *area-based*
-        # "Fertig korrigiert" progress (the only correction signal the app
-        # actually maintains, via PersonAreaCompletion). RegionAssignment.
-        # is_corrected/ExtraPageAssignment.is_corrected are legacy fields
-        # nothing ever sets - they must not be used as a progress source.
-        corrected_region_count = fully_finished_area_count
-        correction_percent = 100.0 if total_area_count == 0 else (fully_finished_area_count / total_area_count) * 100.0
-
+        total_task_count = len(exam.tasks)
+        correction_percent = 100.0 if total_task_count == 0 else (corrected_task_count / total_task_count) * 100.0
         return ExamProgress(
             reading_percent=reading_percent,
             correction_percent=correction_percent,
             region_count=region_count,
-            corrected_region_count=corrected_region_count,
-            fully_finished_area_count=fully_finished_area_count,
-            total_area_count=total_area_count,
+            corrected_task_count=corrected_task_count,
+            total_task_count=total_task_count,
             has_unassigned_extra_pages=has_unassigned_extra_pages,
             has_missing_page_markings=has_missing_page_markings,
         )

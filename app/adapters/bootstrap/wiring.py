@@ -15,10 +15,8 @@ from app.core.usecases.list_exams_usecase import ListExamsUseCase
 from app.core.usecases.load_exam_usecase import LoadExamUseCase
 from app.core.usecases.save_score_usecase import SaveScoreUseCase
 from app.core.usecases.set_reading_complete_usecase import SetReadingCompleteUseCase
-from app.core.usecases.upsert_region_usecase import UpsertRegionUseCase
 from app.infrastructure.repositories.csv_score_export_repository import CsvScoreExportRepository
 from app.infrastructure.repositories.csv_score_repository import CsvScoreRepository
-from app.infrastructure.repositories.in_memory_region_repository import InMemoryRegionRepository
 from app.infrastructure.repositories.json_app_settings_repository import AppRuntimeSettings, JsonAppSettingsRepository
 from app.infrastructure.repositories.json_exam_repository import JsonExamRepository
 from app.infrastructure.repositories.json_grading_scale_repository import JsonGradingScaleRepository
@@ -34,7 +32,6 @@ class GuiDependencies:
     create_exam_usecase: CreateExamUseCase
     adopt_exam_usecase: AdoptExamUseCase
     load_exam_usecase: LoadExamUseCase
-    upsert_region_usecase: UpsertRegionUseCase
     save_score_usecase: SaveScoreUseCase
     export_scores_usecase: ExportScoresUseCase
     export_student_result_usecase: ExportStudentResultUseCase
@@ -70,7 +67,6 @@ def build_gui_dependencies(base_dir: Path) -> GuiDependencies:
     export_repo = CsvScoreExportRepository()
     student_result_export_repo = MatplotlibStudentResultExportRepository()
     scan_repo = PyMuPdfScanRepository()
-    region_repo = InMemoryRegionRepository()
     grading_scale_repo = JsonGradingScaleRepository(app_name=APP_INFO.appdata_folder, base_dir=base_dir)
 
     progress = ProgressCalculator()
@@ -80,7 +76,6 @@ def build_gui_dependencies(base_dir: Path) -> GuiDependencies:
         create_exam_usecase=CreateExamUseCase(exam_repo=exam_repo, pdf_scan_repo=scan_repo),
         adopt_exam_usecase=AdoptExamUseCase(exam_repo=exam_repo),
         load_exam_usecase=LoadExamUseCase(exam_repo=exam_repo),
-        upsert_region_usecase=UpsertRegionUseCase(exam_repo=exam_repo, region_repo=region_repo),
         save_score_usecase=SaveScoreUseCase(score_repo=score_repo),
         export_scores_usecase=ExportScoresUseCase(export_repo=export_repo),
         export_student_result_usecase=ExportStudentResultUseCase(export_repo=student_result_export_repo),

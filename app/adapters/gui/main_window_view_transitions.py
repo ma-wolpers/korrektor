@@ -99,8 +99,6 @@ class MainWindowViewTransitionsMixin:
         self._active_region_var.set("-")
         self._quick_tasks_var.set("")
         self._form_tasks_text.delete("1.0", ui.END)
-        if hasattr(self, "_extra_area_codes_var"):
-            self._extra_area_codes_var.set("")
         self._refresh_region_tree()
         self._show_view("overview")
         self._in_detail_mode = False
@@ -117,12 +115,12 @@ class MainWindowViewTransitionsMixin:
         self._correction_controls_frame.pack_forget()
 
     def _set_detail_submode(self, mode: str) -> None:
-        """Switch the Klausur-Detail view between correction/extra (Zuschnitt Schritt 2)/reading sub-modes.
+        """Switch the Klausur-Detail view between correction / Zuschnitt Schritt 2 ("extra") / Schritt 1 ("reading").
 
-        Also toggles `_save_region_button` visibility: it is only shown in
-        "extra" mode, since the standard Aufgaben/Punkte editor now commits
-        via <FocusOut> instead of a manual button (see
-        `_commit_reading_fields_if_possible`).
+        Both Zuschnitt steps use the same task editor; Schritt 2 additionally
+        shows its toolbar, the task checklist and the "Speichern" button
+        (ticking tasks needs an explicit commit; Enter/leaving the field
+        commits in both steps, see `_commit_reading_fields_if_possible`).
         """
         self._detail_submode = mode
 
@@ -133,24 +131,22 @@ class MainWindowViewTransitionsMixin:
         self._finish_reading_button.pack(side=ui.RIGHT)
 
         if mode == "extra":
-            self._reading_mode_title_var.set("Zuschnitt · Schritt 2: Seiten ohne Bereich")
-            self._zuschnitt_step_button.configure(text="◀ Schritt 1: Bereiche")
+            self._reading_mode_title_var.set("Zuschnitt · Schritt 2: Einzelseiten")
+            self._zuschnitt_step_button.configure(text="◀ Schritt 1: Superseiten")
             self._zuschnitt_step_button.pack(side=ui.RIGHT, padx=(0, 8))
             self._reading_toolbar.pack_forget()
-            self._mode_row.pack_forget()
+            self._mode_row.pack(fill=ui.X, pady=(8, 0), before=self._reading_split)
             self._regions_editor.pack(fill=ui.BOTH, pady=(10, 0))
-            if self._extra_overview_frame is not None:
-                self._extra_overview_frame.pack_forget()
-                self._extra_overview_frame.pack(fill=ui.X, pady=(0, 6), before=self._regions_tree.master)
-            self._task_input_container.pack_forget()
-            self._extra_area_container.pack(fill=ui.X, pady=(4, 0))
+            self._task_input_container.pack(fill=ui.X)
+            self._task_checklist_frame.pack(fill=ui.X, pady=(6, 0), before=self._region_actions)
             self._extra_toolbar.pack(fill=ui.X, pady=(6, 0), before=self._reading_split)
             self._save_region_button.pack_forget()
             self._save_region_button.pack(side=ui.LEFT, before=self._delete_region_button)
+            self._refresh_task_checklist()
             return
 
-        self._reading_mode_title_var.set("Zuschnitt · Schritt 1: Bereiche festlegen")
-        self._zuschnitt_step_button.configure(text="Schritt 2: Seiten ohne Bereich ▶")
+        self._reading_mode_title_var.set("Zuschnitt · Schritt 1: Superseiten")
+        self._zuschnitt_step_button.configure(text="Schritt 2: Einzelseiten ▶")
         self._zuschnitt_step_button.pack(side=ui.RIGHT, padx=(0, 8))
         self._extra_toolbar.pack_forget()
         self._reading_toolbar.pack(fill=ui.X, before=self._reading_split)
@@ -158,8 +154,6 @@ class MainWindowViewTransitionsMixin:
         self._superpage_toggle.pack(side=ui.RIGHT)
         self._mode_row.pack(fill=ui.X, pady=(8, 0), before=self._reading_split)
         self._regions_editor.pack(fill=ui.BOTH, pady=(10, 0))
-        if self._extra_overview_frame is not None:
-            self._extra_overview_frame.pack_forget()
-        self._extra_area_container.pack_forget()
+        self._task_checklist_frame.pack_forget()
         self._task_input_container.pack(fill=ui.X)
         self._save_region_button.pack_forget()

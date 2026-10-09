@@ -1,11 +1,15 @@
-"""Which student pages are covered by a template region - basis of Zuschnitt Schritt 2.
+"""Which student pages are covered by a Superseiten-Bereich - basis of Zuschnitt Schritt 2 ("Einzelseiten").
 
-Page numbers are 1-based within each student's PDF. A page is *uncovered*
-("ohne Bereich", the new meaning of "Extraseite") when no template region
-(``regions`` entry with ``student_pdf == ""``) sits on its page number -
-regardless of whether it lies beyond the shortest PDF. An uncovered page is
-*handled* when it has an extra-page assignment or is marked "ohne
-Bewertung" (``unscored_pages``); otherwise it is *open*.
+Page numbers are 1-based within each student's PDF. Two different sets
+(binding, A6 of the plan):
+
+- `compute_uncovered_pages` is the **navigation set** of Schritt 2: every
+  page whose page number carries no Superseiten-Bereich (``regions`` with
+  ``student_pdf == ""``) - *including* pages already handled, so decisions
+  can be reviewed and changed.
+- `open_pages` are the uncovered pages that still need a decision: no
+  Einzelseiten-Bereich of that student on the page and not "ohne
+  Bewertung" (``unscored_pages``). Only these make the overview flag open.
 """
 
 from __future__ import annotations
@@ -15,7 +19,6 @@ from typing import Literal
 
 from app.core.domain.models import ExamProject
 
-ForAllAction = Literal["unscore", "assign"]
 MixedState = Literal["on", "off", "mixed"]
 
 
@@ -43,8 +46,13 @@ def unscored_set(exam: ExamProject) -> set[tuple[str, int]]:
 
 
 def assigned_set(exam: ExamProject) -> set[tuple[str, int]]:
-    """``{(pdf, page)}`` with an extra-page assignment."""
-    return {(item.student_pdf, item.page_number) for item in exam.extra_page_assignments}
+    """``{(pdf, page)}`` carrying at least one Einzelseiten-Bereich."""
+    return {(region.student_pdf, region.page_number) for region in exam.regions if region.student_pdf}
+
+
+def all_pages(exam: ExamProject) -> dict[str, list[int]]:
+    """``{pdf_filename: [1..page_count]}`` - Schritt 2 navigation with "Auch Seiten mit Superseiten-Bereich"."""
+    return {student.pdf_filename: list(range(1, student.page_count + 1)) for student in exam.students}
 
 
 def open_pages(exam: ExamProject) -> list[tuple[str, int]]:
@@ -58,10 +66,9 @@ def open_pages(exam: ExamProject) -> list[tuple[str, int]]:
     ]
 
 
-def gradable_extra_pages(exam: ExamProject, pdf_filename: str) -> list[int]:
-    """Uncovered pages of one student except "ohne Bewertung" ones (what the correction popup shows)."""
-    unscored = unscored_set(exam)
-    return [page for page in compute_uncovered_pages(exam).get(pdf_filename, []) if (pdf_filename, page) not in unscored]
+def single_pages_with_regions(exam: ExamProject, pdf_filename: str) -> list[int]:
+    """Pages of one student that carry an Einzelseiten-Bereich (what "Einzelseiten ansehen" shows)."""
+    return sorted({region.page_number for region in exam.regions if region.student_pdf == pdf_filename})
 
 
 def uncovered_for_all(exam: ExamProject) -> list[int]:
@@ -86,12 +93,11 @@ def pages_missing_markings(exam: ExamProject) -> list[int]:
 
 @dataclass(frozen=True)
 class PageForAllPlan:
-    """Who a "für alle Personen (Seite N)" action changes and who it deliberately leaves alone.
+    """Who "Seite N bei allen ohne Bewertung" changes and who it deliberately leaves alone.
 
-    ``excluded`` are students whose page N is already *assigned* to a region
-    (and, for "assign", also those already "ohne Bewertung") - conscious
-    individual decisions are never overwritten. ``unchanged`` already have
-    the target state.
+    ``excluded`` are students whose page N already carries an
+    Einzelseiten-Bereich - conscious individual decisions are never
+    overwritten. ``unchanged`` are already "ohne Bewertung".
     """
 
     page_number: int
@@ -100,8 +106,8 @@ class PageForAllPlan:
     unchanged: tuple[str, ...]
 
 
-def plan_page_for_all(exam: ExamProject, page_number: int, action: ForAllAction) -> PageForAllPlan:
-    """Plan "Seite N bei allen ohne Bewertung" (``"unscore"``) or "Bereich für alle zuordnen" (``"assign"``).
+def plan_page_for_all(exam: ExamProject, page_number: int) -> PageForAllPlan:
+    """Plan "Seite N bei allen ohne Bewertung" ("Bereich für alle zuordnen" was dropped: draw a Superseiten-Bereich instead).
 
     Only meaningful for ``page_number in uncovered_for_all(exam)``; other
     pages yield an empty plan.
@@ -116,7 +122,7 @@ def plan_page_for_all(exam: ExamProject, page_number: int, action: ForAllAction)
         if key in assigned:
             excluded.append(student.pdf_filename)
         elif key in unscored:
-            (unchanged if action == "unscore" else excluded).append(student.pdf_filename)
+            unchanged.append(student.pdf_filename)
         else:
             affected.append(student.pdf_filename)
     return PageForAllPlan(page_number, tuple(affected), tuple(excluded), tuple(unchanged))
@@ -124,7 +130,7 @@ def plan_page_for_all(exam: ExamProject, page_number: int, action: ForAllAction)
 
 def unscored_state_for_all(exam: ExamProject, page_number: int) -> MixedState:
     """State of the "Seite N bei allen ohne Bewertung" switch over the non-assigned students."""
-    plan = plan_page_for_all(exam, page_number, "unscore")
+    plan = plan_page_for_all(exam, page_number)
     if not plan.unchanged:
         return "off"
     return "on" if not plan.affected else "mixed"

@@ -110,10 +110,10 @@ class MainWindowCorrectionCompletionMixin:
         template = self._current_correction_template()
         if student is None or template is None:
             return False
-        return self._controller.is_person_area_finished(
+        return self._controller.are_person_tasks_finished(
             exam=self._current_exam,
             student_id=student.student_id,
-            region_id=template.region_id,
+            task_codes=[task.code for task in template.tasks],
         )
 
     def _correction_region_student_ids(self) -> list[str]:
@@ -194,8 +194,8 @@ class MainWindowCorrectionCompletionMixin:
 
         student_ids = self._correction_region_student_ids()
         total = len(student_ids)
-        finished_count = self._controller.count_persons_area_finished(
-            exam=self._current_exam, region_id=template.region_id, student_ids=student_ids
+        finished_count = self._controller.count_persons_tasks_finished(
+            exam=self._current_exam, task_codes=[task.code for task in template.tasks], student_ids=student_ids
         )
         all_finished = total > 0 and finished_count == total
         any_finished = finished_count > 0
@@ -230,10 +230,10 @@ class MainWindowCorrectionCompletionMixin:
             self._refresh_correction_completion_controls()
             return
 
-        updated = self._controller.set_persons_area_finished_immediate(
+        updated = self._controller.set_persons_tasks_finished_immediate(
             exam=self._current_exam,
             student_ids=[student.student_id],
-            region_id=template.region_id,
+            task_codes=[task.code for task in template.tasks],
             is_finished=requested,
         )
         if updated is None:
@@ -284,10 +284,10 @@ class MainWindowCorrectionCompletionMixin:
             self._refresh_correction_completion_controls()
             return
 
-        updated = self._controller.set_persons_area_finished_immediate(
+        updated = self._controller.set_persons_tasks_finished_immediate(
             exam=self._current_exam,
             student_ids=student_ids,
-            region_id=template.region_id,
+            task_codes=[task.code for task in template.tasks],
             is_finished=requested,
         )
         if updated is None:

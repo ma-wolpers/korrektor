@@ -35,7 +35,7 @@ def _build_exam(exam_folder: Path) -> ExamProject:
                 page_number=1,
                 box=RegionBox(0, 0, 100, 100),
                 assigned_area_codes=["A"],
-                tasks=[TaskDefinition(code="A1", name="A1", max_points=3.0)],
+                task_codes=["A1"],
                 is_read_complete=True,
             ),
             RegionAssignment(
@@ -44,10 +44,11 @@ def _build_exam(exam_folder: Path) -> ExamProject:
                 page_number=2,
                 box=RegionBox(0, 0, 100, 100),
                 assigned_area_codes=["B"],
-                tasks=[TaskDefinition(code="B1", name="B1", max_points=2.0)],
+                task_codes=["B1"],
                 is_read_complete=True,
             ),
         ],
+        tasks=[TaskDefinition(code="A1", name="A1", max_points=3.0), TaskDefinition(code="B1", name="B1", max_points=2.0)],
     )
 
 

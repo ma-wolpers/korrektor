@@ -539,9 +539,14 @@ def _check_undo_redo_contracts(errors: list[str]) -> None:
     # completion callback `_create_exam_from_split` both go through the
     # shared tail-helper `_create_exam_from_folder`, which is itself tracked
     # here and must call `_record_history_action` directly.
+    # Region edits: `upsert_region_immediate`/`delete_region_immediate` save
+    # through the shared tail-helper `_save_region_edit`
+    # (ui_intent_controller_regions.py), which is itself tracked here and must
+    # call `_record_exam_payload_action` directly.
     baseline_mutators = {
         "create_exam",
         "_create_exam_from_folder",
+        "_save_region_edit",
         "delete_selected_exam",
         "update_exam_index_dir",
         "finish_reading_mode",
@@ -552,6 +557,7 @@ def _check_undo_redo_contracts(errors: list[str]) -> None:
         "_save_annotation_mutation_immediate",
         "_apply_superposition_clones",
         "_create_exam_from_folder",
+        "_save_region_edit",
     }
 
     for rel_path in controller_files:

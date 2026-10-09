@@ -68,7 +68,6 @@ class MainWindowBase(BwBaseWindow):
         self._reading_active = False
         self._reading_student_cursor = 0
         self._reading_page = 1
-        self._extra_overview_frame: widgets.Frame | None = None
         self._extra_mode_active = False
         self._extra_sequence: list[tuple[int, int]] = []
         self._extra_cursor = 0
@@ -234,7 +233,8 @@ class MainWindowBase(BwBaseWindow):
         self._reading_info_var = ui.StringVar(value="Zuschnitt: nicht aktiv")
         self._assignment_mode_var = ui.StringVar(value="quick")
         self._superpage_var = ui.BooleanVar(value=False)
-        self._extra_overview_var = ui.StringVar(value="")
+        # Zuschnitt Schritt 2: also walk pages that carry a Superseiten-Bereich.
+        self._extra_all_pages_var = ui.BooleanVar(value=False)
         self._correction_zoom_info_var = ui.StringVar(value="Zoom: 100%")
         self._correction_comment_var = ui.StringVar(value="")
         self._correction_marker_color_name_var = ui.StringVar(

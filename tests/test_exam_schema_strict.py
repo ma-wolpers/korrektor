@@ -1,6 +1,10 @@
+import copy
+
 import pytest
 
 from app.core.domain.models import ExamProject
+from app.core.domain.schema_migration import migrate_v1_tasks
+from app.core.domain.task_regions import superseiten_page_violations
 
 
 def _base_raw_exam() -> dict[str, object]:
@@ -80,12 +84,21 @@ def _base_raw_exam() -> dict[str, object]:
     }
 
 
-def test_from_dict_accepts_forward_only_schema() -> None:
-    exam = ExamProject.from_dict(_base_raw_exam())
+def _v2(raw):
+    """Schema v1 fixture -> migrated -> parsed (the repository's load pipeline without the file)."""
+    return ExamProject.from_dict(migrate_v1_tasks(raw))
 
-    assert len(exam.regions) == 1
-    assert len(exam.extra_page_assignments) == 1
-    assert len(exam.person_area_completions) == 1
+
+def test_v1_migrates_into_exam_wide_tasks_regions_and_task_completions() -> None:
+    exam = _v2(_base_raw_exam())
+
+    assert [(r.region_id, r.student_pdf, r.page_number, r.task_codes) for r in exam.regions] == [
+        ("tpl-1", "", 1, ["A1"]),
+        ("ex-1", "Alice.pdf", 3, ["A1"]),  # extra-page assignment -> Einzelseiten-Bereich, same id
+    ]
+    assert exam.regions[1].assigned_area_codes == ["B"]
+    assert [(t.code, t.max_points) for t in exam.tasks] == [("A1", 4.0)]
+    assert [(c.student_id, c.task_code, c.is_finished) for c in exam.person_task_completions] == [("alice", "A1", True)]
     assert exam.task_comments == {"alice": {"A1": "Sauber gerechnet."}}
     assert len(exam.pdf_annotations) == 1
     assert exam.pdf_annotations[0].region_id == "tpl-1"
@@ -95,22 +108,67 @@ def test_from_dict_accepts_forward_only_schema() -> None:
     assert exam.pdf_annotations[0].position_detached is True
 
 
+def test_migration_is_idempotent_and_detects_v2() -> None:
+    once = migrate_v1_tasks(_base_raw_exam())
+    snapshot = copy.deepcopy(once)
+
+    assert migrate_v1_tasks(once) == snapshot
+    assert ExamProject.from_dict(snapshot).to_dict()["schema_version"] == 2
+    assert migrate_v1_tasks(_v2(_base_raw_exam()).to_dict()) == _v2(_base_raw_exam()).to_dict()
+
+
+def test_migration_canonicalises_codes_before_comparing() -> None:
+    raw = _base_raw_exam()
+    raw["regions"][0]["tasks"] = [{"code": " a1 ", "name": "a1", "max_points": 4.0}, {"code": "A1", "name": "A1", "max_points": 9.0}]
+
+    exam = _v2(raw)
+
+    assert [(t.code, t.max_points) for t in exam.tasks] == [("A1", 4.0)]  # first definition wins
+    assert exam.regions[0].task_codes == ["A1"]
+
+
+def test_migration_drops_extra_assignment_without_resolvable_tasks() -> None:
+    raw = _base_raw_exam()
+    raw["extra_page_assignments"][0]["assigned_area_codes"] = ["Z"]
+
+    assert [region.region_id for region in _v2(raw).regions] == ["tpl-1"]
+
+
+def test_migration_resolves_marks_without_region_by_position() -> None:
+    raw = _base_raw_exam()
+    raw["pdf_annotations"][0].pop("region_id")
+
+    assert _v2(raw).pdf_annotations[0].region_id == "tpl-1"
+    raw = _base_raw_exam()
+    raw["pdf_annotations"][0].pop("region_id")
+    raw["pdf_annotations"][0]["x"] = 500.0  # outside every region: stays unresolved
+    assert _v2(raw).pdf_annotations[0].region_id == ""
+
+
+def test_migration_keeps_superseiten_region_beyond_the_shortest_pdf_and_reports_it() -> None:
+    """Rule A4 for legacy data: not fatal on load, but reported."""
+    raw = _base_raw_exam()
+    raw["students"].append({"student_id": "bob", "display_name": "Bob", "pdf_filename": "Bob.pdf", "page_count": 1})
+    raw["regions"][0]["page_number"] = 2
+
+    exam = _v2(raw)
+
+    assert exam.regions[0].page_number == 2
+    assert superseiten_page_violations(exam) == ["Bereich A liegt auf Seite 2, die Bob nicht hat"]
+
+
 def test_from_dict_defaults_task_comments_when_missing() -> None:
     raw = _base_raw_exam()
     raw.pop("task_comments")
 
-    exam = ExamProject.from_dict(raw)
-
-    assert exam.task_comments == {}
+    assert _v2(raw).task_comments == {}
 
 
 def test_from_dict_defaults_pdf_annotations_when_missing() -> None:
     raw = _base_raw_exam()
     raw.pop("pdf_annotations")
 
-    exam = ExamProject.from_dict(raw)
-
-    assert exam.pdf_annotations == []
+    assert _v2(raw).pdf_annotations == []
 
 
 def test_from_dict_defaults_annotation_size_and_rotation_when_missing() -> None:
@@ -118,19 +176,10 @@ def test_from_dict_defaults_annotation_size_and_rotation_when_missing() -> None:
     raw["pdf_annotations"][0].pop("font_size")
     raw["pdf_annotations"][0].pop("rotation_deg")
 
-    exam = ExamProject.from_dict(raw)
+    exam = _v2(raw)
 
     assert exam.pdf_annotations[0].font_size == 20.0
     assert exam.pdf_annotations[0].rotation_deg == 0.0
-
-
-def test_from_dict_defaults_annotation_region_id_when_missing() -> None:
-    raw = _base_raw_exam()
-    raw["pdf_annotations"][0].pop("region_id")
-
-    exam = ExamProject.from_dict(raw)
-
-    assert exam.pdf_annotations[0].region_id == ""
 
 
 def test_from_dict_defaults_annotation_sync_fields_when_missing() -> None:
@@ -138,31 +187,19 @@ def test_from_dict_defaults_annotation_sync_fields_when_missing() -> None:
     raw["pdf_annotations"][0].pop("sync_group_id")
     raw["pdf_annotations"][0].pop("position_detached")
 
-    exam = ExamProject.from_dict(raw)
+    exam = _v2(raw)
 
     assert exam.pdf_annotations[0].sync_group_id == ""
     assert exam.pdf_annotations[0].position_detached is False
 
 
-def test_from_dict_rejects_missing_extra_assignment_field() -> None:
-    raw = _base_raw_exam()
-    raw.pop("extra_page_assignments")
-
-    with pytest.raises(ValueError, match="missing 'extra_page_assignments'"):
-        ExamProject.from_dict(raw)
+def test_from_dict_rejects_unmigrated_v1_data() -> None:
+    with pytest.raises(ValueError, match="schema_version"):
+        ExamProject.from_dict(_base_raw_exam())
 
 
-def test_from_dict_rejects_student_bound_standard_template() -> None:
-    raw = _base_raw_exam()
-    raw["regions"][0]["student_pdf"] = "Alice.pdf"
+def test_saved_v2_has_no_extra_page_assignments_so_old_versions_reject_it() -> None:
+    payload = _v2(_base_raw_exam()).to_dict()
 
-    with pytest.raises(ValueError, match="must not carry student_pdf"):
-        ExamProject.from_dict(raw)
-
-
-def test_from_dict_rejects_extra_flag_on_standard_template() -> None:
-    raw = _base_raw_exam()
-    raw["regions"][0]["is_extra_page"] = True
-
-    with pytest.raises(ValueError, match="must not set is_extra_page=true"):
-        ExamProject.from_dict(raw)
+    assert "extra_page_assignments" not in payload and "person_area_completions" not in payload
+    assert all("tasks" not in region for region in payload["regions"])

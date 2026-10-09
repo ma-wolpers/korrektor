@@ -5,7 +5,7 @@ from pathlib import Path
 import fitz
 
 from app.adapters.gui.dialog_services import messagebox
-from app.core.domain.page_coverage import gradable_extra_pages
+from app.core.domain.page_coverage import single_pages_with_regions
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
@@ -16,23 +16,22 @@ from bw_gui.widgets import ScrollableImagePreview
 
 
 class MainWindowExtraPagesPopupMixin:
-    """Korrektur: popup that shows the current person's extra pages (pages without a template region).
+    """"Einzelseiten ansehen": popup with the current person's pages that carry an Einzelseiten-Bereich.
 
-    Moved out of `main_window_extra_pages.py` (file-size rule; that file now
-    holds Zuschnitt Schritt 2). Shows the computed extra pages except those
-    marked "ohne Bewertung" (`page_coverage.gradable_extra_pages`).
+    Read-only, whole page (`page_coverage.single_pages_with_regions`); the
+    header names the regions and their tasks on that page.
     """
 
     def _gradable_extra_pages(self, student) -> list[int]:
-        """Extra pages of ``student`` worth looking at during correction (1-based, within the student's PDF)."""
+        """Pages of ``student`` with an Einzelseiten-Bereich (1-based, within the student's PDF)."""
         if self._current_exam is None:
             return []
-        return gradable_extra_pages(self._current_exam, student.pdf_filename)
+        return single_pages_with_regions(self._current_exam, student.pdf_filename)
 
     def _toggle_extra_pages_popup_for_current(self) -> None:
         if self._extra_popup is not None and self._extra_popup.winfo_exists():
             self._close_extra_popup()
-            self._status_var.set("Extraseitenansicht geschlossen")
+            self._status_var.set("Einzelseitenansicht geschlossen")
             return
         self._open_extra_pages_popup_for_current(notify_if_missing=True)
 
@@ -44,7 +43,7 @@ class MainWindowExtraPagesPopupMixin:
         if not self._gradable_extra_pages(student):
             self._close_extra_popup()
             if notify_if_missing:
-                messagebox.showinfo("Hinweis", "Für die aktuelle Person sind keine Extraseiten vorhanden.")
+                messagebox.showinfo("Hinweis", "Für die aktuelle Person gibt es keine Einzelseiten mit Bereichen.")
             return
 
         pdf_path = Path(self._current_exam.folder_path) / student.pdf_filename
@@ -60,7 +59,7 @@ class MainWindowExtraPagesPopupMixin:
             # stays visible - a canvas sized to an A4 page used to push it out
             # of the window. Shrinking the window only shrinks the preview.
             popup = ui.Toplevel(self.root)
-            popup.title(f"Extraseiten: {student.display_name}")
+            popup.title(f"Einzelseiten: {student.display_name}")
             popup.geometry("760x860")
             popup.minsize(420, 320)
             popup.transient(self.root)
@@ -80,7 +79,7 @@ class MainWindowExtraPagesPopupMixin:
                 command=lambda: self._change_extra_popup_page(-1),
             )
             popup_prev_button.pack(side=ui.LEFT)
-            self._attach_hover_help(popup_prev_button, label="Vorherige Extraseite", shortcut="Links")
+            self._attach_hover_help(popup_prev_button, label="Vorherige Einzelseite", shortcut="Links")
 
             popup_next_button = widgets.Button(
                 nav,
@@ -89,7 +88,7 @@ class MainWindowExtraPagesPopupMixin:
                 command=lambda: self._change_extra_popup_page(1),
             )
             popup_next_button.pack(side=ui.LEFT, padx=(8, 0))
-            self._attach_hover_help(popup_next_button, label="Nächste Extraseite", shortcut="Rechts")
+            self._attach_hover_help(popup_next_button, label="Nächste Einzelseite", shortcut="Rechts")
 
             popup_close_button = widgets.Button(
                 nav,
@@ -98,7 +97,7 @@ class MainWindowExtraPagesPopupMixin:
                 command=self._close_extra_popup,
             )
             popup_close_button.pack(side=ui.RIGHT)
-            self._attach_hover_help(popup_close_button, label="Extraseiten-Popup schließen", shortcut="Esc")
+            self._attach_hover_help(popup_close_button, label="Einzelseiten-Ansicht schließen", shortcut="Esc")
 
             self._extra_popup_preview = ScrollableImagePreview(popup, render=self._render_extra_popup_image)
             self._extra_popup_preview.pack(side=ui.TOP, fill=ui.BOTH, expand=True, padx=10, pady=(0, 10))
@@ -108,7 +107,7 @@ class MainWindowExtraPagesPopupMixin:
             self._extra_popup = popup
 
         if self._extra_popup is not None:
-            self._extra_popup.title(f"Extraseiten: {student.display_name}")
+            self._extra_popup.title(f"Einzelseiten: {student.display_name}")
             self._extra_popup.deiconify()
             self._extra_popup.lift()
 
@@ -143,10 +142,14 @@ class MainWindowExtraPagesPopupMixin:
             return
 
         page_number = self._gradable_extra_pages(student)[self._extra_popup_cursor]
-        areas = self._areas_for_extra_page(student.pdf_filename, page_number)
-        area_text = ",".join(areas) if areas else "-"
+        regions = [
+            region for region in self._current_exam.regions if region.student_pdf == student.pdf_filename and region.page_number == page_number
+        ]
+        area_text = "; ".join(
+            f"{region.assigned_area_codes[0] if region.assigned_area_codes else '-'}: {', '.join(region.task_codes)}" for region in regions
+        ) or "-"
         self._extra_popup_info_var.set(
-            f"Extraseite {self._extra_popup_cursor + 1}/{len(self._gradable_extra_pages(student))} | Seite {page_number} | Bereich {area_text}"
+            f"Einzelseite {self._extra_popup_cursor + 1}/{len(self._gradable_extra_pages(student))} | Seite {page_number} | Bereiche {area_text}"
         )
         self._extra_popup_preview.refresh(scroll_to_top=True)
 

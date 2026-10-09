@@ -77,13 +77,12 @@ class MainWindowTaskCategoriesMixin:
         self._task_category_popup = popup
 
     def _gather_exam_tasks(self, exam: ExamProject) -> list[tuple[str, str]]:
-        """Every `(task_code, area_code)` pair across all Standardbereiche, sorted by area then code."""
-        pairs = [
-            (task.code, region.assigned_area_codes[0] if region.assigned_area_codes else "?")
-            for region in exam.regions
-            for task in region.tasks
-        ]
-        return sorted(pairs, key=lambda item: (item[1], item[0]))
+        """Every task as ``(task_code, region labels)`` in natural code order (a task may sit in several regions)."""
+        pairs = []
+        for task in exam.tasks:
+            labels = [region.assigned_area_codes[0] for region in exam.regions if task.code in region.task_codes and region.assigned_area_codes]
+            pairs.append((task.code, ", ".join(labels) or "?"))
+        return pairs
 
     def _refresh_task_category_popup(self) -> None:
         if self._current_exam is None or self._task_category_drag_drop is None:

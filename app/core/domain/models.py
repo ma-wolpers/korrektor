@@ -7,14 +7,17 @@ from typing import Any
 
 from app.core.domain.grading_scale import GradingScaleSnapshot
 from app.core.domain.model_regions import (  # noqa: F401 - re-exported, stable import path
-    ExtraPageAssignment,
     RegionAssignment,
     RegionBox,
     TaskCategory,
     TaskDefinition,
     UnscoredPage,
 )
-from app.core.domain.model_students import PdfAnnotation, PersonAreaCompletion, StudentExam  # noqa: F401
+from app.core.domain.model_students import PdfAnnotation, PersonTaskCompletion, StudentExam  # noqa: F401
+
+# Exam data schema written by this version; v1 (tasks inside regions, extra-page
+# assignments, completions per region) is migrated by `schema_migration.migrate_v1_tasks`.
+SCHEMA_VERSION = 2
 
 
 ISO_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
@@ -33,14 +36,15 @@ class ExamProject:
     updated_at: str
     standard_page_count: int
     students: list[StudentExam] = field(default_factory=list)
-    # Standardbereich-Templates (seiten-/koordinatenbasiert, nicht studentgebunden).
+    # Bereiche: Superseiten (student_pdf == "") und Einzelseiten (student_pdf gesetzt);
+    # sie verweisen über task_codes auf `tasks`.
     regions: list[RegionAssignment] = field(default_factory=list)
-    # Extraseiten-Zuordnungen bleiben student- und seitenbezogen.
-    extra_page_assignments: list[ExtraPageAssignment] = field(default_factory=list)
-    # Seiten ohne Bereich, bewusst "ohne Bewertung" markiert (Zuschnitt Schritt 2).
+    # Aufgaben klausurweit (einzige Quelle für Codes und Punkte), natürlich sortiert.
+    tasks: list[TaskDefinition] = field(default_factory=list)
+    # Einzelseiten bewusst "ohne Bewertung" (Zuschnitt Schritt 2).
     unscored_pages: list[UnscoredPage] = field(default_factory=list)
-    # Korrekturabschluss je Person+Bereich.
-    person_area_completions: list[PersonAreaCompletion] = field(default_factory=list)
+    # "Fertig" je Person+Aufgabe.
+    person_task_completions: list[PersonTaskCompletion] = field(default_factory=list)
     # Freitextkommentare je Person+Aufgabe (student_id -> task_code -> comment).
     task_comments: dict[str, dict[str, str]] = field(default_factory=dict)
     # Persistente Korrekturmarkierungen fuer PDF-Overlay und PDF-Writeback.
@@ -84,9 +88,10 @@ class ExamProject:
             "updated_at": self.updated_at,
             "standard_page_count": self.standard_page_count,
             "students": [student.to_dict() for student in self.students],
+            "schema_version": SCHEMA_VERSION,
             "regions": [region.to_dict() for region in self.regions],
-            "extra_page_assignments": [assignment.to_dict() for assignment in self.extra_page_assignments],
-            "person_area_completions": [item.to_dict() for item in self.person_area_completions],
+            "tasks": [task.to_dict() for task in self.tasks],
+            "person_task_completions": [item.to_dict() for item in self.person_task_completions],
             "task_comments": normalized_task_comments,
             "pdf_annotations": [annotation.to_dict() for annotation in self.pdf_annotations],
             "is_reading_complete": self.is_reading_complete,
@@ -104,18 +109,17 @@ class ExamProject:
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "ExamProject":
-        if "extra_page_assignments" not in raw:
-            raise ValueError("Unsupported exam schema: missing 'extra_page_assignments'")
-
-        standard_templates = [RegionAssignment.from_dict(item) for item in raw.get("regions", [])]
-        for region in standard_templates:
-            if region.is_extra_page:
-                raise ValueError("Unsupported exam schema: standard templates must not set is_extra_page=true")
-            if region.student_pdf:
-                raise ValueError("Unsupported exam schema: standard templates must not carry student_pdf")
-
-        extra_assignments = [ExtraPageAssignment.from_dict(item) for item in raw.get("extra_page_assignments", [])]
-        completions = [PersonAreaCompletion.from_dict(item) for item in raw.get("person_area_completions", [])]
+        """Parse a schema-v2 exam dict; v1 raw data must go through `schema_migration.migrate_v1_tasks` first."""
+        if raw.get("schema_version") != SCHEMA_VERSION:
+            raise ValueError(
+                f"Unsupported exam schema: schema_version {raw.get('schema_version')!r} (expected {SCHEMA_VERSION}; "
+                "v1 data is migrated when loading through the repository)"
+            )
+        regions = [RegionAssignment.from_dict(item) for item in raw.get("regions", [])]
+        tasks = [TaskDefinition.from_dict(item) for item in raw.get("tasks", [])]
+        for task in tasks:
+            task.code = task.code.upper()
+        completions = [PersonTaskCompletion.from_dict(item) for item in raw.get("person_task_completions", [])]
         annotations = [PdfAnnotation.from_dict(item) for item in raw.get("pdf_annotations", [])]
         task_comments_raw = raw.get("task_comments", {})
         task_comments: dict[str, dict[str, str]] = {}
@@ -153,10 +157,10 @@ class ExamProject:
             updated_at=str(raw.get("updated_at", utc_now_iso())),
             standard_page_count=int(raw.get("standard_page_count", 0)),
             students=[StudentExam.from_dict(item) for item in raw.get("students", [])],
-            regions=standard_templates,
-            extra_page_assignments=extra_assignments,
+            regions=regions,
+            tasks=tasks,
             unscored_pages=[UnscoredPage.from_dict(item) for item in raw.get("unscored_pages", [])],
-            person_area_completions=completions,
+            person_task_completions=completions,
             task_comments=task_comments,
             pdf_annotations=annotations,
             is_reading_complete=bool(raw.get("is_reading_complete", False)),

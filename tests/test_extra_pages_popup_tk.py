@@ -1,4 +1,4 @@
-"""Real-Tk test of the Extraseiten popup layout (same "A4 page pushes the bar out" bug as the old import wizard)."""
+"""Real-Tk test of the "Einzelseiten ansehen" popup layout (same "A4 page pushes the bar out" bug as the old import wizard)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from tk_test_support import build_pdf, settle
 def test_extra_pages_popup_keeps_navigation_visible_and_scrolls(korrektor_window, tmp_path):
     """Navigation stays fully visible at small heights; the page scrolls and starts at the top on page change."""
     window = korrektor_window
-    from app.core.domain.models import ExamProject, RegionAssignment, RegionBox, StudentExam, utc_now_iso
+    from app.core.domain.models import ExamProject, RegionAssignment, RegionBox, StudentExam, TaskDefinition, utc_now_iso
 
     folder = tmp_path / "exam"
     folder.mkdir()
@@ -22,9 +22,12 @@ def test_extra_pages_popup_keeps_navigation_visible_and_scrolls(korrektor_window
         updated_at=now,
         standard_page_count=1,
         students=[StudentExam(student_id="anna", display_name="Anna", pdf_filename="Anna.pdf", page_count=3)],
-        regions=[RegionAssignment(region_id="r1", student_pdf="", page_number=1, box=RegionBox(0, 0, 10, 10))],
-        extra_page_assignments=[],
-        person_area_completions=[],
+        regions=[
+            RegionAssignment(region_id="r1", student_pdf="", page_number=1, box=RegionBox(0, 0, 10, 10), task_codes=["1A"], assigned_area_codes=["A"]),
+            RegionAssignment(region_id="x2", student_pdf="Anna.pdf", page_number=2, box=RegionBox(0, 0, 10, 10), task_codes=["1A"], assigned_area_codes=["B"]),
+            RegionAssignment(region_id="x3", student_pdf="Anna.pdf", page_number=3, box=RegionBox(0, 0, 10, 10), task_codes=["1A"], assigned_area_codes=["C"]),
+        ],
+        tasks=[TaskDefinition("1A", "1A", 2.0)],
         is_reading_complete=False,
     )
     window._student_cursor = 0
@@ -45,7 +48,7 @@ def test_extra_pages_popup_keeps_navigation_visible_and_scrolls(korrektor_window
         assert preview.canvas.yview()[0] > 0
         window._change_extra_popup_page(1)
         window.update()
-        assert "Extraseite 2/2 | Seite 3" in window._extra_popup_info_var.get()
+        assert "Einzelseite 2/2 | Seite 3 | Bereiche C: 1A" in window._extra_popup_info_var.get()
         assert preview.canvas.yview()[0] == 0
     finally:
         window._close_extra_popup()

@@ -4,6 +4,7 @@ from typing import Sequence
 
 from app.adapters.gui.dialog_services import messagebox
 from app.core.domain.models import StudentExam
+from app.core.domain.task_regions import next_free_label, shared_page_limit
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
@@ -40,13 +41,13 @@ class MainWindowReadingMixin:
 
         self._zuschnitt_step_button = widgets.Button(
             reading_nav,
-            text="Schritt 2: Seiten ohne Bereich ▶",
+            text="Schritt 2: Einzelseiten ▶",
             style="SecondaryAction.TButton",
             command=self._toggle_zuschnitt_step,
         )
         self._zuschnitt_step_button.pack(side=ui.RIGHT, padx=(0, 8))
         self._attach_hover_help(
-            self._zuschnitt_step_button, label="Zwischen Schritt 1 (Bereiche) und Schritt 2 (Seiten ohne Bereich) wechseln", shortcut=None
+            self._zuschnitt_step_button, label="Zwischen Schritt 1 (Superseiten) und Schritt 2 (Einzelseiten) wechseln", shortcut=None
         )
 
         self._reading_toolbar = widgets.Frame(self._reading_view, style="Surface.TFrame")
@@ -161,7 +162,7 @@ class MainWindowReadingMixin:
 
         self._render_pdf_page(student=student, page_number=self._reading_page)
 
-        extra_marker = " (Extraseite)" if self._reading_page > self._current_exam.standard_page_count else ""
+        extra_marker = " (nicht alle haben diese Seite – Bereiche hier in Schritt 2)" if self._reading_page > shared_page_limit(self._current_exam) else ""
         self._reading_info_var.set(
             f"{student.display_name} | Seite {self._reading_page}/{student.page_count}{extra_marker}"
         )
@@ -225,9 +226,6 @@ class MainWindowReadingMixin:
         """
         if self._current_exam is None:
             return "A"
-        if self._extra_mode_active:
-            existing = self._existing_standard_areas()
-            return existing[0] if existing else "A"
         used = {
             region.assigned_area_codes[0].strip().upper()
             for region in self._current_exam.regions
@@ -236,12 +234,9 @@ class MainWindowReadingMixin:
         used.update(
             draft.area_codes[0].strip().upper()
             for draft in self._draft_regions.values()
-            if draft.student_pdf == "" and draft.area_codes and draft.area_codes[0].strip()
+            if draft.area_codes and draft.area_codes[0].strip()
         )
-        index = 0
-        while self._index_to_area_label(index) in used:
-            index += 1
-        return self._index_to_area_label(index)
+        return next_free_label(used)
 
     def _finish_reading_mode(self) -> None:
         """Mark Einlesemodus complete for the current exam and leave the reading view."""

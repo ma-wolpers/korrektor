@@ -1,178 +1,86 @@
-from app.core.domain.models import ExamProject, PersonAreaCompletion, RegionAssignment, RegionBox, StudentExam, utc_now_iso
+"""Overview progress (schema v2): Zuschnitt share of regions, correction progress = tasks finished by everybody."""
+
+from app.core.domain.models import (
+    ExamProject,
+    PersonTaskCompletion,
+    RegionAssignment,
+    RegionBox,
+    StudentExam,
+    TaskDefinition,
+    utc_now_iso,
+)
 from app.core.domain.progress import ProgressCalculator
 
 
-def test_progress_detects_unassigned_extra_pages_and_missing_standard_pages() -> None:
+def _exam(*, students, regions, tasks, completions=()) -> ExamProject:
     now = utc_now_iso()
-    exam = ExamProject(
-        exam_id="exam-1",
+    return ExamProject(
+        exam_id="exam",
         exam_name="Mathe",
         folder_path="A:/tmp",
         created_at=now,
         updated_at=now,
-        standard_page_count=3,
-        students=[
-            StudentExam(
-                student_id="alice",
-                display_name="Alice",
-                pdf_filename="Alice.pdf",
-                page_count=5,
-            )
-        ],
-        regions=[
-            RegionAssignment(
-                region_id="r1",
-                student_pdf="Alice.pdf",
-                page_number=1,
-                box=RegionBox(0, 0, 100, 100),
-                is_read_complete=True,
-                is_corrected=False,
-            )
-        ],
-        is_reading_complete=False,
+        standard_page_count=2,
+        students=students,
+        regions=regions,
+        tasks=tasks,
+        person_task_completions=list(completions),
     )
+
+
+def _student(sid: str, pages: int = 2) -> StudentExam:
+    return StudentExam(student_id=sid, display_name=sid.title(), pdf_filename=f"{sid}.pdf", page_count=pages)
+
+
+def _region(rid: str, page: int, codes: list[str], *, pdf: str = "", **kwargs) -> RegionAssignment:
+    return RegionAssignment(region_id=rid, student_pdf=pdf, page_number=page, box=RegionBox(0, 0, 100, 100), task_codes=codes, assigned_area_codes=[rid.upper()], is_read_complete=True, **kwargs)
+
+
+def test_progress_detects_open_einzelseiten_and_missing_standard_pages() -> None:
+    """Only an Einzelseiten-Bereich on page 1: pages 2..5 are open, standard pages lack markings."""
+    exam = _exam(students=[_student("alice", 5)], regions=[_region("r1", 1, ["1A"], pdf="alice.pdf")], tasks=[TaskDefinition("1A", "1A", 1)])
 
     progress = ProgressCalculator().compute(exam)
 
     assert progress.has_unassigned_extra_pages is True
     assert progress.has_missing_page_markings is True
+    assert progress.reading_percent == 100.0 and progress.region_count == 1
 
 
-def test_progress_counts_fully_finished_areas_for_all_students() -> None:
-    now = utc_now_iso()
-    exam = ExamProject(
-        exam_id="exam-2",
-        exam_name="Informatik",
-        folder_path="A:/tmp",
-        created_at=now,
-        updated_at=now,
-        standard_page_count=2,
-        students=[
-            StudentExam(
-                student_id="alice",
-                display_name="Alice",
-                pdf_filename="Alice.pdf",
-                page_count=2,
-            ),
-            StudentExam(
-                student_id="bob",
-                display_name="Bob",
-                pdf_filename="Bob.pdf",
-                page_count=2,
-            ),
+def test_progress_counts_tasks_finished_for_all_students() -> None:
+    exam = _exam(
+        students=[_student("alice"), _student("bob")],
+        regions=[_region("a", 1, ["1A", "1B"]), _region("b", 2, ["1B"])],  # 1B spans two regions, counts once
+        tasks=[TaskDefinition("1A", "1A", 2), TaskDefinition("1B", "1B", 3)],
+        completions=[
+            PersonTaskCompletion("alice", "1A"),
+            PersonTaskCompletion("bob", "1A"),
+            PersonTaskCompletion("alice", "1B"),  # Bob not finished with 1B
         ],
-        regions=[
-            RegionAssignment(
-                region_id="r-a",
-                student_pdf="",
-                page_number=1,
-                box=RegionBox(0, 0, 100, 100),
-                assigned_area_codes=["A"],
-                is_read_complete=True,
-            ),
-            RegionAssignment(
-                region_id="r-b",
-                student_pdf="",
-                page_number=2,
-                box=RegionBox(0, 0, 100, 100),
-                assigned_area_codes=["B"],
-                is_read_complete=True,
-            ),
-        ],
-        person_area_completions=[
-            # Area A (region r-a) is fully finished for all students.
-            PersonAreaCompletion(
-                student_id="alice",
-                region_id="r-a",
-                is_finished=True,
-            ),
-            PersonAreaCompletion(
-                student_id="bob",
-                region_id="r-a",
-                is_finished=True,
-            ),
-            # Area B (region r-b) is unfinished for Bob.
-            PersonAreaCompletion(
-                student_id="alice",
-                region_id="r-b",
-                is_finished=True,
-            ),
-        ],
-        is_reading_complete=True,
     )
 
     progress = ProgressCalculator().compute(exam)
 
-    assert progress.total_area_count == 2
-    assert progress.fully_finished_area_count == 1
-    # Regression: correction_percent/corrected_region_count must reflect the
-    # PersonAreaCompletion-driven "Fertig korrigiert" state, not the legacy
-    # RegionAssignment.is_corrected/ExtraPageAssignment.is_corrected fields
-    # (which nothing in the app ever sets - using them always reported 0%).
-    assert progress.corrected_region_count == 1
+    assert (progress.corrected_task_count, progress.total_task_count) == (1, 2)
     assert progress.correction_percent == 50.0
 
 
 def test_progress_correction_percent_ignores_dead_is_corrected_flag() -> None:
-    now = utc_now_iso()
-    exam = ExamProject(
-        exam_id="exam-3",
-        exam_name="Physik",
-        folder_path="A:/tmp",
-        created_at=now,
-        updated_at=now,
-        standard_page_count=1,
-        students=[
-            StudentExam(student_id="alice", display_name="Alice", pdf_filename="Alice.pdf", page_count=1),
-        ],
-        regions=[
-            RegionAssignment(
-                region_id="r-a",
-                student_pdf="",
-                page_number=1,
-                box=RegionBox(0, 0, 100, 100),
-                assigned_area_codes=["A"],
-                is_read_complete=True,
-                is_corrected=True,  # legacy field, must be ignored
-            ),
-        ],
-        person_area_completions=[],  # nobody actually marked "Fertig korrigiert"
+    exam = _exam(students=[_student("alice")], regions=[_region("a", 1, ["1A"], is_corrected=True)], tasks=[TaskDefinition("1A", "1A", 1)])
+
+    progress = ProgressCalculator().compute(exam)
+
+    assert progress.corrected_task_count == 0 and progress.correction_percent == 0.0
+
+
+def test_progress_correction_percent_reaches_100_when_all_tasks_finished() -> None:
+    exam = _exam(
+        students=[_student("alice")],
+        regions=[_region("a", 1, ["1A"])],
+        tasks=[TaskDefinition("1A", "1A", 1)],
+        completions=[PersonTaskCompletion("alice", "1A")],
     )
 
     progress = ProgressCalculator().compute(exam)
 
-    assert progress.corrected_region_count == 0
-    assert progress.correction_percent == 0.0
-
-
-def test_progress_correction_percent_reaches_100_when_all_areas_finished() -> None:
-    now = utc_now_iso()
-    exam = ExamProject(
-        exam_id="exam-4",
-        exam_name="Chemie",
-        folder_path="A:/tmp",
-        created_at=now,
-        updated_at=now,
-        standard_page_count=1,
-        students=[
-            StudentExam(student_id="alice", display_name="Alice", pdf_filename="Alice.pdf", page_count=1),
-        ],
-        regions=[
-            RegionAssignment(
-                region_id="r-a",
-                student_pdf="",
-                page_number=1,
-                box=RegionBox(0, 0, 100, 100),
-                assigned_area_codes=["A"],
-                is_read_complete=True,
-            ),
-        ],
-        person_area_completions=[
-            PersonAreaCompletion(student_id="alice", region_id="r-a", is_finished=True),
-        ],
-    )
-
-    progress = ProgressCalculator().compute(exam)
-
-    assert progress.corrected_region_count == 1
-    assert progress.correction_percent == 100.0
+    assert progress.corrected_task_count == 1 and progress.correction_percent == 100.0

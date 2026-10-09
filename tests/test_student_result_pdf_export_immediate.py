@@ -67,11 +67,12 @@ def _build_exam(exam_folder: Path, *, student_ids: tuple[str, ...] = ("alice", "
                 student_pdf="",
                 page_number=1,
                 box=RegionBox(0, 0, 100, 100),
-                tasks=[TaskDefinition(code="1A", name="1A", max_points=10.0)],
+                task_codes=["1A"],
                 assigned_area_codes=["A"],
                 is_read_complete=True,
             ),
         ],
+        tasks=[TaskDefinition(code="1A", name="1A", max_points=10.0)],
     )
 
 

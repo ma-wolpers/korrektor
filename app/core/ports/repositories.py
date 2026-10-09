@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Protocol
 
 from app.core.domain.grading_scale import GradingScale, GradingScaleUsageEntry
-from app.core.domain.models import ExamProject, RegionAssignment
+from app.core.domain.models import ExamProject
 from app.core.domain.student_result import StudentResult
 
 
@@ -45,6 +45,9 @@ class ScoreRepository(Protocol):
     def load_scores(self, *, exam: ExamProject) -> dict[str, dict[str, float]]:
         ...
 
+    def load_recorded_max_points(self, *, exam: ExamProject) -> dict[str, tuple[float, int]]:
+        ...
+
 
 class ScoreExportRepository(Protocol):
     def export_scores(
@@ -58,11 +61,6 @@ class ScoreExportRepository(Protocol):
 
 class PdfScanRepository(Protocol):
     def scan_exam_folder(self, folder_path: Path) -> list[tuple[str, int]]:
-        ...
-
-
-class RegionRepository(Protocol):
-    def upsert_region(self, exam: ExamProject, region: RegionAssignment) -> ExamProject:
         ...
 
 
