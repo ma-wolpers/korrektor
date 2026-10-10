@@ -134,7 +134,7 @@ class MainWindowShortcutsDebugMixin:
                 table.insert(
                     "",
                     ui.END,
-                    values=(mode, definition.sequence, definition.binding_id, status, "" if can_execute else reason),
+                    values=(mode, str(definition.primary_key), definition.binding_id, status, "" if can_execute else reason),
                 )
 
         total = active_count + disabled_count

@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- **Behoben:** Korrektor stürzte direkt beim Start ab (`ValueError: Unknown key name 'Esc'`), nachdem bw-gui Tastenkürzel auf `KeySpec` umgestellt hatte. Namen-Fenster und „PDF aufteilen“ nutzen die neue Kürzel-Beschreibung jetzt direkt; Ziffernblock-Enter wirkt dort wie bisher wie Enter. **Reine Übergangslösung** für die Kürzel des Hauptfensters: `app/adapters/gui/tk_sequence_keyspec.py` übersetzt die alten Tk-Sequenzen nur noch für die Registry, die Hover-Hilfe hängt die deutschen Kürzeltexte vorerst selbst an; beides entfällt mit der Umstellung auf `ApplicationShortcutBinder`.
 - Das Fenster "PDF aufteilen" begrenzt seine Startgröße auf den Monitor, auf dem es öffnet, statt auf den Hauptmonitor.
 
 ## Unreleased

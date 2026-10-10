@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.adapters.gui.laufkern_manifest_provider import build_runtime_shortcut_manifest
+from app.adapters.gui.tk_sequence_keyspec import tk_sequence_to_keyspec
 from bw_gui.contracts.keybinding import (
     UI_MODE_DIALOG,
     UI_MODE_EDITOR,
@@ -44,9 +45,14 @@ class MainWindowShortcutsMixin:
         if not intent_ok:
             raise ValueError(f"Unknown runtime shortcut intent: {intent}")
 
+        # BAUSTELLE: reine Uebergangsloesung bis zur Migration auf ApplicationShortcutBinder
+        # (siehe tk_sequence_keyspec.py); Tk-Sequenzen gehoeren nicht mehr in App-Code.
+        keyspec = tk_sequence_to_keyspec(sequence)
+        if keyspec is None:
+            raise ValueError(f"Shortcut {binding_id!r}: {sequence!r} ist keine Tastatursequenz")
         definition = KeyBindingDefinition(
             binding_id=binding_id,
-            sequence=sequence,
+            keys=(keyspec,),
             intent=intent,
             modes=modes,
             allow_when_text_input=allow_when_text_input,

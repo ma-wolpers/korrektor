@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from app.adapters.gui.ui_intents import UiIntent
+from bw_gui.contracts import EventResult, Key, KeySpec, Mod
 from bw_gui.contracts.keybinding import UI_MODE_DIALOG, UI_MODE_EDITOR
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
@@ -19,7 +20,7 @@ def prefer_toplevel_bindings(widget, toplevel) -> None:
     Tk processes bindtags in order; by default a focused entry/listbox runs
     its *class* bindings (cursor movement, selection) before the toplevel
     tag where `WindowShortcutBinder` binds. With the toplevel first, an
-    executed shortcut's ``"break"`` suppresses the widget's own reaction,
+    executed shortcut (``EventResult.HANDLED``) suppresses the widget's own reaction,
     while blocked combinations (binder returns ``None``, e.g. Ctrl+Left)
     still reach the class bindings. Verified for ttk.Entry on win32/Tk 8.6.15.
     """
@@ -38,10 +39,9 @@ class MainWindowImportSplitInputMixin:
     focus - which it keeps, since every other wizard widget has
     ``takefocus=False`` and focus returns to it after clicks:
 
-    - Left/Right (also with Shift - Shift is never a shortcut modifier in
-      bw-gui's contract): previous/next page.
-    - Enter / keypad Enter (on win32 keypad Enter arrives as ``Return`` with
-      the extended-key state bit): split here; the name field becomes empty.
+    - Left/Right (also with Shift, via ``tolerate``): previous/next page.
+    - Enter / keypad Enter (both are ``Key.ENTER`` in bw-gui): split here; the
+      name field becomes empty.
     - Shift+Enter: undo the split of the current section; the field shows the
       previous section's name again.
     - Up/Down, Page Up/Page Down: scroll the preview.
@@ -60,21 +60,19 @@ class MainWindowImportSplitInputMixin:
             mode_provider=lambda: UI_MODE_DIALOG,
             on_dispatch=self._record_laufkern_intent_dispatch,
         )
-        bindings: tuple[tuple[str, str, str, Callable[[], None]], ...] = (
-            ("<Left>", "page_prev", UiIntent.IMPORT_SPLIT_PAGE_PREV, lambda: self._step_import_split_page(-1)),
-            ("<Right>", "page_next", UiIntent.IMPORT_SPLIT_PAGE_NEXT, lambda: self._step_import_split_page(1)),
-            ("<Return>", "mark", UiIntent.IMPORT_SPLIT_MARK, self._mark_import_split_boundary),
-            ("<KP_Enter>", "mark_keypad", UiIntent.IMPORT_SPLIT_MARK, self._mark_import_split_boundary),
-            ("<Shift-Return>", "unmark", UiIntent.IMPORT_SPLIT_UNMARK, self._unmark_import_split_boundary),
-            ("<Shift-KP_Enter>", "unmark_keypad", UiIntent.IMPORT_SPLIT_UNMARK, self._unmark_import_split_boundary),
-            ("<Up>", "scroll_up", UiIntent.IMPORT_SPLIT_SCROLL_UP, lambda: view.preview.scroll(-1)),
-            ("<Down>", "scroll_down", UiIntent.IMPORT_SPLIT_SCROLL_DOWN, lambda: view.preview.scroll(1)),
-            ("<Prior>", "scroll_page_up", UiIntent.IMPORT_SPLIT_SCROLL_UP, lambda: view.preview.scroll(-1, "pages")),
-            ("<Next>", "scroll_page_down", UiIntent.IMPORT_SPLIT_SCROLL_DOWN, lambda: view.preview.scroll(1, "pages")),
+        bindings: tuple[tuple[KeySpec, str, str, Callable[[], None]], ...] = (
+            (KeySpec(Key.LEFT, tolerate={Mod.SHIFT}), "page_prev", UiIntent.IMPORT_SPLIT_PAGE_PREV, lambda: self._step_import_split_page(-1)),
+            (KeySpec(Key.RIGHT, tolerate={Mod.SHIFT}), "page_next", UiIntent.IMPORT_SPLIT_PAGE_NEXT, lambda: self._step_import_split_page(1)),
+            (KeySpec(Key.ENTER), "mark", UiIntent.IMPORT_SPLIT_MARK, self._mark_import_split_boundary),
+            (KeySpec(Key.ENTER, {Mod.SHIFT}), "unmark", UiIntent.IMPORT_SPLIT_UNMARK, self._unmark_import_split_boundary),
+            (KeySpec(Key.UP), "scroll_up", UiIntent.IMPORT_SPLIT_SCROLL_UP, lambda: view.preview.scroll(-1)),
+            (KeySpec(Key.DOWN), "scroll_down", UiIntent.IMPORT_SPLIT_SCROLL_DOWN, lambda: view.preview.scroll(1)),
+            (KeySpec(Key.PAGE_UP), "scroll_page_up", UiIntent.IMPORT_SPLIT_SCROLL_UP, lambda: view.preview.scroll(-1, "pages")),
+            (KeySpec(Key.PAGE_DOWN), "scroll_page_down", UiIntent.IMPORT_SPLIT_SCROLL_DOWN, lambda: view.preview.scroll(1, "pages")),
         )
-        for sequence, suffix, intent, action in bindings:
+        for keys, suffix, intent, action in bindings:
             binder.bind(
-                sequence,
+                keys,
                 self._import_split_key_handler(action),
                 binding_id=f"import_split.{suffix}",
                 intent=intent,
@@ -88,10 +86,10 @@ class MainWindowImportSplitInputMixin:
     def _import_split_key_handler(self, action: Callable[[], None]):
         """Wrap ``action`` as a key handler that is a no-op once the session has ended."""
 
-        def _handle(_event) -> str:
+        def _handle(_event) -> EventResult:
             if self._import_split_session is not None and self._import_split_view is not None:
                 action()
-            return "break"
+            return EventResult.HANDLED
 
         return _handle
 

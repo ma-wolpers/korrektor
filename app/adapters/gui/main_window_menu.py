@@ -25,7 +25,12 @@ class MainWindowMenuMixin:
         """Attach hover help; shortcut details are shown here, not in button labels."""
 
         shortcut_text = (shortcut or "").strip()
-        text = compose_hover_text(label, shortcut_text)
+        # BAUSTELLE: reine Uebergangsloesung. Seit bw-gui 6d32767 nimmt compose_hover_text
+        # nur noch KeySpec-Notation an; die deutschen Anzeigetexte ("Strg+E", "Entf",
+        # "Links") werden deshalb bis zur KeySpec-Migration hier lokal angehaengt.
+        text = compose_hover_text(label)
+        if shortcut_text:
+            text = f"{text}\nShortcut: {shortcut_text}" if text else f"Shortcut: {shortcut_text}"
         tooltip = SharedHoverTooltip(widget, text, theme_key=self._tooltip_theme_key)
         self._hover_tooltips.append(tooltip)
 

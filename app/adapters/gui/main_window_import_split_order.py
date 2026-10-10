@@ -6,6 +6,7 @@ from app.adapters.gui.import_split_session import ImportSplitPending, SplitCompl
 from app.adapters.gui.main_window_import_split_input import prefer_toplevel_bindings
 from app.adapters.gui.ui_intents import UiIntent
 from app.infrastructure.pdf.pdf_sources import PdfSourceInfo
+from bw_gui.contracts import EventResult, Key, KeySpec, Mod
 from bw_gui.contracts.keybinding import UI_MODE_DIALOG, UI_MODE_EDITOR
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
@@ -98,14 +99,13 @@ class MainWindowImportSplitOrderMixin:
             mode_provider=lambda: UI_MODE_DIALOG,
             on_dispatch=self._record_laufkern_intent_dispatch,
         )
-        for sequence, suffix, intent, action in (
-            ("<Control-Up>", "order_up", UiIntent.IMPORT_SPLIT_ORDER_MOVE_UP, lambda: self._move_import_split_source(-1)),
-            ("<Control-Down>", "order_down", UiIntent.IMPORT_SPLIT_ORDER_MOVE_DOWN, lambda: self._move_import_split_source(1)),
-            ("<Return>", "order_confirm", UiIntent.IMPORT_SPLIT_ORDER_CONFIRM, self._confirm_import_split_order),
-            ("<KP_Enter>", "order_confirm_keypad", UiIntent.IMPORT_SPLIT_ORDER_CONFIRM, self._confirm_import_split_order),
+        for keys, suffix, intent, action in (
+            (KeySpec(Key.UP, {Mod.CTRL}), "order_up", UiIntent.IMPORT_SPLIT_ORDER_MOVE_UP, lambda: self._move_import_split_source(-1)),
+            (KeySpec(Key.DOWN, {Mod.CTRL}), "order_down", UiIntent.IMPORT_SPLIT_ORDER_MOVE_DOWN, lambda: self._move_import_split_source(1)),
+            (KeySpec(Key.ENTER), "order_confirm", UiIntent.IMPORT_SPLIT_ORDER_CONFIRM, self._confirm_import_split_order),
         ):
             binder.bind(
-                sequence,
+                keys,
                 self._import_split_order_key_handler(action),
                 binding_id=f"import_split.{suffix}",
                 intent=intent,
@@ -116,10 +116,10 @@ class MainWindowImportSplitOrderMixin:
         prefer_toplevel_bindings(pending.listbox, pending.popup)
 
     def _import_split_order_key_handler(self, action):
-        def _handle(_event) -> str:
+        def _handle(_event) -> EventResult:
             if self._import_split_pending is not None:
                 action()
-            return "break"
+            return EventResult.HANDLED
 
         return _handle
 
