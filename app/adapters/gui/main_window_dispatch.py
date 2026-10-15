@@ -7,7 +7,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.contracts.events import EventResult
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import topmost_window, ui, widgets
 
 
 class MainWindowDispatchMixin:
@@ -15,7 +15,8 @@ class MainWindowDispatchMixin:
         """Resolve one Escape press via the HSM contract: close popup, leave an inline
         editor/active mode (reading, extra, naming, correction), or pop back to the overview."""
         widget = self.root.focus_get()
-        popup = self._escape_popup_target()
+        # Juengster Overlay-Eintrag mit Toplevel ausser TRANSIENT (frueher PopupPolicyRegistry.active_popup()).
+        popup = topmost_window(self.root)
         action = self._hsm_contract.resolve_escape_action(
             has_popup=popup is not None,
             has_inline_editor=isinstance(widget, (ui.Entry, widgets.Entry))

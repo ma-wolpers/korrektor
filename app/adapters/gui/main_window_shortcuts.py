@@ -16,7 +16,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ApplicationShortcutBinder, ui, widgets
-from bw_gui.runtime.overlay_stack import OverlayCategory, blocking, overlay_state, register_overlay
+from bw_gui.runtime.overlay_stack import OverlayCategory, blocking, register_overlay
 
 
 class MainWindowShortcutsMixin:
@@ -74,19 +74,6 @@ class MainWindowShortcutsMixin:
         """
         category = OverlayCategory.MODAL_DIALOG if blocking_shortcuts else OverlayCategory.NON_MODAL_POPUP
         register_overlay(window, category, toplevel=window)
-
-    def _escape_popup_target(self):
-        """Return the toplevel Escape closes from the main window: the most recently opened popup.
-
-        Candidates are all overlay-stack entries with a toplevel except ``TRANSIENT`` ones
-        (tooltips, drag ghost) -- the same set the former scan put on its popup stack
-        (modal and non-modal popups, menu popups, the settings dialog). Native dialogs
-        without a toplevel are skipped; while they run the main window gets no keys.
-        """
-        for entry in reversed(overlay_state(self.root).entries):
-            if entry.toplevel is not None and entry.category is not OverlayCategory.TRANSIENT:
-                return entry.toplevel
-        return None
 
     @staticmethod
     def _is_editable_widget(widget) -> bool:

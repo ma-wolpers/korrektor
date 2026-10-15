@@ -11,7 +11,7 @@ bzw. entfernte nicht mehr sichtbare. Daraus kamen zwei Entscheidungen:
 
 :class:`_FormerRegistry` konserviert genau diesen Ablauf als Referenz. Jetzt liefern
 ``MainWindowShortcutsMixin._shortcut_dialog_open`` (``blocking(include_menus=True)``)
-und ``_escape_popup_target`` (Overlay-Stack) beides; für jede Popup-Art und für
+und ``bw_gui.runtime.topmost_window`` (Overlay-Stack, aus ``_on_escape``) beides; für jede Popup-Art und für
 Kombinationen müssen alt und neu übereinstimmen. Nur synthetische Fenster, keine
 Klausurdaten.
 """
@@ -29,7 +29,7 @@ ensure_bw_gui_on_path()
 from bw_gui.dialogs import ScrollablePopupWindow  # noqa: E402
 from bw_gui.menu.custom_menu_bar import CustomMenuBar  # noqa: E402
 from bw_gui.menu.menu_types import MenuItem  # noqa: E402
-from bw_gui.runtime import create_root, ui, widgets  # noqa: E402
+from bw_gui.runtime import create_root, topmost_window, ui, widgets  # noqa: E402
 from bw_gui.runtime.overlay_stack import unregistered_visible_toplevels  # noqa: E402
 from bw_gui.widgets import HoverTooltip  # noqa: E402
 
@@ -136,7 +136,7 @@ def scene(root):
         def check(self):
             root.update()
             new_open = MainWindowShortcutsMixin._shortcut_dialog_open(host)
-            target = MainWindowShortcutsMixin._escape_popup_target(host)
+            target = topmost_window(root)
             assert new_open is former.dialog_open()
             assert (str(target) if target is not None else None) == former.escape_target()
             assert unregistered_visible_toplevels(root) == []
