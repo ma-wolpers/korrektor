@@ -42,9 +42,7 @@ class MainWindowTaskCategoriesMixin:
             geometry="760x520",
             minsize=(560, 380),
             theme_key=self._tooltip_theme_key,
-            request_close_confirmation=self._on_task_category_popup_close_requested,
         )
-        self._register_popup_window(popup)
 
         body = widgets.Frame(popup.content, padding=10)
         body.pack(fill=ui.BOTH, expand=True)
@@ -205,15 +203,6 @@ class MainWindowTaskCategoriesMixin:
             return
         self._current_exam = updated
         self._refresh_task_category_popup()
-
-    def _on_task_category_popup_close_requested(self) -> bool:
-        """Popup-registry cleanup shared by every close path - see the identical pattern/rationale
-        in `main_window_student_result.py:_on_student_result_popup_close_requested`."""
-        if self._task_category_popup is not None:
-            popup_id = str(self._task_category_popup)
-            self._popup_registry.close_popup(popup_id)
-            self._tracked_popup_ids.discard(popup_id)
-        return True
 
     def _close_task_category_popup(self) -> None:
         if self._task_category_popup is not None and self._task_category_popup.winfo_exists():

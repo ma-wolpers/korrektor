@@ -14,10 +14,10 @@ class MainWindowDispatchMixin:
     def _on_escape(self, _event: ui.Event[ui.Misc]) -> None:
         """Resolve one Escape press via the HSM contract: close popup, leave an inline
         editor/active mode (reading, extra, naming, correction), or pop back to the overview."""
-        self._sync_popup_sessions_from_windows()
         widget = self.root.focus_get()
+        popup = self._escape_popup_target()
         action = self._hsm_contract.resolve_escape_action(
-            has_popup=self._popup_registry.has_active_popup(),
+            has_popup=popup is not None,
             has_inline_editor=isinstance(widget, (ui.Entry, widgets.Entry))
             or self._correction_mode_active
             or self._reading_active
@@ -27,21 +27,11 @@ class MainWindowDispatchMixin:
         )
 
         if action == ESCAPE_CLOSE_POPUP:
-            active_popup = self._popup_registry.active_popup()
-            if active_popup is not None:
-                popup_id = active_popup.popup_id
-                for child in self.root.winfo_children():
-                    if not isinstance(child, ui.Toplevel):
-                        continue
-                    if str(child) != popup_id:
-                        continue
-                    try:
-                        child.destroy()
-                    except Exception:
-                        pass
-                    break
-                self._popup_registry.close_popup(popup_id)
-                self._tracked_popup_ids.discard(popup_id)
+            if popup is not None:
+                try:
+                    popup.destroy()  # beendet auch die Overlay-Anmeldung
+                except Exception:
+                    pass
                 return
 
         if action == ESCAPE_EXIT_INLINE_EDITOR:

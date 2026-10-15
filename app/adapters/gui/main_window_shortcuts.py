@@ -16,10 +16,11 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ApplicationShortcutBinder, ui, widgets
+from bw_gui.runtime.overlay_stack import OverlayCategory, blocking, overlay_state, register_overlay
 
 
 class MainWindowShortcutsMixin:
-    """Runtime mechanics of main-window shortcuts: binder, gating sources, popup sync, LaufKern tracking.
+    """Runtime mechanics of main-window shortcuts: binder, gating sources, popup gating, LaufKern tracking.
 
     The declarative shortcut table lives in `MainWindowShortcutTableMixin` (`main_window_shortcut_table.py`).
     """
@@ -34,7 +35,7 @@ class MainWindowShortcutsMixin:
         Replaces the former ``bind_all`` registrations: the binder sits where
         ``bind_all`` sat (after widget, class and toplevel bindtags), so popup
         overrides on a toplevel still win. Gating: mode from the open exam (PREVIEW
-        with an exam, GLOBAL without), dialogs from the popup registry, text input
+        with an exam, GLOBAL without), dialogs from the bw-gui overlay stack, text input
         from bw-gui's text-input contract, offline simulation from the debug toggle.
         """
         self._shortcut_binder = ApplicationShortcutBinder(
@@ -48,50 +49,44 @@ class MainWindowShortcutsMixin:
         )
 
     def _shortcut_dialog_open(self) -> bool:
-        """Synchronize popup sessions and report whether a mode-blocking popup is open."""
-        self._sync_popup_sessions_from_windows()
-        return self._popup_registry.has_mode_blocking_popup()
+        """Report whether a blocking overlay is open (bw-gui overlay stack, ``blocking(include_menus=True)``).
 
-    def _sync_popup_sessions_from_windows(self) -> None:
-        """Synchronize popup registry with currently visible toplevel windows."""
+        Modal popups (``ScrollablePopupWindow`` registers itself; raw popups via
+        :meth:`_register_popup_window`) and menu popups block the guide shortcuts; the
+        shortcut debug window registers as non-modal and does not. This reproduces the
+        former scan, which counted every visible direct child toplevel of the root
+        (menu popups included) unless it had been registered as non-blocking
+        (``tests/test_overlay_gating_tk.py``).
+        """
+        return blocking(self.root, include_menus=True)()
 
-        visible_popup_ids: set[str] = set()
-        for child in self.root.winfo_children():
-            if not isinstance(child, ui.Toplevel):
-                continue
-            try:
-                if not int(child.winfo_exists()):
-                    continue
-                if str(child.state()).lower() == "withdrawn":
-                    continue
-            except Exception:
-                continue
+    def _register_popup_window(self, window: ui.Toplevel, *, blocking_shortcuts: bool = True) -> None:
+        """Register a raw ``Toplevel`` popup of the main window in the bw-gui overlay stack.
 
-            popup_id = str(child)
-            visible_popup_ids.add(popup_id)
-            if popup_id in self._tracked_popup_ids:
-                continue
-            title = ""
-            try:
-                title = str(child.title() or "")
-            except Exception:
-                title = ""
-            self._popup_registry.open_popup(popup_id=popup_id, title=title, policy_id="dialog.modal")
-            self._tracked_popup_ids.add(popup_id)
+        ``ScrollablePopupWindow`` registers itself; this is for plain toplevels (naming,
+        import split, extra pages, shortcut debug). The registration ends with the
+        window's ``<Destroy>``.
 
-        stale_ids = self._tracked_popup_ids - visible_popup_ids
-        for popup_id in tuple(stale_ids):
-            self._popup_registry.close_popup(popup_id)
-            self._tracked_popup_ids.discard(popup_id)
+        Args:
+            blocking_shortcuts: ``True`` (default) registers a ``MODAL_DIALOG`` that blocks
+                the main window's shortcuts while open; ``False`` a ``NON_MODAL_POPUP``
+                tool window that does not.
+        """
+        category = OverlayCategory.MODAL_DIALOG if blocking_shortcuts else OverlayCategory.NON_MODAL_POPUP
+        register_overlay(window, category, toplevel=window)
 
-    def _register_popup_window(self, window: ui.Toplevel, *, policy_id: str = "dialog.modal") -> None:
-        """Register popup window immediately in popup policy registry."""
+    def _escape_popup_target(self):
+        """Return the toplevel Escape closes from the main window: the most recently opened popup.
 
-        popup_id = str(window)
-        if popup_id in self._tracked_popup_ids:
-            return
-        self._popup_registry.open_popup(popup_id=popup_id, title=str(window.title() or ""), policy_id=policy_id)
-        self._tracked_popup_ids.add(popup_id)
+        Candidates are all overlay-stack entries with a toplevel except ``TRANSIENT`` ones
+        (tooltips, drag ghost) -- the same set the former scan put on its popup stack
+        (modal and non-modal popups, menu popups, the settings dialog). Native dialogs
+        without a toplevel are skipped; while they run the main window gets no keys.
+        """
+        for entry in reversed(overlay_state(self.root).entries):
+            if entry.toplevel is not None and entry.category is not OverlayCategory.TRANSIENT:
+                return entry.toplevel
+        return None
 
     @staticmethod
     def _is_editable_widget(widget) -> bool:

@@ -56,9 +56,7 @@ class MainWindowBatchExportMixin:
             geometry="640x760",
             minsize=(480, 480),
             theme_key=self._tooltip_theme_key,
-            request_close_confirmation=self._on_batch_export_popup_close_requested,
         )
-        self._register_popup_window(popup)
 
         body = widgets.Frame(popup.content, padding=10)
         body.pack(fill=ui.BOTH, expand=True)
@@ -206,13 +204,6 @@ class MainWindowBatchExportMixin:
             )
         else:
             messagebox.showinfo("Sammelexport abgeschlossen", f"{len(exported)} PDF(s) exportiert nach:\n{target_dir}")
-
-    def _on_batch_export_popup_close_requested(self) -> bool:
-        if self._batch_export_popup is not None:
-            popup_id = str(self._batch_export_popup)
-            self._popup_registry.close_popup(popup_id)
-            self._tracked_popup_ids.discard(popup_id)
-        return True
 
     def _close_batch_export_popup(self) -> None:
         if self._batch_export_popup is not None and self._batch_export_popup.winfo_exists():

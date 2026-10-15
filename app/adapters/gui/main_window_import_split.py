@@ -139,12 +139,9 @@ class MainWindowImportSplitMixin:
         self._end_import_split_session()
 
     def _destroy_import_split_window(self, window) -> None:
-        """Unregister ``window`` from the popup registry and destroy it if it still exists."""
+        """Destroy ``window`` if it still exists (its overlay registration ends with it)."""
         if window is None:
             return
-        popup_id = str(window)
-        self._popup_registry.close_popup(popup_id)
-        self._tracked_popup_ids.discard(popup_id)
         try:
             if int(window.winfo_exists()):
                 window.destroy()

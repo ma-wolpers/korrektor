@@ -61,9 +61,7 @@ class MainWindowStudentResultMixin:
             geometry="640x760",
             minsize=(480, 420),
             theme_key=self._tooltip_theme_key,
-            request_close_confirmation=self._on_student_result_popup_close_requested,
         )
-        self._register_popup_window(popup)
         # ←/→ Personen-Navigation (Korrektor-weite Konvention) - a window binder on
         # the popup's own toplevel tag, so it is consulted before the application
         # binder's overview fallback (`main_window_dispatch.py`, all-router), which
@@ -295,23 +293,6 @@ class MainWindowStudentResultMixin:
             )
         else:
             messagebox.showinfo("Export abgeschlossen", f"{len(exported)} Ergebnis(se) exportiert nach:\n{target_dir}")
-
-    def _on_student_result_popup_close_requested(self) -> bool:
-        """Popup-registry cleanup shared by every close path (Escape, OS close button, "Schliessen").
-
-        ``ScrollablePopupWindow`` funnels all three through
-        ``request_close_confirmation`` before actually closing - this
-        always allows the close (returns ``True``), it only piggybacks the
-        korrektor-specific ``PopupPolicyRegistry`` bookkeeping onto that
-        one funnel point instead of duplicating it per close path (which
-        the previous hand-rolled ``ui.Toplevel`` version needed, since
-        Escape/WM_DELETE_WINDOW/button click were each wired separately).
-        """
-        if self._student_result_popup is not None:
-            popup_id = str(self._student_result_popup)
-            self._popup_registry.close_popup(popup_id)
-            self._tracked_popup_ids.discard(popup_id)
-        return True
 
     def _close_student_result_popup(self) -> None:
         if self._student_result_popup is not None and self._student_result_popup.winfo_exists():

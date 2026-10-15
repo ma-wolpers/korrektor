@@ -31,7 +31,13 @@ from guardrail_support import (
 
 
 def _check_runtime_shortcut_integration(errors: list[str]) -> None:
-    """Require explicit runtime shortcut and popup policy integration somewhere in the main_window family."""
+    """Require runtime shortcut integration and overlay-stack popup gating in the main_window family.
+
+    Popup gating reads the bw-gui overlay stack with ``blocking(include_menus=True)``; raw
+    popups register through ``_register_popup_window`` (the debug window as non-modal).
+    Until 2026-10-15 this rule required the former ``PopupPolicyRegistry`` + toplevel scan
+    (characterised in ``tests/test_overlay_gating_tk.py``).
+    """
 
     main_window_files = _iter_facade_family_files("main_window")
     main_window = _read_concatenated(main_window_files)
@@ -42,24 +48,15 @@ def _check_runtime_shortcut_integration(errors: list[str]) -> None:
         label,
         errors,
     )
-    _require_substring(
-        main_window,
-        "self._popup_registry = PopupPolicyRegistry()",
-        label,
-        errors,
-    )
-    _require_substring(
-        main_window,
-        "self._register_popup_window(window, policy_id=\"dialog.non_blocking\")",
-        label,
-        errors,
-    )
-    _require_substring(
-        main_window,
-        "self._popup_registry.close_popup(popup_id)",
-        label,
-        errors,
-    )
+    for snippet in (
+        "return blocking(self.root, include_menus=True)()",
+        "register_overlay(window, category, toplevel=window)",
+        "self._register_popup_window(window, blocking_shortcuts=False)",
+    ):
+        _require_substring(main_window, snippet, label, errors)
+    for stale in ("_sync_popup_sessions_from_windows", "PopupPolicyRegistry()", "_popup_registry"):
+        if stale in main_window:
+            errors.append(f"{label}: former popup registry/scan is back ({stale}); use the overlay stack")
 
 
 def _find_class(module: ast.Module, class_name: str) -> ast.ClassDef | None:

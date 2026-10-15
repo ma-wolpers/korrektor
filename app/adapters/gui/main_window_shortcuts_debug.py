@@ -36,7 +36,7 @@ class MainWindowShortcutsDebugMixin:
         window.title("Shortcut Runtime Debug")
         window.geometry("960x500")
         window.minsize(800, 400)
-        self._register_popup_window(window, policy_id="dialog.non_blocking")
+        self._register_popup_window(window, blocking_shortcuts=False)
 
         toolbar = widgets.Frame(window, padding=(10, 8))
         toolbar.pack(fill=ui.X)
@@ -93,10 +93,7 @@ class MainWindowShortcutsDebugMixin:
         """Destroy runtime debug dialog and clear widget references."""
 
         if self._shortcut_runtime_debug_window is not None and int(self._shortcut_runtime_debug_window.winfo_exists()):
-            popup_id = str(self._shortcut_runtime_debug_window)
-            self._popup_registry.close_popup(popup_id)
-            self._tracked_popup_ids.discard(popup_id)
-            self._shortcut_runtime_debug_window.destroy()
+            self._shortcut_runtime_debug_window.destroy()  # beendet auch die Overlay-Anmeldung
         self._shortcut_runtime_debug_window = None
         self._shortcut_runtime_debug_table = None
 

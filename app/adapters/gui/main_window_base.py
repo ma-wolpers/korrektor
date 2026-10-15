@@ -13,7 +13,6 @@ from app.adapters.gui.view_models import ExamOverviewRow
 from app.core.domain.models import ExamProject
 from bw_gui.contracts.hsm import build_ui_hsm_contract
 from bw_gui.contracts.keybinding import KeybindingRegistry
-from bw_gui.contracts.popup import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry
 from bw_gui.dialogs import ScrollablePopupWindow
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
@@ -153,17 +152,6 @@ class MainWindowBase(BwBaseWindow):
         self._laufkern_tracking_sequence = 0
         self._laufkern_tracking_step_ids: dict[str, str] = {}
         self._laufkern_tracking_artifacts = []
-        self._popup_registry = PopupPolicyRegistry()
-        self._popup_registry.register_policy(PopupPolicy(policy_id="dialog.modal", kind=POPUP_KIND_MODAL))
-        self._popup_registry.register_policy(
-            PopupPolicy(
-                policy_id="dialog.non_blocking",
-                kind=POPUP_KIND_NON_MODAL,
-                trap_focus=False,
-                affects_mode=False,
-            )
-        )
-        self._tracked_popup_ids: set[str] = set()
         self._menu_bar = None
         self._hover_tooltips: list[object] = []
         self._exam_index_dir_value = str(self.deps.exam_repository.index_root)

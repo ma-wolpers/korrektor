@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Guardrail `_check_runtime_shortcut_integration` prüft jetzt die Popup-Sperre über den bw-gui-Overlay-Stack statt der früheren Popup-Registry (reine CI-Tooling-Wartung, keine Nutzer-sichtbare Änderung; Popups, Kürzelsperre und Escape verhalten sich unverändert).
 - **Geändert:** Tastenkürzel gelten genau für die angegebene Kombination – z. B. blättert Alt+← nicht mehr wie ←, Strg+Alt+N legt keine Klausur an; Umschalt+Esc und Umschalt+↑/↓ wirken weiter. In schreibgeschützten Auswahllisten gelten Strg+Z/Strg+Y jetzt für Korrektor (sie sind keine Texteingabe). Mausrad und Touchpad scrollen in ganzen Rasten; kleine Touchpad-Bewegungen sammeln sich, statt verloren zu gehen. Verliert das Fenster beim Ziehen den Fokus, wird eine verschobene Markierung übernommen und ein halb aufgezogener Bereich verworfen.
 - **Behoben:** Strg+Umschalt+D (Kürzel-Diagnose) und Strg+Umschalt+O funktionierten nur bei eingeschalteter Feststelltaste.
 - **Behoben:** Bei eingeschaltetem NumLock löste das Ziehen einer Markierung diese aus ihrer Gruppe, als wäre Alt gedrückt.

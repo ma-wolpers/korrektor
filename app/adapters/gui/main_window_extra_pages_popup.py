@@ -181,10 +181,7 @@ class MainWindowExtraPagesPopupMixin:
 
     def _close_extra_popup(self) -> None:
         if self._extra_popup is not None and self._extra_popup.winfo_exists():
-            popup_id = str(self._extra_popup)
-            self._popup_registry.close_popup(popup_id)
-            self._tracked_popup_ids.discard(popup_id)
-            self._extra_popup.destroy()
+            self._extra_popup.destroy()  # beendet auch die Overlay-Anmeldung
         self._extra_popup = None
         self._extra_popup_preview = None
         self._extra_popup_info_var = None
