@@ -7,7 +7,8 @@ from app.adapters.gui.main_window_types import DraftRegion
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.contracts.pointer import Axis, wheel_axis
+from bw_gui.runtime import bind_drag, bind_wheel, ui, widgets
 from bw_gui.widgets import ScrollableFrame
 
 
@@ -49,11 +50,14 @@ class MainWindowReadingCanvasMixin:
         canvas_scroll_x.pack(side=ui.BOTTOM, fill=ui.X)
         canvas_scroll_y.pack(side=ui.RIGHT, fill=ui.Y)
         self._reading_canvas.pack(side=ui.LEFT, fill=ui.BOTH, expand=True)
-        self._reading_canvas.bind("<ButtonPress-1>", self._on_canvas_press)
-        self._reading_canvas.bind("<B1-Motion>", self._on_canvas_drag)
-        self._reading_canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
-        self._reading_canvas.bind("<MouseWheel>", self._on_canvas_mousewheel)
-        self._reading_canvas.bind("<Shift-MouseWheel>", self._on_canvas_shift_mousewheel)
+        bind_drag(
+            self._reading_canvas,
+            on_start=self._on_canvas_press,
+            on_move=self._on_canvas_drag,
+            on_end=self._on_canvas_release,
+            on_cancel=self._on_canvas_drag_cancel,
+        )
+        bind_wheel(self._reading_canvas, self._on_canvas_mousewheel)
 
     def _draw_existing_regions(self, student_pdf: str, page_number: int) -> None:
         """Draw the regions of this page plus open drafts (the name field lives in the naming window).
@@ -147,6 +151,13 @@ class MainWindowReadingCanvasMixin:
         y1 = float(self._reading_canvas.canvasy(event.y))
         self._reading_canvas.coords(self._drag_rect_id, x0, y0, x1, y1)
 
+    def _on_canvas_drag_cancel(self, _reason) -> None:
+        """Drag aborted (window lost focus): drop the rubber band without creating a region."""
+        if self._drag_rect_id is not None:
+            self._reading_canvas.delete(self._drag_rect_id)
+            self._drag_rect_id = None
+        self._drag_start = None
+
     def _on_canvas_release(self, event: ui.Event[ui.Misc]) -> None:
         """Finish a canvas drag: commit a pending redraw, or create a new draft region.
 
@@ -220,16 +231,13 @@ class MainWindowReadingCanvasMixin:
             self._status_var.set("Bereich markiert. Aufgaben eintragen - wird beim Verlassen des Feldes gespeichert.")
         self._focus_reading_task_input()
 
-    def _on_canvas_mousewheel(self, event: ui.Event[ui.Misc]) -> None:
+    def _on_canvas_mousewheel(self, event) -> None:
+        """Mouse wheel over the reading canvas (``WheelEvent``): whole notches, Shift scrolls sideways."""
         if not self._reading_active and not self._extra_mode_active:
             return
-        step = int(-1 * (event.delta / 120)) if event.delta else 0
-        if step:
-            self._reading_canvas.yview_scroll(step, "units")
-
-    def _on_canvas_shift_mousewheel(self, event: ui.Event[ui.Misc]) -> None:
-        if not self._reading_active and not self._extra_mode_active:
+        if not event.whole_steps:
             return
-        step = int(-1 * (event.delta / 120)) if event.delta else 0
-        if step:
-            self._reading_canvas.xview_scroll(step, "units")
+        if wheel_axis(event) is Axis.HORIZONTAL:
+            self._reading_canvas.xview_scroll(event.whole_steps, "units")
+        else:
+            self._reading_canvas.yview_scroll(event.whole_steps, "units")

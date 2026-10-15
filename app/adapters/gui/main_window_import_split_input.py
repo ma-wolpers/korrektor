@@ -1,34 +1,15 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-
+from app.adapters.gui.local_keys import bind_popup_table
 from app.adapters.gui.ui_intents import UiIntent
-from bw_gui.contracts.keybinding import UI_MODE_DIALOG, UI_MODE_EDITOR
+from bw_gui.contracts.key_spec import KeySpec
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import WindowShortcutBinder, ui
+from bw_gui.runtime import ui
 
-_WIZARD_MODES = (UI_MODE_DIALOG, UI_MODE_EDITOR)
-
-
-def prefer_toplevel_bindings(widget, toplevel) -> None:
-    """Move ``toplevel``'s bindtag in front of ``widget``'s class bindtag.
-
-    Tk processes bindtags in order; by default a focused entry/listbox runs
-    its *class* bindings (cursor movement, selection) before the toplevel
-    tag where `WindowShortcutBinder` binds. With the toplevel first, an
-    executed shortcut's ``"break"`` suppresses the widget's own reaction,
-    while blocked combinations (binder returns ``None``, e.g. Ctrl+Left)
-    still reach the class bindings. Verified for ttk.Entry on win32/Tk 8.6.15.
-    """
-    tags = list(widget.bindtags())
-    top_tag = str(toplevel)
-    if top_tag in tags:
-        tags.remove(top_tag)
-    tags.insert(1, top_tag)
-    widget.bindtags(tuple(tags))
+_k = KeySpec.parse
 
 
 class MainWindowImportSplitInputMixin:
@@ -38,62 +19,41 @@ class MainWindowImportSplitInputMixin:
     focus - which it keeps, since every other wizard widget has
     ``takefocus=False`` and focus returns to it after clicks:
 
-    - Left/Right (also with Shift - Shift is never a shortcut modifier in
-      bw-gui's contract): previous/next page.
-    - Enter / keypad Enter (on win32 keypad Enter arrives as ``Return`` with
-      the extended-key state bit): split here; the name field becomes empty.
+    - Left/Right (also with Shift): previous/next page.
+    - Enter (main or keypad): split here; the name field becomes empty.
     - Shift+Enter: undo the split of the current section; the field shows the
       previous section's name again.
-    - Up/Down, Page Up/Page Down: scroll the preview.
+    - Up/Down, Page Up/Page Down (also with Shift): scroll the preview.
 
-    Shortcuts go through bw-gui's `WindowShortcutBinder` on the wizard
-    toplevel (intents in `UiIntent`). Every handler first checks that the
-    session still exists: the binder gates and scopes shortcuts, but it is no
-    guarantee against events that were already queued when the session ended.
+    Shortcuts go through bw-gui binders on the name field and the wizard
+    toplevel (``local_keys.bind_popup_table``; intents in `UiIntent`). Every
+    handler first checks that the session still exists: the binder gates and
+    scopes shortcuts, but it is no guarantee against events that were already
+    queued when the session ended.
     """
 
     def _install_import_split_input(self, view) -> None:
         """Bind the wizard shortcuts and the name-field trace for ``view``."""
-        binder = WindowShortcutBinder(
+        table = (
+            (_k("Left (tolerate: Shift)"), "page_prev", UiIntent.IMPORT_SPLIT_PAGE_PREV, lambda: self._step_import_split_page(-1)),
+            (_k("Right (tolerate: Shift)"), "page_next", UiIntent.IMPORT_SPLIT_PAGE_NEXT, lambda: self._step_import_split_page(1)),
+            (_k("Enter"), "mark", UiIntent.IMPORT_SPLIT_MARK, self._mark_import_split_boundary),
+            (_k("Shift+Enter"), "unmark", UiIntent.IMPORT_SPLIT_UNMARK, self._unmark_import_split_boundary),
+            (_k("Up (tolerate: Shift)"), "scroll_up", UiIntent.IMPORT_SPLIT_SCROLL_UP, lambda: view.preview.scroll(-1)),
+            (_k("Down (tolerate: Shift)"), "scroll_down", UiIntent.IMPORT_SPLIT_SCROLL_DOWN, lambda: view.preview.scroll(1)),
+            (_k("PageUp (tolerate: Shift)"), "scroll_page_up", UiIntent.IMPORT_SPLIT_SCROLL_UP, lambda: view.preview.scroll(-1, "pages")),
+            (_k("PageDown (tolerate: Shift)"), "scroll_page_down", UiIntent.IMPORT_SPLIT_SCROLL_DOWN, lambda: view.preview.scroll(1, "pages")),
+        )
+        view.binder = bind_popup_table(
             view.popup,
+            view.name_entry,
+            table,
+            id_prefix="import_split",
+            alive=lambda: self._import_split_session is not None and self._import_split_view is not None,
             hsm_contract=self._hsm_contract,
-            mode_provider=lambda: UI_MODE_DIALOG,
             on_dispatch=self._record_laufkern_intent_dispatch,
         )
-        bindings: tuple[tuple[str, str, str, Callable[[], None]], ...] = (
-            ("<Left>", "page_prev", UiIntent.IMPORT_SPLIT_PAGE_PREV, lambda: self._step_import_split_page(-1)),
-            ("<Right>", "page_next", UiIntent.IMPORT_SPLIT_PAGE_NEXT, lambda: self._step_import_split_page(1)),
-            ("<Return>", "mark", UiIntent.IMPORT_SPLIT_MARK, self._mark_import_split_boundary),
-            ("<KP_Enter>", "mark_keypad", UiIntent.IMPORT_SPLIT_MARK, self._mark_import_split_boundary),
-            ("<Shift-Return>", "unmark", UiIntent.IMPORT_SPLIT_UNMARK, self._unmark_import_split_boundary),
-            ("<Shift-KP_Enter>", "unmark_keypad", UiIntent.IMPORT_SPLIT_UNMARK, self._unmark_import_split_boundary),
-            ("<Up>", "scroll_up", UiIntent.IMPORT_SPLIT_SCROLL_UP, lambda: view.preview.scroll(-1)),
-            ("<Down>", "scroll_down", UiIntent.IMPORT_SPLIT_SCROLL_DOWN, lambda: view.preview.scroll(1)),
-            ("<Prior>", "scroll_page_up", UiIntent.IMPORT_SPLIT_SCROLL_UP, lambda: view.preview.scroll(-1, "pages")),
-            ("<Next>", "scroll_page_down", UiIntent.IMPORT_SPLIT_SCROLL_DOWN, lambda: view.preview.scroll(1, "pages")),
-        )
-        for sequence, suffix, intent, action in bindings:
-            binder.bind(
-                sequence,
-                self._import_split_key_handler(action),
-                binding_id=f"import_split.{suffix}",
-                intent=intent,
-                modes=_WIZARD_MODES,
-                allow_when_text_input=True,
-            )
-        view.binder = binder
-        prefer_toplevel_bindings(view.name_entry, view.popup)
         view.name_var.trace_add("write", self._on_import_split_name_typed)
-
-    def _import_split_key_handler(self, action: Callable[[], None]):
-        """Wrap ``action`` as a key handler that is a no-op once the session has ended."""
-
-        def _handle(_event) -> str:
-            if self._import_split_session is not None and self._import_split_view is not None:
-                action()
-            return "break"
-
-        return _handle
 
     def _step_import_split_page(self, delta: int) -> None:
         """◀/▶ and Left/Right: move one page (no wrap-around)."""

@@ -7,16 +7,16 @@ from typing import Any
 import fitz
 
 from app.adapters.gui.dialog_services import messagebox
-from app.adapters.gui.main_window_import_split_input import prefer_toplevel_bindings
+from app.adapters.gui.local_keys import bind_popup_table
 from app.adapters.gui.ui_intents import UiIntent
 from app.core.domain.models import ExamProject
-from bw_gui.contracts.keybinding import UI_MODE_DIALOG, UI_MODE_EDITOR
+from bw_gui.contracts.key_spec import KeySpec
 from bw_gui.theming import theme_canvas
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import WindowShortcutBinder, ui, widgets
+from bw_gui.runtime import bind_drag, ui, widgets
 
 _STAGE_REGION = "region"
 _STAGE_CAPTURE = "capture"
@@ -122,9 +122,13 @@ class MainWindowNamingMixin:
         canvas = ui.Canvas(popup, bg=canvas_bg, highlightthickness=1, highlightbackground=canvas_border, takefocus=0)
         canvas.pack(side=ui.TOP, fill=ui.BOTH, expand=True, padx=10, pady=(0, 6))
         theme_canvas(canvas, self._tooltip_theme_key)
-        canvas.bind("<ButtonPress-1>", self._on_naming_canvas_press)
-        canvas.bind("<B1-Motion>", self._on_naming_canvas_drag)
-        canvas.bind("<ButtonRelease-1>", self._on_naming_canvas_release)
+        bind_drag(
+            canvas,
+            on_start=self._on_naming_canvas_press,
+            on_move=self._on_naming_canvas_drag,
+            on_end=self._on_naming_canvas_release,
+            on_cancel=self._on_naming_canvas_cancel,
+        )
         canvas.bind("<Configure>", lambda _event: self._schedule_naming_render(), add="+")
 
         view = NamingWindowView(
@@ -140,32 +144,22 @@ class MainWindowNamingMixin:
 
     def _install_naming_keys(self, view: NamingWindowView) -> None:
         """←/→ person and Enter (stage 2), ↑/↓ page (stage 1) - also with focus in the name field."""
-        binder = WindowShortcutBinder(
-            view.popup, hsm_contract=self._hsm_contract, mode_provider=lambda: UI_MODE_DIALOG,
+        table = (
+            (KeySpec.parse("Left (tolerate: Shift)"), "prev_person", UiIntent.NAMING_PREV_PERSON, lambda: self._change_naming_student(-1)),
+            (KeySpec.parse("Right (tolerate: Shift)"), "next_person", UiIntent.NAMING_NEXT_PERSON, lambda: self._change_naming_student(1)),
+            (KeySpec.parse("Enter (tolerate: Shift)"), "commit", UiIntent.NAMING_COMMIT, self._commit_and_next_naming_student),
+            (KeySpec.parse("Up (tolerate: Shift)"), "prev_page", UiIntent.NAMING_PREV_PAGE, lambda: self._change_naming_page(-1)),
+            (KeySpec.parse("Down (tolerate: Shift)"), "next_page", UiIntent.NAMING_NEXT_PAGE, lambda: self._change_naming_page(1)),
+        )
+        view.binder = bind_popup_table(
+            view.popup,
+            view.name_entry,
+            table,
+            id_prefix="naming",
+            alive=lambda: self._naming_window_view is not None and self._current_exam is not None,
+            hsm_contract=self._hsm_contract,
             on_dispatch=self._record_laufkern_intent_dispatch,
         )
-        for sequence, suffix, intent, action in (
-            ("<Left>", "prev_person", UiIntent.NAMING_PREV_PERSON, lambda: self._change_naming_student(-1)),
-            ("<Right>", "next_person", UiIntent.NAMING_NEXT_PERSON, lambda: self._change_naming_student(1)),
-            ("<Return>", "commit", UiIntent.NAMING_COMMIT, self._commit_and_next_naming_student),
-            ("<KP_Enter>", "commit_keypad", UiIntent.NAMING_COMMIT, self._commit_and_next_naming_student),
-            ("<Up>", "prev_page", UiIntent.NAMING_PREV_PAGE, lambda: self._change_naming_page(-1)),
-            ("<Down>", "next_page", UiIntent.NAMING_NEXT_PAGE, lambda: self._change_naming_page(1)),
-        ):
-            binder.bind(
-                sequence, self._naming_key_handler(action), binding_id=f"naming.{suffix}", intent=intent,
-                modes=(UI_MODE_DIALOG, UI_MODE_EDITOR), allow_when_text_input=True,
-            )
-        view.binder = binder
-        prefer_toplevel_bindings(view.name_entry, view.popup)
-
-    def _naming_key_handler(self, action):
-        def _handle(_event) -> str:
-            if self._naming_window_view is not None and self._current_exam is not None:
-                action()
-            return "break"
-
-        return _handle
 
     def _show_naming_stage(self, stage: str) -> None:
         """Switch between "Namensfeld festlegen" and "Namen erfassen" (bars packed before the canvas)."""

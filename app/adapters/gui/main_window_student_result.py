@@ -11,7 +11,9 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.dialogs import ScrollablePopupWindow
-from bw_gui.runtime import ui, widgets
+from bw_gui.contracts.events import EventResult
+from bw_gui.contracts.key_spec import KeySpec
+from bw_gui.runtime import WindowShortcutBinder, ui, widgets
 
 _EXPORT_FORMAT_LABELS: tuple[str, ...] = ("PNG", "JPG", "PDF")
 _EXPORT_EXTENSION_BY_LABEL: dict[str, str] = {"PNG": "png", "JPG": "jpg", "PDF": "pdf"}
@@ -62,16 +64,17 @@ class MainWindowStudentResultMixin:
             request_close_confirmation=self._on_student_result_popup_close_requested,
         )
         self._register_popup_window(popup)
-        # <Left>/<Right> Personen-Navigation (Korrektor-weite Konvention) -
-        # bound on the popup's own Toplevel instance so it is consulted
-        # before the globally bound `bind_all` overview fallback
-        # (`main_window_dispatch.py`), which knows nothing about this
-        # popup. Both Treeviews below are read-only displays (no explicit
-        # focus_set() anywhere), so in practice focus stays on the popup/
-        # its buttons - verified via a real-Tk smoke test that this still
-        # reaches here even with focus explicitly forced onto a Treeview.
-        popup.bind("<Left>", self._on_student_result_left_key)
-        popup.bind("<Right>", self._on_student_result_right_key)
+        # ←/→ Personen-Navigation (Korrektor-weite Konvention) - a window binder on
+        # the popup's own toplevel tag, so it is consulted before the application
+        # binder's overview fallback (`main_window_dispatch.py`, all-router), which
+        # knows nothing about this popup. Both Treeviews below are read-only
+        # displays, so in practice focus stays on the popup/its buttons.
+        keys = WindowShortcutBinder(popup)
+        for notation, handler, binding_id in (
+            ("Left (tolerate: Shift)", self._on_student_result_left_key, "student_result.prev"),
+            ("Right (tolerate: Shift)", self._on_student_result_right_key, "student_result.next"),
+        ):
+            keys.bind(KeySpec.parse(notation), handler, binding_id=binding_id, intent=binding_id, allow_when_text_input=True)
 
         body = widgets.Frame(popup.content, padding=10)
         body.pack(fill=ui.BOTH, expand=True)
@@ -173,13 +176,15 @@ class MainWindowStudentResultMixin:
         self._student_result_popup = popup
         self._student_result_current_result = None
 
-    def _on_student_result_left_key(self, _event=None) -> str:
+    def _on_student_result_left_key(self, _event=None) -> EventResult:
+        """← in the result popup: previous person (consumed)."""
         self._move_student_result_cursor(-1)
-        return "break"
+        return EventResult.HANDLED
 
-    def _on_student_result_right_key(self, _event=None) -> str:
+    def _on_student_result_right_key(self, _event=None) -> EventResult:
+        """→ in the result popup: next person (consumed)."""
         self._move_student_result_cursor(1)
-        return "break"
+        return EventResult.HANDLED
 
     def _move_student_result_cursor(self, delta: int) -> None:
         if self._current_exam is None or not self._current_exam.students:

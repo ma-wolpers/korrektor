@@ -18,7 +18,7 @@ def build_runtime_shortcut_manifest(registry: KeybindingRegistry):
             route_type="shortcut",
             modes=tuple(definition.modes),
             binding_id=definition.binding_id,
-            metadata={"sequence": definition.sequence},
+            metadata={"keys": tuple(str(spec) for spec in definition.keys)},
         )
         for definition in definitions
     )

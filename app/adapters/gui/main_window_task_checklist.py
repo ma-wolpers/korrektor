@@ -5,7 +5,7 @@ from app.core.domain.task_spec import TaskSpec, format_task_specs, parse_task_sp
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import on_key, ui, widgets
 from bw_gui.widgets import Checkbox, ScrollableFrame
 
 
@@ -40,7 +40,7 @@ class MainWindowTaskChecklistMixin:
         self._task_check_vars: dict[str, ui.BooleanVar] = {}
         self._task_check_boxes: dict[str, Checkbox] = {}
         for widget in (self._quick_tasks_entry, self._form_tasks_text):
-            widget.bind("<KeyRelease>", lambda _event: self._sync_task_checklist_from_editor(), add="+")
+            on_key(widget, lambda _event: self._sync_task_checklist_from_editor(), phase="after")
 
     def _refresh_task_checklist(self) -> None:
         """Rebuild one checkbox per exam task and tick those named in the editor text."""

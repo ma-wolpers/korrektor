@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.adapters.gui.dialog_services import choicedialog, messagebox
+from app.adapters.gui.local_keys import ENTER, bind_widget_keys
 from app.adapters.gui.scan_workshop_session import ScanWorkshopSession
 from bw_gui.dialogs import ChoiceOption
 from bw_gui.theming import theme_canvas
@@ -11,7 +12,7 @@ from bw_gui.theming import theme_canvas
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import bind_click, on_key, ui, widgets
 
 SCAN_KEY_HELP = (
     "←/→ Person · ↑/↓ Seite · Strg+↑/↓ Seite umsortieren · Entf löschen · Strg+←/→ drehen · Shift+←/→ 90° · "
@@ -86,8 +87,8 @@ class MainWindowScanWorkshopMixin:
         degree_entry.pack(side=ui.LEFT, padx=(8, 2))
         widgets.Label(tools, text="°", style="Muted.TLabel").pack(side=ui.LEFT)
         widgets.Label(tools, textvariable=degree_hint_var, style="Status.TLabel", anchor=ui.W).pack(side=ui.LEFT, fill=ui.X, expand=True, padx=(8, 0))
-        degree_entry.bind("<KeyRelease>", self._on_scan_degree_typed)
-        degree_entry.bind("<Return>", lambda _event: self._flush_scan_degree())
+        on_key(degree_entry, self._on_scan_degree_typed, phase="after")
+        bind_widget_keys(degree_entry, ((ENTER, "scan.degree.commit", lambda _event: self._flush_scan_degree()),))
         degree_entry.bind("<FocusOut>", lambda _event: self._flush_scan_degree())
         shift_row = widgets.Frame(root, style="Surface.TFrame")
         shift_row.pack(side=ui.BOTTOM, fill=ui.X, pady=(6, 0))
@@ -102,8 +103,8 @@ class MainWindowScanWorkshopMixin:
             entry = widgets.Entry(shift_row, textvariable=variable, width=6)
             entry.pack(side=ui.LEFT)
             widgets.Label(shift_row, text="cm", style="Muted.TLabel").pack(side=ui.LEFT, padx=(2, 0))
-            entry.bind("<KeyRelease>", self._on_scan_shift_typed)
-            entry.bind("<Return>", lambda _event: self._flush_scan_shift())
+            on_key(entry, self._on_scan_shift_typed, phase="after")
+            bind_widget_keys(entry, ((ENTER, f"scan.shift_{label}.commit", lambda _event: self._flush_scan_shift()),))
             entry.bind("<FocusOut>", lambda _event: self._flush_scan_shift())
             shift_entries.append(entry)
         widgets.Label(root, text=SCAN_KEY_HELP, style="Muted.TLabel", anchor=ui.W).pack(side=ui.BOTTOM, fill=ui.X, pady=(4, 0))
@@ -123,7 +124,7 @@ class MainWindowScanWorkshopMixin:
         canvas = ui.Canvas(middle, bg=canvas_bg, highlightthickness=1, highlightbackground=canvas_border, takefocus=0)
         canvas.pack(side=ui.LEFT, fill=ui.BOTH, expand=True)
         theme_canvas(canvas, self._tooltip_theme_key)
-        canvas.bind("<ButtonPress-1>", self._on_scan_canvas_click)
+        bind_click(canvas, self._on_scan_canvas_click)
         canvas.bind("<Configure>", lambda _event: self._schedule_scan_render(), add="+")
 
         self._scan_view = ScanWorkshopView(

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
+from app.adapters.gui.local_keys import ENTER, bind_widget_keys
 from app.adapters.gui.view_models import ExamOverviewRow
 from app.core.domain.models import ExamProject
 from app.core.domain.progress import ProgressCalculator
@@ -10,7 +11,7 @@ from app.core.domain.progress import ProgressCalculator
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import bind_click, ui, widgets
 
 
 class MainWindowOverviewMixin:
@@ -75,8 +76,13 @@ class MainWindowOverviewMixin:
             self._tree.heading(key, text=headings[key])
             self._tree.column(key, width=widths[key], anchor=ui.CENTER if key != "name" else ui.W)
         self._tree.pack(fill=ui.BOTH, expand=True)
-        self._tree.bind("<Double-1>", lambda _event: self._controller and self._controller.open_selected_exam())
-        self._tree.bind("<Return>", lambda _event: self._controller and self._controller.open_selected_exam())
+        bind_click(self._tree, self._open_selected_exam_from_overview, count=2)
+        bind_widget_keys(self._tree, ((ENTER, "overview.open", self._open_selected_exam_from_overview),))
+
+    def _open_selected_exam_from_overview(self, _event=None) -> None:
+        """Doppelklick/Enter in der Klausurübersicht: ausgewählte Klausur öffnen (Ereignis läuft weiter)."""
+        if self._controller:
+            self._controller.open_selected_exam()
 
     def render_overview_rows(self, rows: list[ExamOverviewRow]) -> None:
         self._rows_by_tree_id.clear()

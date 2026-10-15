@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from app.adapters.gui.laufkern_manifest_provider import build_runtime_shortcut_manifest
+from bw_gui.contracts.key_spec import KeySpec
 from bw_gui.contracts.keybinding import (
-    UI_MODE_DIALOG,
-    UI_MODE_EDITOR,
     UI_MODE_GLOBAL,
-    UI_MODE_OFFLINE,
     UI_MODE_PREVIEW,
     KeyBindingDefinition,
     KeybindingRuntimeContext,
@@ -15,11 +15,11 @@ from bw_gui.laufkern import aggregate_completion, emit_tracking_artifact, verify
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import ApplicationShortcutBinder, ui, widgets
 
 
 class MainWindowShortcutsMixin:
-    """Runtime mechanics of main-window shortcuts: registry, context, gating, popup sync, LaufKern tracking.
+    """Runtime mechanics of main-window shortcuts: binder, gating sources, popup sync, LaufKern tracking.
 
     The declarative shortcut table lives in `MainWindowShortcutTableMixin` (`main_window_shortcut_table.py`).
     """
@@ -28,32 +28,29 @@ class MainWindowShortcutsMixin:
         if self._controller:
             self._controller.refresh_exam_overview()
 
-    def _register_runtime_shortcut(
-        self,
-        *,
-        binding_id: str,
-        sequence: str,
-        intent: str,
-        modes: tuple[str, ...],
-        allow_when_text_input: bool = False,
-        allow_when_offline: bool = True,
-    ) -> KeyBindingDefinition:
-        """Register one runtime shortcut definition in the central resolver."""
+    def _init_shortcut_binder(self) -> None:
+        """Create the single application-wide shortcut binder (bw-gui ``all`` router).
 
-        intent_ok, _intent_reason = self._hsm_contract.validate_intent(intent)
-        if not intent_ok:
-            raise ValueError(f"Unknown runtime shortcut intent: {intent}")
-
-        definition = KeyBindingDefinition(
-            binding_id=binding_id,
-            sequence=sequence,
-            intent=intent,
-            modes=modes,
-            allow_when_text_input=allow_when_text_input,
-            allow_when_offline=allow_when_offline,
+        Replaces the former ``bind_all`` registrations: the binder sits where
+        ``bind_all`` sat (after widget, class and toplevel bindtags), so popup
+        overrides on a toplevel still win. Gating: mode from the open exam (PREVIEW
+        with an exam, GLOBAL without), dialogs from the popup registry, text input
+        from bw-gui's text-input contract, offline simulation from the debug toggle.
+        """
+        self._shortcut_binder = ApplicationShortcutBinder(
+            self.root,
+            registry=self._runtime_shortcuts,
+            hsm_contract=self._hsm_contract,
+            dialog_open=self._shortcut_dialog_open,
+            offline=lambda: bool(self._shortcut_debug_offline_var.get()),
+            mode_provider=lambda: UI_MODE_PREVIEW if self._current_exam is not None else UI_MODE_GLOBAL,
+            on_dispatch=self._record_laufkern_intent_dispatch,
         )
-        self._runtime_shortcuts.register(definition)
-        return definition
+
+    def _shortcut_dialog_open(self) -> bool:
+        """Synchronize popup sessions and report whether a mode-blocking popup is open."""
+        self._sync_popup_sessions_from_windows()
+        return self._popup_registry.has_mode_blocking_popup()
 
     def _sync_popup_sessions_from_windows(self) -> None:
         """Synchronize popup registry with currently visible toplevel windows."""
@@ -102,36 +99,9 @@ class MainWindowShortcutsMixin:
             return False
         return isinstance(widget, (ui.Entry, widgets.Entry, ui.Text, widgets.Combobox, ui.Spinbox))
 
-    def _build_runtime_context(self, event: ui.Event[ui.Misc] | None = None) -> KeybindingRuntimeContext:
-        """Build runtime context for evaluating keybinding execution."""
-
-        self._sync_popup_sessions_from_windows()
-        focused_widget = getattr(event, "widget", None) or self.root.focus_get()
-        text_input_focused = self._is_editable_widget(focused_widget)
-        dialog_open = self._popup_registry.has_mode_blocking_popup()
-        offline = bool(self._shortcut_debug_offline_var.get())
-
-        if offline:
-            active_mode = UI_MODE_OFFLINE
-        elif dialog_open:
-            active_mode = UI_MODE_DIALOG
-        elif text_input_focused:
-            active_mode = UI_MODE_EDITOR
-        elif self._current_exam is not None:
-            active_mode = UI_MODE_PREVIEW
-        else:
-            active_mode = UI_MODE_GLOBAL
-
-        return KeybindingRuntimeContext(
-            active_mode=active_mode,
-            offline=offline,
-            text_input_focused=text_input_focused,
-            dialog_open=dialog_open,
-        )
-
     def _bind_runtime_shortcut(
         self,
-        sequence: str,
+        keys: KeySpec | Iterable[KeySpec],
         handler,
         *,
         binding_id: str,
@@ -139,33 +109,31 @@ class MainWindowShortcutsMixin:
         modes: tuple[str, ...],
         allow_when_text_input: bool = False,
         allow_when_offline: bool = True,
-    ) -> None:
-        """Bind one shortcut through the runtime resolver."""
+    ) -> KeyBindingDefinition:
+        """Register one application shortcut (thin delegation to the binder).
 
-        definition = self._register_runtime_shortcut(
+        Args:
+            keys: One ``KeySpec`` or several alternative specs of the same definition.
+            handler: ``handler(KeyEvent) -> EventResult | None``; ``None`` lets the
+                key event continue (menu mnemonics, Tk defaults).
+            binding_id: Unique binding id.
+            intent: ``UiIntent`` (must be known to the HSM contract).
+            modes: Allowed UI modes.
+            allow_when_text_input: Also active while a text input has the focus.
+            allow_when_offline: Also active in the offline simulation.
+
+        Returns:
+            The registered definition (registry, debug dialog, LaufKern manifest).
+        """
+        return self._shortcut_binder.bind(
+            keys,
+            handler,
             binding_id=binding_id,
-            sequence=sequence,
             intent=intent,
             modes=modes,
             allow_when_text_input=allow_when_text_input,
             allow_when_offline=allow_when_offline,
-        )
-
-        def _wrapped(event):
-            context = self._build_runtime_context(event)
-            can_execute, _reason = self._runtime_shortcuts.evaluate_runtime(definition, context)
-            if not can_execute:
-                return None
-            try:
-                result = handler(event)
-            except Exception:
-                self._record_laufkern_intent_dispatch(intent, success=False)
-                raise
-
-            self._record_laufkern_intent_dispatch(intent, success=True)
-            return result
-
-        self.root.bind_all(sequence, _wrapped)
+        ).definition
 
     def _build_laufkern_manifest(self):
         """Build one declarative LaufKern manifest from registered runtime shortcuts."""

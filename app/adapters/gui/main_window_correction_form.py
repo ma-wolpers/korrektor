@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.adapters.gui.local_keys import ENTER, ESCAPE, bind_widget_keys
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
@@ -24,8 +25,11 @@ class MainWindowCorrectionFormMixin:
         self._correction_points_entry = widgets.Entry(correction_form, textvariable=self._correction_points_var)
         self._correction_points_entry.grid(row=0, column=1, sticky=ui.EW, pady=4)
         self._correction_points_entry.bind("<FocusOut>", self._on_correction_points_focus_out)
-        self._correction_points_entry.bind("<Return>", self._on_correction_points_commit)
-        self._correction_points_entry.bind("<Escape>", self._on_correction_points_escape)
+        bind_widget_keys(
+            self._correction_points_entry,
+            ((ENTER, "correction.points.commit", self._on_correction_points_commit),
+             (ESCAPE, "correction.points.escape", self._on_correction_points_escape)),
+        )
 
         widgets.Label(correction_form, text="Kommentar", style="Muted.TLabel").grid(
             row=1,
@@ -37,8 +41,11 @@ class MainWindowCorrectionFormMixin:
         self._correction_comment_entry = widgets.Entry(correction_form, textvariable=self._correction_comment_var)
         self._correction_comment_entry.grid(row=1, column=1, sticky=ui.EW, pady=4)
         self._correction_comment_entry.bind("<FocusOut>", self._on_correction_comment_focus_out)
-        self._correction_comment_entry.bind("<Return>", self._on_correction_comment_commit)
-        self._correction_comment_entry.bind("<Escape>", self._on_correction_comment_escape)
+        bind_widget_keys(
+            self._correction_comment_entry,
+            ((ENTER, "correction.comment.commit", self._on_correction_comment_commit),
+             (ESCAPE, "correction.comment.escape", self._on_correction_comment_escape)),
+        )
 
         insert_comment_button = widgets.Button(
             correction_form,

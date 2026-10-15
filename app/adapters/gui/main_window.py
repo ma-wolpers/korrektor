@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from app.adapters.gui.main_window_types import CorrectionTemplate, DraftRegion
 from app.adapters.gui.main_window_constants import (
-    CORRECTION_ALT_MODIFIER_MASKS,
     CORRECTION_DEFAULT_COLOR_NAME,
     CORRECTION_DEFAULT_FONT_SIZE_PT,
     CORRECTION_EXPORT_SYMBOL_HEIGHT_EM,

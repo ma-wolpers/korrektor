@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- **Geändert:** Tastenkürzel gelten genau für die angegebene Kombination – z. B. blättert Alt+← nicht mehr wie ←, Strg+Alt+N legt keine Klausur an; Umschalt+Esc und Umschalt+↑/↓ wirken weiter. In schreibgeschützten Auswahllisten gelten Strg+Z/Strg+Y jetzt für Korrektor (sie sind keine Texteingabe). Mausrad und Touchpad scrollen in ganzen Rasten; kleine Touchpad-Bewegungen sammeln sich, statt verloren zu gehen. Verliert das Fenster beim Ziehen den Fokus, wird eine verschobene Markierung übernommen und ein halb aufgezogener Bereich verworfen.
+- **Behoben:** Strg+Umschalt+D (Kürzel-Diagnose) und Strg+Umschalt+O funktionierten nur bei eingeschalteter Feststelltaste.
+- **Behoben:** Bei eingeschaltetem NumLock löste das Ziehen einer Markierung diese aus ihrer Gruppe, als wäre Alt gedrückt.
 - `tools/ci/check_ai_guardrails.py` in Einstieg plus die Module `guardrail_config/support/process/checks.py` aufgeteilt; Aufruf und Prüfungen unverändert (reine CI-Tooling-Wartung, keine Nutzer-sichtbare Änderung).
 - Das Fenster "PDF aufteilen" begrenzt seine Startgröße auf den Monitor, auf dem es öffnet, statt auf den Hauptmonitor.
 - **Behoben:** Wer nacheinander zwei Klausuren mit gleich benannten PDFs öffnete (z. B. `Abgabe_01.pdf` nach dem Aufteilen), konnte in der zweiten Klausur Seiten der ersten sehen. Außerdem gibt Korrektor die PDFs beim Zurückkehren zur Übersicht frei (unter Windows lassen sich Ordner dann wieder verschieben).

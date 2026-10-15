@@ -129,19 +129,6 @@ class MainWindowPageRenderMixin:
         # and the number of students actually merged into it (for "Quellen: N").
         return merged_pixmap, reference_rect, len(pixmaps)
 
-    @staticmethod
-    def _wheel_direction(event: ui.Event[ui.Misc]) -> int:
-        if getattr(event, "num", None) == 4:
-            return 1
-        if getattr(event, "num", None) == 5:
-            return -1
-        delta = getattr(event, "delta", 0)
-        if delta > 0:
-            return 1
-        if delta < 0:
-            return -1
-        return 0
-
     def _render_pdf_page(self, *, student: StudentExam, page_number: int) -> None:
         if self._current_exam is None:
             return

@@ -9,6 +9,7 @@ from app.infrastructure.pdf.page_editing import render_edited_page, source_trans
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
+from bw_gui.contracts.events import EventResult
 from bw_gui.runtime import ui
 
 _CROSSHAIR_COLOR = "#e11d48"
@@ -167,19 +168,19 @@ class MainWindowScanWorkshopViewMixin:
             self._scan_after(self._scan_session.toggle_delete(), locked_message=True)
 
     def _scan_rotate_key(self, direction: int):
-        """Strg+←/→ and the ↺/↻ buttons: rotate by the configured step; ``"break"`` only when handled."""
+        """Strg+←/→ and the ↺/↻ buttons: rotate by the configured step; ``HANDLED`` only when handled."""
         if not self._scan_active():
             return None
         self._scan_after(self._scan_session.rotate_by(direction * self._scan_rotation_step_deg), locked_message=True)
-        return "break"
+        return EventResult.HANDLED
 
     def _scan_shift_key(self, dx_steps: int, dy_steps: int):
-        """Strg+Shift+Pfeile and the buttons: move the content by the configured step (cm); ``"break"`` only when handled."""
+        """Strg+Shift+Pfeile and the buttons: move the content by the configured step (cm); ``HANDLED`` only when handled."""
         if not self._scan_active():
             return None
         step = self._scan_shift_step_cm * POINTS_PER_CM
         self._scan_after(self._scan_session.shift_by(dx_steps * step, dy_steps * step), locked_message=True)
-        return "break"
+        return EventResult.HANDLED
 
     def _on_shift_arrow_key(self, direction: int, event):
         """Shift+←/→: 90° in the Scan-Werkstatt; elsewhere, or while typing in a field, the plain ←/→ behaviour."""
@@ -214,11 +215,11 @@ class MainWindowScanWorkshopViewMixin:
             self._scan_after(session.set_offset(x_pt, y_pt), locked_message=True)
 
     def _scan_rotate_quarter_key(self, direction: int):
-        """Shift+←/→ and the 90° buttons: quarter turn; ``"break"`` only when handled."""
+        """Shift+←/→ and the 90° buttons: quarter turn; ``HANDLED`` only when handled."""
         if not self._scan_active():
             return None
         self._scan_after(self._scan_session.rotate_quarter(direction), locked_message=True)
-        return "break"
+        return EventResult.HANDLED
 
     def _on_scan_canvas_click(self, event) -> None:
         """Click on the page: move the crosshair there (it stays for all pages and persons)."""

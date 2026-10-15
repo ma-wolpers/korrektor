@@ -119,8 +119,8 @@ def _check_undo_redo_contracts(errors: list[str]) -> None:
     _require_substring(intents_text, "GLOBAL_UNDO", "app/adapters/gui/ui_intents.py", errors)
     _require_substring(intents_text, "GLOBAL_REDO", "app/adapters/gui/ui_intents.py", errors)
     _require_substring(main_window, "label=\"Bearbeiten\"", main_window_label, errors)
-    _require_substring(main_window, "<Control-z>", main_window_label, errors)
-    _require_substring(main_window, "<Control-y>", main_window_label, errors)
+    _require_substring(main_window, '_k("Ctrl+Z")', main_window_label, errors)
+    _require_substring(main_window, '_k("Ctrl+Y")', main_window_label, errors)
 
     # Every "<verb>_immediate" method that mutates a given exam (signature
     # includes an `exam` parameter) must register undo/redo history -

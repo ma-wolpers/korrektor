@@ -86,6 +86,14 @@ class MainWindowNamingCaptureMixin:
         x0, y0 = view.drag_start
         view.canvas.coords(view.drag_rect, x0, y0, event.x, event.y)
 
+    def _on_naming_canvas_cancel(self, _reason) -> None:
+        """Drag aborted (window lost focus): drop the rubber band, keep the stored name field."""
+        view = self._naming_window_view
+        if view is None or view.drag_start is None:
+            return
+        view.drag_start = None
+        self._render_naming_region_stage()
+
     def _on_naming_canvas_release(self, event) -> None:
         """Persist the dragged name field (PDF points) and warn about pages with other geometry."""
         view = self._naming_window_view

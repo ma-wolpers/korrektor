@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from app.adapters.gui.main_window_constants import (
-    CORRECTION_ALT_MODIFIER_MASKS,
     CORRECTION_DEFAULT_COLOR_NAME,
     CORRECTION_DEFAULT_FONT_SIZE_PT,
     CORRECTION_MARKER_COLORS,
@@ -12,7 +11,9 @@ from app.core.domain.annotation_sync import normalize_rotation_deg
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.contracts import KeyModifiers
+from bw_gui.contracts.events import EventResult
+from bw_gui.runtime import bind_drag, bind_wheel, ui, widgets
 from bw_gui.widgets import ScrollableFrame
 
 
@@ -44,18 +45,17 @@ class MainWindowCorrectionMarkersMixin:
             highlightbackground=correction_canvas_border,
         )
         self._correction_canvas.pack(fill=ui.BOTH, expand=True)
-        self._correction_canvas.bind("<MouseWheel>", self._on_correction_mousewheel)
-        self._correction_canvas.bind("<Shift-MouseWheel>", self._on_correction_mousewheel)
-        self._correction_canvas.bind("<Control-MouseWheel>", self._on_correction_mousewheel)
-        self._correction_canvas.bind("<Button-4>", self._on_correction_mousewheel)
-        self._correction_canvas.bind("<Button-5>", self._on_correction_mousewheel)
-        self._correction_canvas.bind("<Shift-Button-4>", self._on_correction_mousewheel)
-        self._correction_canvas.bind("<Shift-Button-5>", self._on_correction_mousewheel)
-        self._correction_canvas.bind("<Control-Button-4>", self._on_correction_mousewheel)
-        self._correction_canvas.bind("<Control-Button-5>", self._on_correction_mousewheel)
-        self._correction_canvas.bind("<Button-1>", self._on_correction_canvas_press)
-        self._correction_canvas.bind("<B1-Motion>", self._on_correction_canvas_drag)
-        self._correction_canvas.bind("<ButtonRelease-1>", self._on_correction_canvas_release)
+        bind_wheel(self._correction_canvas, self._on_correction_mousewheel)
+        # Press = select/place (threshold 0), move = live drag, release = commit. A drag
+        # aborted by focus loss commits like a release, so the live-moved position and
+        # the persisted state never diverge.
+        bind_drag(
+            self._correction_canvas,
+            on_start=self._on_correction_canvas_press,
+            on_move=self._on_correction_canvas_drag,
+            on_end=self._on_correction_canvas_release,
+            on_cancel=lambda _reason: self._on_correction_canvas_release(None),
+        )
 
     def _build_correction_view_form_markers(self) -> None:
         marker_controls = widgets.Frame(self._correction_form_panel.content, style="Surface.TFrame")
@@ -152,9 +152,15 @@ class MainWindowCorrectionMarkersMixin:
         return CORRECTION_DEFAULT_COLOR_NAME
 
     @staticmethod
-    def _event_has_alt_modifier(event: ui.Event[ui.Misc]) -> bool:
-        state = int(getattr(event, "state", 0) or 0)
-        return any(bool(state & mask) for mask in CORRECTION_ALT_MODIFIER_MASKS)
+    def _event_has_alt_modifier(event) -> bool:
+        """Alt held when the drag started (bw-gui modifier contract; unknown state -> no).
+
+        Formerly a raw ``event.state`` mask that also treated 0x0008 as Alt - on win32
+        that bit is NumLock, so with NumLock on every drag detached the mark from its
+        sync group.
+        """
+        modifiers = event.start_modifiers
+        return isinstance(modifiers, KeyModifiers) and modifiers.alt
 
     def _current_marker_color_hex(self) -> str:
         selected = self._correction_marker_color_name_var.get()
@@ -179,8 +185,8 @@ class MainWindowCorrectionMarkersMixin:
     def _normalize_rotation_deg(raw_deg: float) -> float:
         return normalize_rotation_deg(raw_deg)
 
-    def _on_correction_canvas_press(self, event: ui.Event[ui.Misc]):
-        """Handle a click on the correction canvas: Supersymbol apply, or normal select/place."""
+    def _on_correction_canvas_press(self, event):
+        """Handle a press on the correction canvas (``DragEvent``): Supersymbol apply, or normal select/place."""
         if not self._correction_mode_active:
             return None
         self._correction_canvas.focus_set()
@@ -189,11 +195,11 @@ class MainWindowCorrectionMarkersMixin:
 
         if self._supersymbol_filter_active:
             self._apply_supersymbol_at_canvas_position(canvas_x, canvas_y)
-            return "break"
+            return EventResult.HANDLED
 
         if self._superposition_mode is not None:
             self._apply_superposition_at_canvas_position(canvas_x, canvas_y)
-            return "break"
+            return EventResult.HANDLED
 
         self._correction_drag_alt_override = False
         item_under_cursor = self._correction_canvas.find_withtag("current")
@@ -223,11 +229,11 @@ class MainWindowCorrectionMarkersMixin:
                     self._correction_drag_before_payload = self._current_exam.to_dict()
                     self._correction_drag_moved = False
                 self._render_correction_annotations()
-                return "break"
+                return EventResult.HANDLED
 
         lookup = self._marker_tool_lookup(self._correction_marker_tool_key)
         if lookup is None:
-            return "break"
+            return EventResult.HANDLED
         glyph, label = lookup
         if self._place_annotation_from_canvas(
             canvas_x=canvas_x,
@@ -236,9 +242,9 @@ class MainWindowCorrectionMarkersMixin:
             content=glyph,
         ):
             self._status_var.set(f"Markierung gesetzt: {label}")
-        return "break"
+        return EventResult.HANDLED
 
-    def _on_correction_canvas_drag(self, event: ui.Event[ui.Misc]):
+    def _on_correction_canvas_drag(self, event):
         """Live-move the dragged mark (or its sync group) within the segment the drag started in; persisted on release."""
         if not self._correction_mode_active or self._current_exam is None:
             return None
@@ -246,19 +252,19 @@ class MainWindowCorrectionMarkersMixin:
             return None
         annotation = self._annotation_by_id(self._correction_drag_annotation_id)
         if annotation is None:
-            return "break"
+            return EventResult.HANDLED
 
         canvas_x = float(self._correction_canvas.canvasx(event.x))
         canvas_y = float(self._correction_canvas.canvasy(event.y))
         pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y, self._correction_drag_segment)
         if pdf_pos is None:
-            return "break"
+            return EventResult.HANDLED
         target_x = pdf_pos[0] + self._correction_drag_offset_pdf[0]
         target_y = pdf_pos[1] + self._correction_drag_offset_pdf[1]
         dx = target_x - annotation.x
         dy = target_y - annotation.y
         if abs(dx) < 1e-9 and abs(dy) < 1e-9:
-            return "break"
+            return EventResult.HANDLED
 
         if annotation.sync_group_id and not self._correction_drag_alt_override and not annotation.position_detached:
             for item in self._sync_group_members(annotation, include_detached=False):
@@ -271,9 +277,9 @@ class MainWindowCorrectionMarkersMixin:
                 annotation.position_detached = True
         self._correction_drag_moved = True
         self._render_correction_annotations()
-        return "break"
+        return EventResult.HANDLED
 
-    def _on_correction_canvas_release(self, _event: ui.Event[ui.Misc]):
+    def _on_correction_canvas_release(self, _event):
         """End a drag gesture, committing at most one `HistoryAction` for the whole gesture.
 
         The live position mutation during `_on_correction_canvas_drag` was
@@ -301,4 +307,4 @@ class MainWindowCorrectionMarkersMixin:
             if updated is not None:
                 self._current_exam = updated
                 self._render_correction_annotations()
-        return "break"
+        return EventResult.HANDLED

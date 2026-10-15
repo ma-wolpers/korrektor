@@ -4,6 +4,7 @@ from bw_gui.laufkern import (
     build_manifest,
     evaluate_intent_routes,
 )
+from bw_gui.contracts.key_spec import KeySpec
 from bw_gui.contracts.keybinding import KeyBindingDefinition, KeybindingRuntimeContext
 
 
@@ -15,7 +16,7 @@ def test_laufkern_bridge_manifest_and_reachability():
         keybindings=(
             KeyBindingDefinition(
                 binding_id="global.open",
-                sequence="<Control-o>",
+                keys=(KeySpec.parse("Ctrl+O"),),
                 intent="open",
             ),
         ),

@@ -3,15 +3,15 @@ from __future__ import annotations
 from app.adapters.gui.dialog_services import messagebox
 from app.adapters.gui.import_split_ordering import move_item
 from app.adapters.gui.import_split_session import ImportSplitPending, SplitCompleteCallback
-from app.adapters.gui.main_window_import_split_input import prefer_toplevel_bindings
+from app.adapters.gui.local_keys import bind_popup_table
 from app.adapters.gui.ui_intents import UiIntent
 from app.infrastructure.pdf.pdf_sources import PdfSourceInfo
-from bw_gui.contracts.keybinding import UI_MODE_DIALOG, UI_MODE_EDITOR
+from bw_gui.contracts.key_spec import KeySpec
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import WindowShortcutBinder, ui, widgets
+from bw_gui.runtime import ui, widgets
 
 
 class MainWindowImportSplitOrderMixin:
@@ -92,36 +92,20 @@ class MainWindowImportSplitOrderMixin:
 
     def _install_import_split_order_keys(self, pending: ImportSplitPending) -> None:
         """Ctrl+Up/Down move the selected file, Enter continues (bw-gui binder on the dialog)."""
-        binder = WindowShortcutBinder(
+        table = (
+            (KeySpec.parse("Ctrl+Up (tolerate: Shift)"), "order_up", UiIntent.IMPORT_SPLIT_ORDER_MOVE_UP, lambda: self._move_import_split_source(-1)),
+            (KeySpec.parse("Ctrl+Down (tolerate: Shift)"), "order_down", UiIntent.IMPORT_SPLIT_ORDER_MOVE_DOWN, lambda: self._move_import_split_source(1)),
+            (KeySpec.parse("Enter (tolerate: Shift)"), "order_confirm", UiIntent.IMPORT_SPLIT_ORDER_CONFIRM, self._confirm_import_split_order),
+        )
+        pending.binder = bind_popup_table(
             pending.popup,
+            pending.listbox,
+            table,
+            id_prefix="import_split",
+            alive=lambda: self._import_split_pending is not None,
             hsm_contract=self._hsm_contract,
-            mode_provider=lambda: UI_MODE_DIALOG,
             on_dispatch=self._record_laufkern_intent_dispatch,
         )
-        for sequence, suffix, intent, action in (
-            ("<Control-Up>", "order_up", UiIntent.IMPORT_SPLIT_ORDER_MOVE_UP, lambda: self._move_import_split_source(-1)),
-            ("<Control-Down>", "order_down", UiIntent.IMPORT_SPLIT_ORDER_MOVE_DOWN, lambda: self._move_import_split_source(1)),
-            ("<Return>", "order_confirm", UiIntent.IMPORT_SPLIT_ORDER_CONFIRM, self._confirm_import_split_order),
-            ("<KP_Enter>", "order_confirm_keypad", UiIntent.IMPORT_SPLIT_ORDER_CONFIRM, self._confirm_import_split_order),
-        ):
-            binder.bind(
-                sequence,
-                self._import_split_order_key_handler(action),
-                binding_id=f"import_split.{suffix}",
-                intent=intent,
-                modes=(UI_MODE_DIALOG, UI_MODE_EDITOR),
-                allow_when_text_input=True,
-            )
-        pending.binder = binder
-        prefer_toplevel_bindings(pending.listbox, pending.popup)
-
-    def _import_split_order_key_handler(self, action):
-        def _handle(_event) -> str:
-            if self._import_split_pending is not None:
-                action()
-            return "break"
-
-        return _handle
 
     def _fill_import_split_order_list(self, *, selected_index: int) -> None:
         pending = self._import_split_pending

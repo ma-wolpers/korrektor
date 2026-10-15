@@ -7,6 +7,7 @@ from tk_test_support import FOCUS_ONLY, build_pdf, pdf_texts, settle
 
 from app.adapters.gui import dialog_services
 from app.core.domain.models import ExamProject, StudentExam, utc_now_iso
+from bw_gui.contracts.events import EventResult
 
 
 def _open_exam(window, tmp_path):
@@ -108,7 +109,7 @@ _CM = 72.0 / 2.54
 
 def test_shift_buttons_and_fields(scan_window):
     window, _folder = scan_window
-    assert window._scan_shift_key(1, 0) == "break"
+    assert window._scan_shift_key(1, 0) is EventResult.HANDLED
     edit = window._scan_session.current_edit
     assert edit.offset_x_pt == pytest.approx(window._scan_shift_step_cm * _CM) and edit.rotation_deg == 0.0
     assert "Verschiebung +0.5/+0.0 cm" in window._scan_view.info_var.get()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.adapters.gui.local_keys import ENTER, ESCAPE, bind_widget_keys
 from app.core.domain.task_regions import tasks_of_region
 from app.core.domain.task_spec import format_task_specs
 
@@ -60,7 +61,6 @@ class MainWindowRegionEditorMixin:
         regions_tree_scroll.pack(side=ui.RIGHT, fill=ui.Y)
 
         self._regions_tree.bind("<<TreeviewSelect>>", self._on_region_selected)
-        self.root.bind_all("<Delete>", self._on_delete_region_key)
 
         editor_head = widgets.Frame(self._regions_editor, style="Surface.TFrame")
         editor_head.pack(fill=ui.X, pady=(8, 4))
@@ -75,14 +75,17 @@ class MainWindowRegionEditorMixin:
         self._quick_tasks_entry = widgets.Entry(self._task_input_container, textvariable=self._quick_tasks_var)
         self._quick_tasks_entry.pack(fill=ui.X)
         self._quick_tasks_entry.bind("<FocusOut>", self._on_reading_fields_focus_out)
-        self._quick_tasks_entry.bind("<Return>", self._on_reading_fields_commit)
-        self._quick_tasks_entry.bind("<Escape>", self._on_reading_fields_escape)
+        bind_widget_keys(
+            self._quick_tasks_entry,
+            ((ENTER, "reading.tasks.commit", self._on_reading_fields_commit),
+             (ESCAPE, "reading.tasks.escape", self._on_reading_fields_escape)),
+        )
 
         self._form_tasks_text = ui.Text(self._task_input_container, height=4, wrap="word")
         # No <Return> binding here: Enter must insert a newline between tasks
         # in Formular-Modus. <FocusOut> is the commit path for this widget.
         self._form_tasks_text.bind("<FocusOut>", self._on_reading_fields_focus_out)
-        self._form_tasks_text.bind("<Escape>", self._on_reading_fields_escape)
+        bind_widget_keys(self._form_tasks_text, ((ESCAPE, "reading.form_tasks.escape", self._on_reading_fields_escape),))
 
         self._task_input_example_var = ui.StringVar(value="")
         self._task_input_example_label = widgets.Label(

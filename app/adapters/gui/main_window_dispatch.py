@@ -6,6 +6,7 @@ from bw_gui.contracts.hsm import ESCAPE_CLOSE_POPUP, ESCAPE_EXIT_INLINE_EDITOR, 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
+from bw_gui.contracts.events import EventResult
 from bw_gui.runtime import ui, widgets
 
 
@@ -197,52 +198,52 @@ class MainWindowDispatchMixin:
         if self._active_view != "correction" or not self._correction_mode_active:
             return None
         if self._correction_finished_check is None:
-            return "break"
+            return EventResult.HANDLED
         if str(self._correction_finished_check.cget("state")) == "disabled":
-            return "break"
+            return EventResult.HANDLED
         # Simulated user interaction: same contract sequence as a click.
         self._correction_finished_check.invoke()
-        return "break"
+        return EventResult.HANDLED
 
     def _on_ctrl_e_key(self, _event: ui.Event[ui.Misc]):
         self._menu_export_scores()
-        return "break"
+        return EventResult.HANDLED
 
     def _on_ctrl_plus_key(self, _event: ui.Event[ui.Misc]):
         if self._active_view != "correction" or not self._correction_mode_active:
             return None
         self._change_correction_zoom(10)
-        return "break"
+        return EventResult.HANDLED
 
     def _on_ctrl_minus_key(self, _event: ui.Event[ui.Misc]):
         if self._active_view != "correction" or not self._correction_mode_active:
             return None
         self._change_correction_zoom(-10)
-        return "break"
+        return EventResult.HANDLED
 
     def _on_ctrl_zero_key(self, _event: ui.Event[ui.Misc]):
         if self._active_view != "correction" or not self._correction_mode_active:
             return None
         self._reset_correction_zoom()
-        return "break"
+        return EventResult.HANDLED
 
     def _on_ctrl_c_key(self, _event: ui.Event[ui.Misc]):
         if self._active_view != "correction" or not self._correction_mode_active:
             return None
         self._copy_selected_correction_annotation()
-        return "break"
+        return EventResult.HANDLED
 
     def _on_ctrl_x_key(self, _event: ui.Event[ui.Misc]):
         if self._active_view != "correction" or not self._correction_mode_active:
             return None
         self._cut_selected_correction_annotation()
-        return "break"
+        return EventResult.HANDLED
 
     def _on_ctrl_v_key(self, _event: ui.Event[ui.Misc]):
         if self._active_view != "correction" or not self._correction_mode_active:
             return None
         self._paste_correction_annotation()
-        return "break"
+        return EventResult.HANDLED
 
     def _commit_points_if_possible(self) -> None:
         if self._correction_mode_active:

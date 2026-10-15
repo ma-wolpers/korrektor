@@ -180,6 +180,7 @@ class MainWindowBase(BwBaseWindow):
                 UiIntent.DETAIL_NAVIGATE_DOWN,
                 UiIntent.DETAIL_NAVIGATE_CTRL_UP,
                 UiIntent.DETAIL_NAVIGATE_CTRL_DOWN,
+                UiIntent.DETAIL_DELETE,
                 UiIntent.CORRECTION_TOGGLE_FINISHED,
                 UiIntent.CORRECTION_ZOOM_IN,
                 UiIntent.CORRECTION_ZOOM_OUT,

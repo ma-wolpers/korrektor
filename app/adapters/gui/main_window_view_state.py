@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.adapters.gui.local_keys import ENTER, ESCAPE, bind_widget_keys
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
@@ -209,11 +210,13 @@ class MainWindowViewStateMixin:
         self._max_points_entry.grid(row=1, column=1, sticky=ui.EW, pady=4)
         self._points_entry.grid(row=2, column=1, sticky=ui.EW, pady=4)
 
-        self._task_code_entry.bind("<Escape>", self._on_points_escape)
-        self._max_points_entry.bind("<Escape>", self._on_points_escape)
+        bind_widget_keys(self._task_code_entry, ((ESCAPE, "points.task_code.escape", self._on_points_escape),))
+        bind_widget_keys(self._max_points_entry, ((ESCAPE, "points.max.escape", self._on_points_escape),))
         self._points_entry.bind("<FocusOut>", self._on_points_focus_out)
-        self._points_entry.bind("<Return>", self._on_points_commit)
-        self._points_entry.bind("<Escape>", self._on_points_escape)
+        bind_widget_keys(
+            self._points_entry,
+            ((ENTER, "points.commit", self._on_points_commit), (ESCAPE, "points.escape", self._on_points_escape)),
+        )
 
         nav = widgets.Frame(self._correction_controls_frame, style="Surface.TFrame")
         nav.pack(fill=ui.X, pady=(10, 0))
