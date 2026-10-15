@@ -61,7 +61,7 @@ MARK_SYMBOLS: tuple[MarkSymbol, ...] = (
     MarkSymbol("smile", "sym:smile", "Lächeln", "L", "drawn", 0.79),
     MarkSymbol("sad", "sym:sad", "Traurig", "U", "drawn", 0.79),
     MarkSymbol("shocked", "sym:shocked", "Schockiert", "o", "drawn", 0.79),
-    MarkSymbol("heart", "sym:heart", "Herz", "H", "drawn", 0.89),
+    MarkSymbol("heart", "sym:heart", "Herz", "H", "drawn", 0.79),
 )
 
 SYMBOL_BY_KEY: dict[str, MarkSymbol] = {symbol.key: symbol for symbol in MARK_SYMBOLS}

@@ -99,17 +99,26 @@ def draw_shocked(em: float, color: Color, _font_path: str) -> Image.Image:
 
 
 def draw_heart(em: float, color: Color, _font_path: str) -> Image.Image:
-    """Heart outline, hand-drawn: slight wobble, the stroke crosses over at the bottom tip."""
-    image, draw = _canvas(1.0, 0.95, em)
+    """Slim heart outline, drawn in one go like by hand.
+
+    Narrower than the textbook heart curve and a bit taller than wide; the left lobe
+    is a little fuller than the right, the whole heart leans slightly, and the pen
+    drifts while drawing, so start and end cross visibly at the tip instead of
+    meeting exactly.
+    """
+    image, draw = _canvas(0.85, 1.0, em)
     points = []
-    steps = 140
-    # Start a little before the bottom tip and end a little after it, so the pen crosses there.
+    steps = 160
     for step in range(steps + 1):
-        t = math.pi - 0.12 + (2 * math.pi + 0.24) * step / steps
+        fraction = step / steps
+        t = math.pi - 0.18 + (2 * math.pi + 0.36) * fraction
         x = 16 * math.sin(t) ** 3
         y = 13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)
-        wobble = 1.0 + 0.02 * math.sin(4 * t + 1.3)
-        points.append(((0.5 + wobble * x / 38.0) * em, (0.42 - wobble * y / 38.0) * em))
+        x *= 1.07 if x < 0 else 0.95  # fuller left lobe
+        wobble = 1.0 + 0.025 * math.sin(4 * t + 1.3) + 0.015 * math.sin(7 * t + 0.4)
+        px = 0.42 + wobble * x / 57.0 + 0.012 * y / 13.0 + 0.05 * fraction  # lean + drift
+        py = 0.44 - wobble * y / 36.0 - 0.03 * fraction
+        points.append((px * em, py * em))
     draw.line(points, fill=color, width=_slim_stroke(em), joint="curve")
     return image
 
