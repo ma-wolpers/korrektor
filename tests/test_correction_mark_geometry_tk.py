@@ -96,3 +96,23 @@ def test_mirror_buttons_refuse_comments(marks, monkeypatch):
     window._reorient_selected_correction_annotation(flipped_horizontally, mirrors=True)
     assert window._annotation_by_id("g-text").mirrored is False
     assert "Spiegelschrift" in shown[-1]
+
+
+@pytest.mark.parametrize(
+    ("comment", "warned"),
+    [(r"Ableitung $f'(x)=\frac{1}{2}$", False), ("kostet 5$", True), (r"$\frac{1}{$ und $x$", True)],
+)
+def test_inserting_a_comment_explains_bad_formulas_and_inserts_it_literally(correction, monkeypatch, comment, warned):
+    from app.adapters.gui import dialog_services
+
+    warnings = []
+    monkeypatch.setattr(dialog_services.messagebox, "showwarning", lambda title, text, **_: warnings.append(text))
+    window = correction
+    window._correction_comment_var.set(comment)
+    window._insert_current_comment_into_preview_center()
+    mark = window._current_exam.pdf_annotations[-1]
+    assert (mark.annotation_type, mark.content) == ("text", comment)
+    assert bool(warnings) is warned
+    if warned:
+        assert "sichtbaren $" in warnings[-1]
+    assert window._correction_canvas.type(window._correction_annotation_items[mark.annotation_id]) == "image"

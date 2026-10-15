@@ -7,6 +7,7 @@ from app.adapters.gui.dialog_services import messagebox
 from app.core.domain.annotation_move import clamp_into_box
 from app.core.domain.mark_transform import Orientation, flipped_horizontally, flipped_vertically, rotated
 from app.core.domain.models import PdfAnnotation
+from app.infrastructure.rendering.mark_renderer import validate_mark_text
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
@@ -183,7 +184,9 @@ class MainWindowCorrectionMarkersTransformMixin:
         If the centre is on a header, a gap or beside the image, the comment
         goes to the nearest point of the nearest crop (`_nearest_segment_point`)
         instead of being silently dropped; without any crop (the person has
-        no region for this task) a hint says so.
+        no region for this task) a hint says so. Text between `$…$` is set as a
+        formula (`mark_renderer`); if the `$` are unbalanced or a formula is invalid,
+        a warning explains why before the comment is inserted literally.
         """
         if not self._correction_mode_active:
             return
@@ -194,6 +197,12 @@ class MainWindowCorrectionMarkersTransformMixin:
         self._save_current_correction_comment()
         if self._correction_canvas is None:
             return
+        problem = validate_mark_text(comment)
+        if problem is not None:
+            messagebox.showwarning(
+                "Formel",
+                f"{problem}\n\nDer Kommentar wird so eingefügt, wie er getippt ist (mit sichtbaren $).",
+            )
         center_x = float(self._correction_canvas.canvasx(self._correction_canvas.winfo_width() / 2.0))
         center_y = float(self._correction_canvas.canvasy(self._correction_canvas.winfo_height() / 2.0))
         point = self._nearest_segment_point(center_x, center_y)
