@@ -209,6 +209,26 @@ def test_commit_annotation_move_immediate_uses_drag_start_snapshot_not_current_s
     assert (reloaded.pdf_annotations[0].x, reloaded.pdf_annotations[0].y) == (10.0, 20.0)
 
 
+def test_failed_move_commit_restores_region_page_and_task_of_a_re_homed_mark(tmp_path: Path) -> None:
+    """A drag into another region also changes region/page/task - a failed save must roll all of it back."""
+    controller, exam = _setup(tmp_path)
+    exam.pdf_annotations = [_annotation(x=10.0, y=20.0)]
+    controller._deps.exam_repository.save_exam(exam)
+    before_payload = exam.to_dict()
+    mark = exam.pdf_annotations[0]
+    mark.x, mark.y, mark.region_id, mark.page_number, mark.task_code = 50.0, 60.0, "r-other", 2, "2A"
+
+    def _boom(*_args, **_kwargs):
+        raise OSError("disk full")
+
+    controller._deps.exam_repository.save_exam = _boom  # type: ignore[method-assign]
+
+    assert controller.commit_annotation_move_immediate(exam=exam, before_payload=before_payload) is None
+    restored = exam.pdf_annotations[0]
+    assert (restored.x, restored.y, restored.region_id, restored.page_number, restored.task_code) == (10.0, 20.0, "r-a", 1, "1A")
+    assert controller.can_undo() is False
+
+
 def test_enable_and_disable_annotation_sync_immediate_are_each_undoable(tmp_path: Path) -> None:
     controller, exam = _setup(tmp_path)
     exam.pdf_annotations = [_annotation(student_pdf="Alice.pdf")]

@@ -6,6 +6,7 @@ from app.adapters.gui.main_window_constants import (
     CORRECTION_MARKER_COLORS,
     CORRECTION_MARKER_TOOLS,
 )
+from app.core.domain.annotation_move import move_annotations
 from app.core.domain.annotation_sync import normalize_rotation_deg
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
@@ -210,25 +211,9 @@ class MainWindowCorrectionMarkersMixin:
                 None,
             )
             if annotation_id is not None:
-                self._correction_selected_annotation_id = annotation_id
-                annotation = self._annotation_by_id(annotation_id)
-                segment = self._segment_for_annotation(annotation) if annotation is not None else None
-                pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y, segment)
-                if annotation is not None and pdf_pos is not None and self._current_exam is not None:
-                    # A drag stays in the segment it started in (several regions may be stacked).
-                    self._correction_drag_segment = segment
-                    self._correction_drag_annotation_id = annotation_id
-                    self._correction_drag_offset_pdf = (annotation.x - pdf_pos[0], annotation.y - pdf_pos[1])
-                    self._correction_drag_alt_override = self._event_has_alt_modifier(event)
-                    # Snapshot taken here (drag start), before any position
-                    # mutation - see commit_annotation_move_immediate's
-                    # docstring for why this must not be recomputed at
-                    # release time (that was the Meilenstein-0.2 bug in
-                    # save_exam_immediate: a post-mutation "before" snapshot
-                    # makes undo a no-op).
-                    self._correction_drag_before_payload = self._current_exam.to_dict()
-                    self._correction_drag_moved = False
-                self._render_correction_annotations()
+                self._begin_correction_annotation_drag(
+                    annotation_id, canvas_x, canvas_y, alt_override=self._event_has_alt_modifier(event)
+                )
                 return EventResult.HANDLED
 
         lookup = self._marker_tool_lookup(self._correction_marker_tool_key)
@@ -244,37 +229,82 @@ class MainWindowCorrectionMarkersMixin:
             self._status_var.set(f"Markierung gesetzt: {label}")
         return EventResult.HANDLED
 
+    def _begin_correction_annotation_drag(self, annotation_id: str, canvas_x: float, canvas_y: float, *, alt_override: bool) -> None:
+        """Select the mark ``annotation_id`` grabbed at canvas ``(canvas_x, canvas_y)`` and remember the drag start.
+
+        Called by `_on_correction_canvas_press` for the mark under the
+        cursor (tests call it directly - the Tk "current" item needs a real
+        pointer). The drag starts in the mark's own segment; it switches
+        region while dragged over another crop (`_on_correction_canvas_drag`).
+        """
+        self._correction_selected_annotation_id = annotation_id
+        annotation = self._annotation_by_id(annotation_id)
+        segment = self._segment_for_annotation(annotation) if annotation is not None else None
+        pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y, segment)
+        if annotation is not None and pdf_pos is not None and self._current_exam is not None:
+            self._correction_drag_segment = segment
+            self._correction_drag_annotation_id = annotation_id
+            self._correction_drag_offset_pdf = (annotation.x - pdf_pos[0], annotation.y - pdf_pos[1])
+            self._correction_drag_alt_override = alt_override
+            # Snapshot taken here (drag start), before any position
+            # mutation - see commit_annotation_move_immediate's
+            # docstring for why this must not be recomputed at
+            # release time (that was the Meilenstein-0.2 bug in
+            # save_exam_immediate: a post-mutation "before" snapshot
+            # makes undo a no-op).
+            self._correction_drag_before_payload = self._current_exam.to_dict()
+            self._correction_drag_moved = False
+        self._render_correction_annotations()
+
     def _on_correction_canvas_drag(self, event):
-        """Live-move the dragged mark (or its sync group) within the segment the drag started in; persisted on release."""
+        """Live-move the dragged mark (or its sync group); it stays inside a region and follows the cursor's region.
+
+        The point is always clamped into the crop of its region, and over
+        another region's crop the mark (or its whole group) is re-homed
+        there - see `_drag_target_segment` for which switches are allowed and
+        `move_annotations` for the rule. When the segment changes, the grab
+        offset is rescaled so the mark keeps its on-screen distance to the
+        cursor. Persisted once on release (`_on_correction_canvas_release`).
+        """
         if not self._correction_mode_active or self._current_exam is None:
             return None
         if self._correction_drag_annotation_id is None or self._correction_drag_offset_pdf is None:
             return None
         annotation = self._annotation_by_id(self._correction_drag_annotation_id)
-        if annotation is None:
+        if annotation is None or self._correction_drag_segment is None:
             return EventResult.HANDLED
 
         canvas_x = float(self._correction_canvas.canvasx(event.x))
         canvas_y = float(self._correction_canvas.canvasy(event.y))
-        pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y, self._correction_drag_segment)
+        is_synced = bool(annotation.sync_group_id)
+        moves_whole_group = is_synced and not self._correction_drag_alt_override and not annotation.position_detached
+        previous_segment = self._correction_drag_segment
+        segment = self._drag_target_segment(canvas_y, moves_whole_group=moves_whole_group, is_synced=is_synced)
+        if segment != previous_segment:
+            factor = previous_segment.scale / segment.scale
+            self._correction_drag_offset_pdf = (self._correction_drag_offset_pdf[0] * factor, self._correction_drag_offset_pdf[1] * factor)
+            self._correction_drag_segment = segment
+        pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y, segment)
         if pdf_pos is None:
             return EventResult.HANDLED
-        target_x = pdf_pos[0] + self._correction_drag_offset_pdf[0]
-        target_y = pdf_pos[1] + self._correction_drag_offset_pdf[1]
-        dx = target_x - annotation.x
-        dy = target_y - annotation.y
-        if abs(dx) < 1e-9 and abs(dy) < 1e-9:
-            return EventResult.HANDLED
 
-        if annotation.sync_group_id and not self._correction_drag_alt_override and not annotation.position_detached:
-            for item in self._sync_group_members(annotation, include_detached=False):
-                item.x += dx
-                item.y += dy
-        else:
-            annotation.x = target_x
-            annotation.y = target_y
-            if annotation.sync_group_id and self._correction_drag_alt_override:
-                annotation.position_detached = True
+        followers = (
+            [item for item in self._sync_group_members(annotation, include_detached=False) if item is not annotation]
+            if moves_whole_group
+            else []
+        )
+        moved = move_annotations(
+            annotation,
+            followers,
+            pdf_pos[0] + self._correction_drag_offset_pdf[0],
+            pdf_pos[1] + self._correction_drag_offset_pdf[1],
+            self._move_target_for_segment(segment),
+            self._selected_correction_task()[0] or "",
+        )
+        if not moved:
+            return EventResult.HANDLED
+        if is_synced and self._correction_drag_alt_override:
+            annotation.position_detached = True
         self._correction_drag_moved = True
         self._render_correction_annotations()
         return EventResult.HANDLED

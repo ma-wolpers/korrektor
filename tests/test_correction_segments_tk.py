@@ -123,6 +123,78 @@ def test_durchdruecken_is_refused_for_marks_in_an_einzelseiten_region(correction
     assert [item.annotation_id for item in exam.pdf_annotations].count("m-single") == 1
 
 
+
+class _Pointer:
+    """Stand-in for a Tk mouse event: widget coordinates ``x``/``y``."""
+
+    def __init__(self, x: float, y: float) -> None:
+        self.x, self.y = x, y
+
+
+def _drag_mark(window, annotation_id: str, to_canvas: tuple[float, float]) -> None:
+    """Grab the mark at its own point, drag it to canvas ``to_canvas`` and release (one gesture)."""
+    canvas = window._correction_canvas
+    mark = window._annotation_by_id(annotation_id)
+    start = window._pdf_to_canvas_coords(mark.x, mark.y, window._segment_for_annotation(mark))
+    window._begin_correction_annotation_drag(annotation_id, *start, alt_override=False)
+    pointer = _Pointer(to_canvas[0] - canvas.canvasx(0), to_canvas[1] - canvas.canvasy(0))
+    window._on_correction_canvas_drag(pointer)
+    window._on_correction_canvas_release(pointer)
+
+
+def _add_marks(window, *marks: PdfAnnotation) -> None:
+    window._current_exam.pdf_annotations.extend(marks)
+    window._render_correction_annotations()
+
+
+def _saved_mark(window, annotation_id: str) -> PdfAnnotation:
+    repository = window.deps.exam_repository
+    exam = repository.load_exam(repository.exam_file_for_id("exam-segments"))
+    return next(item for item in exam.pdf_annotations if item.annotation_id == annotation_id)
+
+
+def test_dragging_a_mark_onto_another_crop_moves_it_into_that_region_persistently_and_undoably(correction):
+    window = correction
+    _add_marks(window, PdfAnnotation("m-text", "Anna.pdf", 1, "text", "Gut", "#ff0000", 100, 100, task_code="1A", region_id="sup"))
+    target = window._correction_segments[1]
+
+    _drag_mark(window, "m-text", (60.0, target.y_offset + target.height / 2))
+
+    saved = _saved_mark(window, "m-text")
+    assert (saved.region_id, saved.page_number) == ("anna2", 2)
+    assert 40 <= saved.x <= 400 and 400 <= saved.y <= 600
+    assert window._segment_for_annotation(window._annotation_by_id("m-text")).region_id == "anna2"
+    assert window._controller.undo()
+    assert _saved_mark(window, "m-text").region_id == "sup"
+
+
+def test_dragging_past_every_crop_keeps_the_mark_inside_its_own_region(correction):
+    window = correction
+    _add_marks(window, PdfAnnotation("m-sym", "Anna.pdf", 1, "symbol", "✓", "#ff0000", 100, 100, task_code="1A", region_id="sup"))
+    last = window._correction_segments[-1]
+
+    _drag_mark(window, "m-sym", (5000.0, last.y_offset + last.height + 500.0))
+
+    saved = _saved_mark(window, "m-sym")
+    assert (saved.region_id, saved.x, saved.y) == ("sup", 400.0, 300.0)
+
+
+def test_a_synced_group_never_enters_an_einzelseiten_region(correction):
+    window = correction
+    _add_marks(
+        window,
+        PdfAnnotation("m-anna", "Anna.pdf", 1, "symbol", "✓", "#ff0000", 100, 100, task_code="1A", region_id="sup", sync_group_id="sg-1"),
+        PdfAnnotation("m-ben", "Ben.pdf", 1, "symbol", "✓", "#ff0000", 100, 100, task_code="1A", region_id="sup", sync_group_id="sg-1"),
+    )
+    target = window._correction_segments[1]
+    assert target.is_single_page
+
+    _drag_mark(window, "m-anna", (60.0, target.y_offset + target.height / 2))
+
+    anna, ben = _saved_mark(window, "m-anna"), _saved_mark(window, "m-ben")
+    assert anna.region_id == ben.region_id == "sup"
+    assert (anna.x, anna.y) == (ben.x, ben.y) and anna.y == 300.0
+
 @FOCUS_ONLY
 def test_keys_switch_subtask_and_main_task(correction):
     window = correction

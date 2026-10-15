@@ -360,19 +360,19 @@ class UiIntentControllerAnnotationsMixin:
         (`MainWindow._on_correction_canvas_release`), and only if the
         position actually changed - one `HistoryAction` per drag, never one
         per mouse-move.
+
+        A drag changes more than ``x``/``y``: dragged into another region, a
+        mark (or its whole sync group) is re-homed (``region_id``,
+        ``page_number``, possibly ``task_code``, see
+        `app.core.domain.annotation_move`), and an Alt-drag sets
+        ``position_detached``. The save-failure rollback therefore restores
+        the complete mark list of the drag-start snapshot - nothing else
+        changes during a drag.
         """
-        before_exam = ExamProject.from_dict(before_payload)
-        rollback_positions = [
-            (item, item.x, item.y)
-            for item in exam.pdf_annotations
-            for before_item in before_exam.pdf_annotations
-            if item.annotation_id == before_item.annotation_id and (item.x, item.y) != (before_item.x, before_item.y)
-        ]
+        before_annotations = ExamProject.from_dict(before_payload).pdf_annotations
 
         def _rollback() -> None:
-            for item, old_x, old_y in rollback_positions:
-                item.x = old_x
-                item.y = old_y
+            exam.pdf_annotations = before_annotations
 
         return self._save_annotation_mutation_immediate(
             exam=exam,

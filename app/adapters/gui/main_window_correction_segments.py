@@ -5,6 +5,7 @@ from pathlib import Path
 import fitz
 
 from app.adapters.gui.main_window_types import CorrectionSegment, CorrectionTemplate
+from app.core.domain.annotation_move import MoveTarget
 from app.core.domain.models import ExamProject, PdfAnnotation, TaskDefinition
 from app.core.domain.task_regions import regions_for_task, tasks_of_region
 
@@ -27,7 +28,8 @@ class MainWindowCorrectionSegmentsMixin:
     ("Seite 2" / "Seite 5 · Einzelseite") into one scrollable canvas.
     Coordinates are always converted through exactly one segment:
     `_segment_at` (a click), `_segment_for_annotation` (drawing a mark), or
-    an explicitly remembered segment (a drag stays in its start segment).
+    the remembered drag segment (a drag moves the mark into the region under
+    the cursor, see `_drag_target_segment`).
     The full-page Supersymbol/Superposition previews install a single
     segment the same way (`_install_single_segment`).
     """
@@ -93,6 +95,32 @@ class MainWindowCorrectionSegmentsMixin:
             elif self._point_in_box(annotation.x, annotation.y, segment.clip_box):
                 return segment
         return None
+
+    def _drag_target_segment(self, canvas_y: float, *, moves_whole_group: bool, is_synced: bool) -> CorrectionSegment | None:
+        """Segment a dragged mark belongs to now: the region under the cursor, or the one it is in.
+
+        The mark switches region as soon as the cursor is over another
+        region's crop (symbol and text alike). It keeps its current segment
+        (``_correction_drag_segment``) while the cursor is over a header, a
+        gap, outside every crop, or over a segment without ``region_id``.
+        A synced mark may only switch if its whole group moves along
+        (``moves_whole_group``) and only into a Superseiten-Bereich: group
+        members share one region, and "Durchdrücken" exists only there. An
+        Alt-dragged or position-detached member therefore stays in its region.
+        """
+        current = self._correction_drag_segment
+        candidate = self._segment_at(canvas_y)
+        if candidate is None or candidate == current or not candidate.region_id:
+            return current
+        if is_synced and (not moves_whole_group or candidate.is_single_page):
+            return current
+        return candidate
+
+    def _move_target_for_segment(self, segment: CorrectionSegment) -> MoveTarget:
+        """`MoveTarget` of ``segment``: its region, page, rendered crop and the region's tasks."""
+        region = next((item for item in self._current_exam.regions if item.region_id == segment.region_id), None)
+        task_codes = tuple(region.task_codes) if region is not None else ()
+        return MoveTarget(segment.region_id, segment.page_number, segment.clip_box, task_codes)
 
     def _canvas_to_pdf_coords(self, x: float, y: float, segment: CorrectionSegment | None = None) -> tuple[float, float] | None:
         """Canvas point -> PDF point of ``segment`` (default: the segment under ``y``)."""
