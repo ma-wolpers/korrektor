@@ -38,6 +38,7 @@ from app.adapters.gui.main_window_correction_sync import MainWindowCorrectionSyn
 from app.adapters.gui.main_window_correction_zoom import MainWindowCorrectionZoomMixin
 from app.adapters.gui.main_window_correction_completion import MainWindowCorrectionCompletionMixin
 from app.adapters.gui.main_window_correction_form import MainWindowCorrectionFormMixin
+from app.adapters.gui.main_window_correction_keys import MainWindowCorrectionKeysMixin
 from app.adapters.gui.main_window_naming import MainWindowNamingMixin
 from app.adapters.gui.main_window_scan_workshop import MainWindowScanWorkshopMixin
 from app.adapters.gui.main_window_scan_workshop_view import MainWindowScanWorkshopViewMixin
@@ -89,6 +90,7 @@ class MainWindow(
     MainWindowCorrectionZoomMixin,
     MainWindowCorrectionCompletionMixin,
     MainWindowCorrectionFormMixin,
+    MainWindowCorrectionKeysMixin,
     MainWindowNamingMixin,
     MainWindowScanWorkshopMixin,
     MainWindowScanWorkshopViewMixin,

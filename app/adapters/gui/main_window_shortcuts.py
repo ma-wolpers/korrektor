@@ -91,6 +91,8 @@ class MainWindowShortcutsMixin:
         modes: tuple[str, ...],
         allow_when_text_input: bool = False,
         allow_when_offline: bool = True,
+        description: str = "",
+        applies_when=None,
     ) -> KeyBindingDefinition:
         """Register one application shortcut (thin delegation to the binder).
 
@@ -103,6 +105,9 @@ class MainWindowShortcutsMixin:
             modes: Allowed UI modes.
             allow_when_text_input: Also active while a text input has the focus.
             allow_when_offline: Also active in the offline simulation.
+            description: Text for the shortcut diagnostics.
+            applies_when: Optional ``applies_when(KeyEvent) -> bool``; ``False`` lets
+                the key continue unhandled (e.g. Space on a focused button).
 
         Returns:
             The registered definition (registry, debug dialog, LaufKern manifest).
@@ -115,6 +120,8 @@ class MainWindowShortcutsMixin:
             modes=modes,
             allow_when_text_input=allow_when_text_input,
             allow_when_offline=allow_when_offline,
+            description=description,
+            applies_when=applies_when,
         ).definition
 
     def _build_laufkern_manifest(self):

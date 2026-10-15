@@ -52,8 +52,9 @@ class MainWindowShortcutTableMixin:
           intent=UiIntent.DETAIL_NAVIGATE_CTRL_UP, modes=_DETAIL, allow_when_text_input=True)
         b(_k("Ctrl+Down"), self._on_ctrl_down_key, binding_id="detail.ctrl_down",
           intent=UiIntent.DETAIL_NAVIGATE_CTRL_DOWN, modes=_DETAIL, allow_when_text_input=True)
-        b(_k("Ctrl+Space (tolerate: Shift)"), self._on_ctrl_space_key, binding_id="correction.toggle_finished",
-          intent=UiIntent.CORRECTION_TOGGLE_FINISHED, modes=_DETAIL)
+        # Symbol letters, digits -> points field, Space ("Fertig") and Ctrl+Space ("alle fertig"):
+        # never in the comment field (see `main_window_correction_keys.py`).
+        self._register_correction_hotkeys(b)
         b(_k("Ctrl+E"), self._on_ctrl_e_key, binding_id="global.export",
           intent=UiIntent.GLOBAL_EXPORT, modes=_ALL_EDITOR, allow_when_text_input=True)
         b([_k("Ctrl++"), _k("Ctrl+=")], self._on_ctrl_plus_key, binding_id="correction.zoom_in",

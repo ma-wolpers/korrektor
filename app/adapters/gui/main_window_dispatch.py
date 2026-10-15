@@ -107,9 +107,7 @@ class MainWindowDispatchMixin:
 
     def _on_left_key(self, _event: ui.Event[ui.Misc]) -> None:
         """Dispatch Left to the active mode's "previous" action (student/page)."""
-        if self._is_editable_widget(self.root.focus_get()) and not (
-            self._active_view == "correction" and self._correction_mode_active
-        ):
+        if self._arrow_keys_stay_in_field():
             return
         if self._active_view == "correction" and self._correction_mode_active:
             self._change_correction_student(-1)
@@ -127,9 +125,7 @@ class MainWindowDispatchMixin:
 
     def _on_right_key(self, _event: ui.Event[ui.Misc]) -> None:
         """Dispatch Right to the active mode's "next" action (student/page)."""
-        if self._is_editable_widget(self.root.focus_get()) and not (
-            self._active_view == "correction" and self._correction_mode_active
-        ):
+        if self._arrow_keys_stay_in_field():
             return
         if self._active_view == "correction" and self._correction_mode_active:
             self._change_correction_student(1)
@@ -146,9 +142,7 @@ class MainWindowDispatchMixin:
         self._move_student(1)
 
     def _on_up_key(self, _event: ui.Event[ui.Misc]) -> None:
-        if self._is_editable_widget(self.root.focus_get()) and not (
-            self._active_view == "correction" and self._correction_mode_active
-        ):
+        if self._arrow_keys_stay_in_field():
             return
         if self._active_view == "correction" and self._correction_mode_active:
             self._cycle_correction_task(-1)
@@ -156,9 +150,7 @@ class MainWindowDispatchMixin:
             self._scan_go_page(-1)
 
     def _on_down_key(self, _event: ui.Event[ui.Misc]) -> None:
-        if self._is_editable_widget(self.root.focus_get()) and not (
-            self._active_view == "correction" and self._correction_mode_active
-        ):
+        if self._arrow_keys_stay_in_field():
             return
         if self._active_view == "correction" and self._correction_mode_active:
             self._cycle_correction_task(1)
@@ -166,9 +158,7 @@ class MainWindowDispatchMixin:
             self._scan_go_page(1)
 
     def _on_ctrl_up_key(self, _event: ui.Event[ui.Misc]) -> None:
-        if self._is_editable_widget(self.root.focus_get()) and not (
-            self._active_view == "correction" and self._correction_mode_active
-        ):
+        if self._arrow_keys_stay_in_field():
             return
         if self._active_view == "correction" and self._correction_mode_active:
             self._cycle_correction_main_task(-1)
@@ -176,25 +166,12 @@ class MainWindowDispatchMixin:
             self._scan_move_page(-1)
 
     def _on_ctrl_down_key(self, _event: ui.Event[ui.Misc]) -> None:
-        if self._is_editable_widget(self.root.focus_get()) and not (
-            self._active_view == "correction" and self._correction_mode_active
-        ):
+        if self._arrow_keys_stay_in_field():
             return
         if self._active_view == "correction" and self._correction_mode_active:
             self._cycle_correction_main_task(1)
         elif self._active_view == "scan_workshop":
             self._scan_move_page(1)
-
-    def _on_ctrl_space_key(self, _event: ui.Event[ui.Misc]):
-        if self._active_view != "correction" or not self._correction_mode_active:
-            return None
-        if self._correction_finished_check is None:
-            return EventResult.HANDLED
-        if str(self._correction_finished_check.cget("state")) == "disabled":
-            return EventResult.HANDLED
-        # Simulated user interaction: same contract sequence as a click.
-        self._correction_finished_check.invoke()
-        return EventResult.HANDLED
 
     def _on_ctrl_e_key(self, _event: ui.Event[ui.Misc]):
         self._menu_export_scores()

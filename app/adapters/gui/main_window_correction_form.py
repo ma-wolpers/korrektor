@@ -28,7 +28,8 @@ class MainWindowCorrectionFormMixin:
         bind_widget_keys(
             self._correction_points_entry,
             ((ENTER, "correction.points.commit", self._on_correction_points_commit),
-             (ESCAPE, "correction.points.escape", self._on_correction_points_escape)),
+             (ESCAPE, "correction.points.escape", self._on_correction_points_escape),
+             *self._points_entry_hotkey_rows()),
         )
 
         widgets.Label(correction_form, text="Kommentar", style="Muted.TLabel").grid(
