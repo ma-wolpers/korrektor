@@ -100,6 +100,10 @@ class NavDropdown:
             return None
         return self.select(selected_key if selected_key in keys else keys[0])
 
+    def set_enabled(self, enabled: bool) -> None:
+        """Allow or block user picks; an empty list always stays disabled."""
+        self.widget.configure(state="readonly" if enabled and self._keys else "disabled")
+
     def select(self, key: Hashable) -> Hashable:
         """Show ``key`` as selected without calling ``on_pick`` (key must be an entry)."""
         index = self._keys.index(key)

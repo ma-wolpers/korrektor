@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.adapters.gui.dialog_services import messagebox
+from app.adapters.gui.main_window_zuschnitt_navigation import cursor_after_resequence
 from app.core.domain.models import ExamProject
 from app.core.domain.page_coverage import (
     all_pages,
@@ -48,6 +49,7 @@ class MainWindowExtraPagesMixin:
         next_button = widgets.Button(self._extra_toolbar, text="Seite ▶", style="SecondaryAction.TButton", command=lambda: self._change_extra_page(1))
         next_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(next_button, label="Nächste Einzelseite", shortcut="Rechts")
+        self._build_extra_nav_dropdowns(self._extra_toolbar)
 
         self._unscored_var = ui.BooleanVar(value=False)
         self._unscored_switch = Switch(self._extra_toolbar, text="Ohne Bewertung", variable=self._unscored_var, on_change=self._on_unscored_switch)
@@ -110,7 +112,11 @@ class MainWindowExtraPagesMixin:
             self._start_extra_mode()
 
     def _on_extra_all_pages_switch(self, requested: bool) -> None:
-        """Switch "Auch Seiten mit Superseiten-Bereich": rebuild the walk, stay on the same student/page if possible."""
+        """Switch "Auch Seiten mit Superseiten-Bereich": rebuild the walk, keeping the position.
+
+        The same student/page if it is still in the walk, else the next entry after
+        it, else the first (`cursor_after_resequence`); the dropdowns follow on render.
+        """
         self._extra_all_pages_var.set(requested)
         if not self._extra_mode_active or self._current_exam is None:
             return
@@ -120,7 +126,7 @@ class MainWindowExtraPagesMixin:
             self._extra_all_pages_var.set(True)
             return
         self._extra_sequence = sequence
-        self._extra_cursor = sequence.index(current) if current in sequence else 0
+        self._extra_cursor = cursor_after_resequence(sequence, current)
         self._show_current_extra_page()
 
     def _change_extra_page(self, delta: int) -> None:
@@ -154,6 +160,7 @@ class MainWindowExtraPagesMixin:
             return
         student, page_number = target
         exam = self._current_exam
+        self._sync_extra_nav_dropdowns()
         self._render_pdf_page(student=student, page_number=page_number)
         labels = [
             region.assigned_area_codes[0]

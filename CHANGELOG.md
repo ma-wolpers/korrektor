@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Zuschnitt: Abgabe und Seite per Auswahlliste.** In Schritt 1 (Superseiten) und Schritt 2 (Einzelseiten) lassen sich Abgabe und Seite direkt wählen. In Schritt 2 enthalten die Listen nur die Abgaben und Seiten, die gerade durchlaufen werden. Bei eingeschalteter Superseite ist die Abgaben-Liste gesperrt (dort zählt nur die Seite). Fällt die aktuelle Seite beim Umschalten von „Auch Seiten mit Superseiten-Bereich“ weg, geht es mit der nächsten Seite weiter statt wieder ganz vorne.
 - **Korrektur: Abgabe per Auswahlliste.** Neben „Aufgabe“ gibt es jetzt „Abgabe“: Die Person lässt sich direkt wählen, statt mit ←/→ zu blättern. Beide Listen zeigen immer die aktuelle Aufgabe/Person, auch nach dem Blättern mit den Pfeiltasten.
 - **Behoben:** Wählte man in der Korrektur eine andere Aufgabe aus der Liste, wurden die Punkte und der Kommentar der bisherigen Aufgabe zusätzlich bei der neu gewählten Aufgabe eingetragen. Außerdem reagierte die Liste manchmal nicht, wenn man nach ↑/↓ die vorherige Aufgabe wieder auswählte.
 - Fenster-, Fokus-, Auswahl- und Canvas-Ereignisse laufen über die bw-gui-Widget-Events-API statt über rohe Tk-Bindings (reine Wartung, keine Nutzer-sichtbare Änderung).

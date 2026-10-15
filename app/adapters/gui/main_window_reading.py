@@ -87,6 +87,7 @@ class MainWindowReadingMixin:
         )
         next_reading_student_button.pack(side=ui.LEFT, padx=(8, 0))
         self._attach_hover_help(next_reading_student_button, label="Nächste Person im Zuschnitt", shortcut=None)
+        self._build_reading_nav_dropdowns(self._reading_toolbar)
 
         self._superpage_toggle = Switch(
             self._reading_toolbar,
@@ -150,6 +151,7 @@ class MainWindowReadingMixin:
         student = self._get_reading_student()
         if student is None or self._current_exam is None:
             return
+        self._sync_reading_nav_dropdowns()
 
         if bool(self._superpage_var.get()):
             used = self._render_superposed_page(students=self._current_exam.students, page_number=self._reading_page)

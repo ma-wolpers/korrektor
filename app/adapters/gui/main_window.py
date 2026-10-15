@@ -66,6 +66,7 @@ from app.adapters.gui.main_window_student_result_pdf_export import MainWindowStu
 from app.adapters.gui.main_window_batch_export import MainWindowBatchExportMixin
 from app.adapters.gui.main_window_reading_canvas import MainWindowReadingCanvasMixin
 from app.adapters.gui.main_window_reading import MainWindowReadingMixin
+from app.adapters.gui.main_window_zuschnitt_navigation import MainWindowZuschnittNavigationMixin
 from app.adapters.gui.main_window_correction_core import MainWindowCorrectionCoreMixin
 from app.adapters.gui.main_window_correction_navigation import MainWindowCorrectionNavigationMixin
 from app.adapters.gui.main_window_correction_segments import MainWindowCorrectionSegmentsMixin
@@ -115,6 +116,7 @@ class MainWindow(
     MainWindowBatchExportMixin,
     MainWindowReadingCanvasMixin,
     MainWindowReadingMixin,
+    MainWindowZuschnittNavigationMixin,
     MainWindowCorrectionCoreMixin,
     MainWindowCorrectionNavigationMixin,
     MainWindowCorrectionSegmentsMixin,
