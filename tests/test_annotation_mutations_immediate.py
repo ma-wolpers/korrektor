@@ -162,17 +162,42 @@ def test_resize_annotation_immediate_resizes_whole_sync_group_as_one_history_act
     assert all(a.font_size == 20.0 for a in reloaded.pdf_annotations)
 
 
-def test_rotate_annotation_immediate_is_undoable(tmp_path: Path) -> None:
+def test_set_annotation_orientation_immediate_is_undoable(tmp_path: Path) -> None:
     controller, exam = _setup(tmp_path)
     exam.pdf_annotations = [_annotation(rotation_deg=0.0)]
     controller._deps.exam_repository.save_exam(exam)
 
-    updated = controller.rotate_annotation_immediate(exam=exam, annotation_id="ann-1", next_rotation_deg=90.0)
+    updated = controller.set_annotation_orientation_immediate(exam=exam, annotation_id="ann-1", rotation_deg=45.0, mirrored=False)
     assert updated is not None
-    assert updated.pdf_annotations[0].rotation_deg == 90.0
+    assert updated.pdf_annotations[0].rotation_deg == 45.0
 
     assert controller.undo() is True
     assert _reload(controller).pdf_annotations[0].rotation_deg == 0.0
+
+
+def _orientations(controller: UiIntentController) -> set[tuple[float, bool]]:
+    return {(a.rotation_deg, a.mirrored) for a in _reload(controller).pdf_annotations}
+
+
+def test_orientation_of_a_sync_group_incl_detached_member_is_one_undo_step(tmp_path: Path) -> None:
+    """Rotate, then mirror: every member follows; each step is undone/redone for the whole group."""
+    controller, exam = _setup(tmp_path)
+    exam.pdf_annotations = [
+        _annotation(annotation_id="ann-1", student_pdf="Alice.pdf", sync_group_id="sg-1"),
+        _annotation(annotation_id="ann-2", student_pdf="Bob.pdf", sync_group_id="sg-1", position_detached=True),
+    ]
+    controller._deps.exam_repository.save_exam(exam)
+
+    rotated = controller.set_annotation_orientation_immediate(exam=exam, annotation_id="ann-1", rotation_deg=45.0, mirrored=False)
+    controller.set_annotation_orientation_immediate(exam=rotated, annotation_id="ann-2", rotation_deg=135.0, mirrored=True)
+    assert _orientations(controller) == {(135.0, True)}
+
+    assert controller.undo() is True
+    assert _orientations(controller) == {(45.0, False)}
+    assert controller.undo() is True
+    assert _orientations(controller) == {(0.0, False)}
+    assert controller.redo() is True and controller.redo() is True
+    assert _orientations(controller) == {(135.0, True)}
 
 
 def test_recolor_annotation_immediate_is_undoable(tmp_path: Path) -> None:

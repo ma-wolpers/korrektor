@@ -180,6 +180,16 @@ def test_from_dict_defaults_annotation_size_and_rotation_when_missing() -> None:
 
     assert exam.pdf_annotations[0].font_size == 20.0
     assert exam.pdf_annotations[0].rotation_deg == 0.0
+    assert exam.pdf_annotations[0].mirrored is False  # older files have no "mirrored"
+
+
+def test_mirrored_annotation_round_trips() -> None:
+    raw = _base_raw_exam()
+    raw["pdf_annotations"][0]["mirrored"] = True
+    exam = _v2(raw)
+    assert exam.pdf_annotations[0].mirrored is True
+    assert exam.pdf_annotations[0].to_dict()["mirrored"] is True
+    assert ExamProject.from_dict(exam.to_dict()).pdf_annotations[0].mirrored is True
 
 
 def test_from_dict_defaults_annotation_sync_fields_when_missing() -> None:

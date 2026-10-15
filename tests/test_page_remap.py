@@ -12,7 +12,7 @@ _A4 = (595.0, 842.0)
 def _exam() -> ExamProject:
     """Two persons with 3 pages each; marks, an assignment and unscored pages on both."""
     def mark(mark_id, pdf, page, x=100.0, y=200.0, rotation=0.0):
-        return PdfAnnotation(mark_id, pdf, page, "symbol", "✓", "#ff0000", x, y, rotation_deg=rotation)
+        return PdfAnnotation(mark_id, pdf, page, "symbol", "✓", "#ff0000", x, y, rotation_deg=rotation, mirrored=mark_id == "m1")
 
     return ExamProject(
         exam_id="x",
@@ -50,6 +50,7 @@ def test_annotations_move_with_their_page_and_turn_with_it():
     assert by_id["m1"].page_number == 2
     assert (by_id["m1"].x, by_id["m1"].y) == pytest.approx(PageTransform(*_A4, 90.0).map_point(100.0, 200.0))
     assert by_id["m1"].rotation_deg == pytest.approx(280.0)  # 10° ccw minus one clockwise quarter turn
+    assert by_id["m1"].mirrored is True  # a page turn never changes the mirror flag
     assert "m2" not in by_id
     assert by_id["m3"].page_number == 2  # other person untouched
 

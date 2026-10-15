@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from uuid import uuid4
 
 from app.adapters.gui.dialog_services import messagebox
 from app.core.domain.annotation_move import clamp_into_box
+from app.core.domain.mark_transform import Orientation, flipped_horizontally, flipped_vertically, rotated
 from app.core.domain.models import PdfAnnotation
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
@@ -48,37 +50,37 @@ class MainWindowCorrectionMarkersTransformMixin:
         grow_button.pack(side=ui.LEFT, padx=(0, 4))
         self._attach_hover_help(grow_button, label="Ausgewählte Markierung vergrößern")
 
-        rotate_left_button = widgets.Button(
-            transform_row,
-            text="↺",
-            style="SecondaryAction.TButton",
-            width=4,
-            command=lambda: self._rotate_selected_correction_annotation(90.0),
-        )
-        rotate_left_button.pack(side=ui.LEFT, padx=(8, 4))
-        self._attach_hover_help(rotate_left_button, label="Ausgewählte Markierung nach links drehen")
+        for text, label, change, mirrors, padx in (
+            ("↺", "Ausgewählte Markierung um 45° nach links drehen", lambda o: rotated(o, 45.0), False, (8, 4)),
+            ("↻", "Ausgewählte Markierung um 45° nach rechts drehen", lambda o: rotated(o, -45.0), False, (0, 4)),
+            ("↔", "Ausgewähltes Symbol horizontal spiegeln (links/rechts tauschen)", flipped_horizontally, True, (8, 4)),
+            ("↕", "Ausgewähltes Symbol vertikal spiegeln (oben/unten tauschen)", flipped_vertically, True, (0, 4)),
+        ):
+            button = widgets.Button(
+                transform_row,
+                text=text,
+                style="SecondaryAction.TButton",
+                width=4,
+                command=lambda change=change, mirrors=mirrors: self._reorient_selected_correction_annotation(
+                    change, mirrors=mirrors
+                ),
+            )
+            button.pack(side=ui.LEFT, padx=padx)
+            self._attach_hover_help(button, label=label)
 
-        rotate_right_button = widgets.Button(
-            transform_row,
-            text="↻",
-            style="SecondaryAction.TButton",
-            width=4,
-            command=lambda: self._rotate_selected_correction_annotation(-90.0),
-        )
-        rotate_right_button.pack(side=ui.LEFT, padx=(0, 4))
-        self._attach_hover_help(rotate_right_button, label="Ausgewählte Markierung nach rechts drehen")
-
+        sync_row = widgets.Frame(marker_controls, style="Surface.TFrame")
+        sync_row.pack(fill=ui.X, pady=(4, 0))
         sync_button = widgets.Button(
-            transform_row,
+            sync_row,
             text="Durchdrücken",
             style="SecondaryAction.TButton",
             command=self._toggle_selected_annotation_sync,
         )
-        sync_button.pack(side=ui.LEFT, padx=(12, 0))
+        sync_button.pack(side=ui.LEFT)
         self._attach_hover_help(sync_button, label="Auswahl auf alle Personen spiegeln oder wieder lokal machen")
 
         detach_button = widgets.Button(
-            transform_row,
+            sync_row,
             text="Entkoppeln",
             style="SecondaryAction.TButton",
             command=self._detach_selected_annotation_from_sync,
@@ -141,23 +143,39 @@ class MainWindowCorrectionMarkersTransformMixin:
         self._render_correction_annotations()
         self._status_var.set("Markierungsgröße aktualisiert")
 
-    def _rotate_selected_correction_annotation(self, delta_deg: float) -> None:
+    def _reorient_selected_correction_annotation(
+        self, change: Callable[[Orientation], Orientation], *, mirrors: bool
+    ) -> None:
+        """Rotate or mirror the selected mark (and its sync group) through `mark_transform`.
+
+        Args:
+            change: Maps the current orientation to the new one (``rotated``,
+                ``flipped_horizontally``, ``flipped_vertically``).
+            mirrors: ``True`` for the mirror buttons - refused for comments, which
+                would turn into mirror writing.
+        """
         if self._current_exam is None or self._controller is None:
             return
         annotation = self._selected_correction_annotation()
         if annotation is None:
             messagebox.showinfo("Hinweis", "Bitte zuerst eine Markierung auswählen.")
             return
-        current = self._normalize_rotation_deg(annotation.rotation_deg)
-        next_rotation = self._normalize_rotation_deg(current + delta_deg)
-        updated = self._controller.rotate_annotation_immediate(
-            exam=self._current_exam, annotation_id=annotation.annotation_id, next_rotation_deg=next_rotation
+        if mirrors and annotation.annotation_type == "text":
+            messagebox.showinfo("Hinweis", "Kommentare lassen sich nicht spiegeln (das wäre Spiegelschrift).")
+            return
+        target = change(Orientation.of(annotation.rotation_deg, annotation.mirrored))
+        updated = self._controller.set_annotation_orientation_immediate(
+            exam=self._current_exam,
+            annotation_id=annotation.annotation_id,
+            rotation_deg=target.rotation_deg,
+            mirrored=target.mirrored,
         )
         if updated is None:
             return
         self._current_exam = updated
         self._render_correction_annotations()
-        self._status_var.set(f"Markierungswinkel: {next_rotation:.0f}°")
+        mirror_text = ", gespiegelt" if target.mirrored else ""
+        self._status_var.set(f"Markierungswinkel: {target.rotation_deg:.0f}°{mirror_text}")
 
     def _insert_current_comment_into_preview_center(self) -> None:
         """Place the typed comment as a text mark at the preview centre, or in the nearest crop.

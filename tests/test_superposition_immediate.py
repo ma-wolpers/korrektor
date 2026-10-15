@@ -149,7 +149,11 @@ def test_scored_superposition_style_change_never_touches_personalized_content(tm
 
     resized = controller.resize_annotation_immediate(exam=updated, annotation_id=alice_annotation_id, delta=4.0)
     assert resized is not None
+    resized = controller.set_annotation_orientation_immediate(
+        exam=resized, annotation_id=alice_annotation_id, rotation_deg=90.0, mirrored=True
+    )
     by_pdf = {a.student_pdf: a for a in resized.pdf_annotations}
+    assert {(a.rotation_deg, a.mirrored) for a in by_pdf.values()} == {(90.0, True)}
     assert by_pdf["Alice.pdf"].font_size == 18.0
     assert by_pdf["Bob.pdf"].font_size == 18.0
     # content stayed personalized despite the shared style change

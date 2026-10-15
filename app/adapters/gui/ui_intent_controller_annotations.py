@@ -164,16 +164,18 @@ class UiIntentControllerAnnotationsMixin:
             rollback=_rollback,
         )
 
-    def rotate_annotation_immediate(
-        self, *, exam: ExamProject, annotation_id: str, next_rotation_deg: float
+    def set_annotation_orientation_immediate(
+        self, *, exam: ExamProject, annotation_id: str, rotation_deg: float, mirrored: bool
     ) -> ExamProject | None:
-        """Set the rotation of an annotation - and every sync-group member - to `next_rotation_deg`.
+        """Set rotation and mirror flag of an annotation - and every sync-group member - in one undo step.
 
-        `next_rotation_deg` is the caller's already-normalized target angle
-        (see `app.core.domain.annotation_sync.normalize_rotation_deg`) - this
-        method does not recompute the delta/normalization itself, matching
-        every other `_immediate` method's "GUI decides the concrete value,
-        controller only persists it" split.
+        The one write path for both rotating and mirroring: the GUI computes the
+        target with `app.core.domain.mark_transform` (``rotated``,
+        ``flipped_horizontally``, ``flipped_vertically``) and this method only
+        persists it - the usual "GUI decides the concrete value, controller only
+        persists it" split. The whole group (detached members included, like every
+        style attribute) gets the same orientation; one snapshot pair surrounds the
+        loop, so a single undo restores every member.
         """
         annotation = self._find_annotation(exam, annotation_id)
         if annotation is None:
@@ -181,17 +183,20 @@ class UiIntentControllerAnnotationsMixin:
 
         before_payload = exam.to_dict()
         members = self._group_or_self(exam, annotation, include_detached=True)
-        previous_rotations = [(item, item.rotation_deg) for item in members]
+        previous = [(item, item.rotation_deg, item.mirrored) for item in members]
         for item in members:
-            item.rotation_deg = next_rotation_deg
+            item.rotation_deg = rotation_deg
+            item.mirrored = mirrored
 
         def _rollback() -> None:
-            for item, old_rotation in previous_rotations:
+            for item, old_rotation, old_mirrored in previous:
                 item.rotation_deg = old_rotation
+                item.mirrored = old_mirrored
 
+        mirror_text = ", gespiegelt" if mirrored else ""
         return self._save_annotation_mutation_immediate(
             exam=exam,
-            description=f"Markierungswinkel: {next_rotation_deg:.0f}°",
+            description=f"Markierung ausgerichtet: {rotation_deg:.0f}°{mirror_text}",
             before_payload=before_payload,
             rollback=_rollback,
         )

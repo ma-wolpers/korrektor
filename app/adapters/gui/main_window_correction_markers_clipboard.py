@@ -68,6 +68,7 @@ class MainWindowCorrectionMarkersClipboardMixin:
             "color_hex": self._normalize_marker_color_hex(annotation.color_hex),
             "font_size": self._normalize_marker_font_size(annotation.font_size),
             "rotation_deg": self._normalize_rotation_deg(annotation.rotation_deg),
+            "mirrored": bool(annotation.mirrored),
             "task_code": annotation.task_code,
             "rel_x": rel_x,
             "rel_y": rel_y,
@@ -120,6 +121,7 @@ class MainWindowCorrectionMarkersClipboardMixin:
             region_id=template.region_id,
             font_size=self._normalize_marker_font_size(self._annotation_clipboard.get("font_size", 14.0)),
             rotation_deg=self._normalize_rotation_deg(float(self._annotation_clipboard.get("rotation_deg", 0.0))),
+            mirrored=bool(self._annotation_clipboard.get("mirrored", False)),
             sync_group_id="",
             position_detached=False,
         )

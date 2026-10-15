@@ -7,18 +7,15 @@ from app.core.domain.models import PdfAnnotation, StudentExam
 
 
 def normalize_rotation_deg(raw_deg: float) -> float:
-    """Snap a rotation angle to the nearest 90-degree step, wrapped into [0, 360).
+    """Snap a mark rotation to the nearest 45-degree step, wrapped into [0, 360).
 
-    PDF freetext annotation rotation (see the PDF-export code in
-    `main_window_correction_markers_export.py`) is only reliably rendered at
-    90-degree steps, so every write path that sets `PdfAnnotation.rotation_deg`
-    normalizes through this one function - moved here from the GUI
-    (`MainWindow._normalize_rotation_deg`, kept as a thin wrapper for its
-    existing call sites) so the `UiIntentController` annotation-mutation
-    methods (Meilenstein 0.3) can reuse the exact same rule without a
-    GUI-layer dependency.
+    Marks rotate in 45° steps (the rotate buttons; the wish list's mirror example
+    uses 45°). Every write path and the renderer (`mark_renderer`) normalize through
+    this one function, so a stored off-grid value (older data, e.g. 15°) is shown
+    and exported on the grid. Exact halves follow Python's round-half-to-even
+    (22.5° -> 0°, 67.5° -> 90°); the GUI only ever stores grid values.
     """
-    snapped = int(round(float(raw_deg) / 90.0)) * 90
+    snapped = int(round(float(raw_deg) / 45.0)) * 45
     return float(snapped % 360)
 
 
@@ -81,6 +78,7 @@ def build_annotation_clones(
             region_id=base.region_id,
             font_size=base.font_size,
             rotation_deg=base.rotation_deg,
+            mirrored=base.mirrored,
             sync_group_id=sync_group_id,
             position_detached=False,
         )
@@ -97,7 +95,7 @@ def build_scored_annotation_clones(
     """Like `build_annotation_clones`, but each clone's `content` is personalized per student.
 
     Backs the Punkte-/Noten-Superposition (Meilenstein 3): position and
-    style (`x`/`y`/`color_hex`/`font_size`/`rotation_deg`) are shared from
+    style (`x`/`y`/`color_hex`/`font_size`/`rotation_deg`/`mirrored`) are shared from
     `base` exactly like a normal sync clone, but `content` comes from
     `content_by_student_id[student.student_id]` instead of `base.content` -
     each student sees their own points/grade at the same on-page spot.
@@ -125,6 +123,7 @@ def build_scored_annotation_clones(
             region_id=base.region_id,
             font_size=base.font_size,
             rotation_deg=base.rotation_deg,
+            mirrored=base.mirrored,
             sync_group_id=sync_group_id,
             position_detached=False,
         )

@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from test_correction_segments_tk import _add_marks, _drag_mark, _saved_mark, correction  # noqa: F401  (fixture)
 
+from app.core.domain.mark_transform import flipped_horizontally, flipped_vertically, rotated
 from app.core.domain.models import PdfAnnotation
 
 MARKS = [
@@ -63,9 +64,35 @@ def test_dragging_moves_the_centre_by_the_drag_delta(marks):
     assert (saved.x, saved.y) != (150, 250)
 
 
-def test_rotating_keeps_the_centre(marks):
+@pytest.mark.parametrize("change", [lambda o: rotated(o, -45.0), lambda o: rotated(o, 90.0), flipped_horizontally, flipped_vertically])
+@pytest.mark.parametrize("annotation_id", ["g-sym", "g-arrow", "g-mirror"])
+def test_rotating_and_mirroring_keep_the_centre(marks, annotation_id, change):
     window = marks
-    before = _centre(window, "g-sym")
-    window._correction_selected_annotation_id = "g-sym"
-    window._rotate_selected_correction_annotation(-90.0)
-    assert _centre(window, "g-sym") == pytest.approx(before, abs=1.0)
+    before = _centre(window, annotation_id)
+    window._correction_selected_annotation_id = annotation_id
+    window._reorient_selected_correction_annotation(change, mirrors=False)
+    assert _centre(window, annotation_id) == pytest.approx(before, abs=1.0)
+    assert _centre(window, annotation_id) == pytest.approx(_anchor(window, annotation_id), abs=1.0)
+
+
+def test_copy_paste_keeps_rotation_and_mirror_flag(marks):
+    window = marks
+    window._correction_selected_annotation_id = "g-mirror"
+    window._reorient_selected_correction_annotation(lambda o: rotated(o, 45.0), mirrors=False)
+    assert window._copy_selected_correction_annotation()
+    before = {item.annotation_id for item in window._current_exam.pdf_annotations}
+    assert window._paste_correction_annotation()
+    pasted = next(item for item in window._current_exam.pdf_annotations if item.annotation_id not in before)
+    assert (pasted.content, pasted.rotation_deg, pasted.mirrored) == ("sym:arrow_curved", 45.0, True)
+
+
+def test_mirror_buttons_refuse_comments(marks, monkeypatch):
+    from app.adapters.gui import dialog_services
+
+    shown = []
+    monkeypatch.setattr(dialog_services.messagebox, "showinfo", lambda title, text, **_: shown.append(text))
+    window = marks
+    window._correction_selected_annotation_id = "g-text"
+    window._reorient_selected_correction_annotation(flipped_horizontally, mirrors=True)
+    assert window._annotation_by_id("g-text").mirrored is False
+    assert "Spiegelschrift" in shown[-1]

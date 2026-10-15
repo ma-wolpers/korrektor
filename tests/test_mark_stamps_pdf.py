@@ -10,6 +10,7 @@ from PIL import Image
 from app.core.domain.mark_symbols import MARK_SYMBOLS
 from app.core.domain.models import PdfAnnotation
 from app.infrastructure.pdf.mark_stamps import MARKER_SUBJECT_PREFIX, add_mark_stamp, remove_marker_stamps
+from app.infrastructure.rendering.mark_renderer import EXPORT_PX_PER_PT, MarkStyle, render_mark_image
 
 ZOOM = 3.0
 
@@ -51,17 +52,31 @@ def _page(rotation: int = 0) -> tuple[fitz.Document, fitz.Page]:
 
 
 @pytest.mark.parametrize("symbol", MARK_SYMBOLS, ids=lambda s: s.key)
-@pytest.mark.parametrize(("rotation", "mirrored"), [(0.0, False), (90.0, False), (180.0, False), (0.0, True)])
+@pytest.mark.parametrize(("rotation", "mirrored"), [(0.0, False), (45.0, False), (90.0, False), (180.0, False), (0.0, True), (135.0, True)])
 def test_stamp_is_centred_on_the_anchor(symbol, rotation, mirrored):
+    """The stamp's image centre (= rotation pivot) is the anchor; the ink lands where the rendered image puts it.
+
+    For 0°/90°/180° the ink box is centred on the anchor; at 45° an asymmetric
+    shape (bubble tail, arc) has its ink box off the pivot - the same offset the
+    rendered image (and therefore the canvas preview) shows.
+    """
+    annotation = _annotation(symbol.content, rotation=rotation, mirrored=mirrored)
+    image = render_mark_image(MarkStyle.of(annotation), EXPORT_PX_PER_PT)
+    left, top, right, bottom = image.getchannel("A").getbbox()
+    offset_x = ((left + right) / 2 - image.width / 2) / EXPORT_PX_PER_PT
+    offset_y = ((top + bottom) / 2 - image.height / 2) / EXPORT_PX_PER_PT
+    if rotation % 90 == 0:
+        assert abs(offset_x) <= 0.5 and abs(offset_y) <= 0.5
+
     document, page = _page()
-    add_mark_stamp(page, _annotation(symbol.content, rotation=rotation, mirrored=mirrored))
+    add_mark_stamp(page, annotation)
     box = _ink_box(_raster(page))
     document.close()
     assert box is not None
     center_x = (box[0] + box[2]) / 2 / ZOOM
     center_y = (box[1] + box[3]) / 2 / ZOOM
-    assert abs(center_x - 150.0) <= 1.5
-    assert abs(center_y - 120.0) <= 1.5
+    assert abs(center_x - (150.0 + offset_x)) <= 1.5
+    assert abs(center_y - (120.0 + offset_y)) <= 1.5
 
 
 @pytest.mark.parametrize(

@@ -116,3 +116,12 @@ def test_invalid_formulas_are_explained_and_drawn_literally(text, problem):
 def test_escaped_dollar_is_literal():
     assert validate_mark_text(r"kostet \$5") is None
     assert validate_mark_text(r"\$ und $x$") is None
+
+
+@pytest.mark.parametrize("content", ["sym:arrow_straight", "sym:wavy", "✓"])
+def test_45_degrees_expands_to_the_rotated_bounding_box(content):
+    upright = render_mark_image(_style(content), 4.0)
+    tilted = render_mark_image(_style(content, 45.0), 4.0)
+    expected = (upright.width + upright.height) / 2 ** 0.5
+    assert tilted.width == pytest.approx(expected, abs=3)
+    assert tilted.height == pytest.approx(expected, abs=3)

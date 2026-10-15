@@ -100,9 +100,18 @@ def test_sync_group_members_empty_sync_group_id_returns_empty_list() -> None:
     assert sync_group_members([a], "", include_detached=True) == []
 
 
-def test_normalize_rotation_deg_snaps_to_nearest_90_and_wraps() -> None:
+def test_normalize_rotation_deg_snaps_to_nearest_45_and_wraps() -> None:
     assert normalize_rotation_deg(0.0) == 0.0
     assert normalize_rotation_deg(89.0) == 90.0
+    assert normalize_rotation_deg(50.0) == 45.0
+    assert normalize_rotation_deg(-45.0) == 315.0
     assert normalize_rotation_deg(-90.0) == 270.0
     assert normalize_rotation_deg(360.0) == 0.0
     assert normalize_rotation_deg(455.0) == 90.0
+
+
+def test_clones_keep_rotation_and_mirror_flag() -> None:
+    base = _base_annotation()
+    base.rotation_deg, base.mirrored = 135.0, True
+    clones = build_annotation_clones(base, [_student("s2", "B.pdf")], "sg-9")
+    assert (clones[0].rotation_deg, clones[0].mirrored) == (135.0, True)
