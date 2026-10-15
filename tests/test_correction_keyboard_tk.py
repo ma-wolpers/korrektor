@@ -86,11 +86,39 @@ def test_space_toggles_finished_and_ctrl_space_toggles_all(correction, monkeypat
     assert clicks == ["finished", "finished", "all", "all"]
 
 
-def test_space_on_a_focused_switch_stays_native(correction, monkeypatch):
+@pytest.mark.parametrize("focused", ["_correction_finished_check", "_correction_finished_all_check"])
+def test_on_the_fertig_switches_space_is_fertig_and_ctrl_space_is_all(correction, monkeypatch, focused):
+    """Regression: with the points field locked the focus sits on the "Fertig" switch, whose
+    native Space binding also fired for Ctrl+Space - so Ctrl+Space toggled "Fertig" instead of "alle"."""
     window = correction
     clicks = []
     monkeypatch.setattr(window._correction_finished_check, "invoke", lambda: clicks.append("finished"))
-    assert not press_key(window._correction_finished_check, "space", char=" ")
+    monkeypatch.setattr(window._correction_finished_all_check, "invoke", lambda: clicks.append("all"))
+    window._correction_finished_check.configure(state="normal")
+    window._correction_finished_all_check.configure(state="normal")
+    switch = getattr(window, focused)
+
+    assert press_key(switch, "space", char=" ", state=CONTROL)  # consumed before Tk's own Space binding
+    assert press_key(switch, "space", char=" ")
+    assert clicks == ["all", "finished"]
+
+
+def test_ctrl_space_does_nothing_when_the_all_switch_is_locked(correction, monkeypatch):
+    window = correction
+    clicks = []
+    monkeypatch.setattr(window._correction_finished_check, "invoke", lambda: clicks.append("finished"))
+    monkeypatch.setattr(window._correction_finished_all_check, "invoke", lambda: clicks.append("all"))
+    window._correction_finished_check.configure(state="normal")
+    window._correction_finished_all_check.configure(state="disabled")
+    assert press_key(window._correction_finished_check, "space", char=" ", state=CONTROL)
+    assert clicks == []
+
+
+def test_space_on_another_focused_button_stays_native(correction, monkeypatch):
+    window = correction
+    clicks = []
+    monkeypatch.setattr(window._correction_finished_check, "invoke", lambda: clicks.append("finished"))
+    assert not press_key(window._marker_palette_buttons["check"], "space", char=" ")
     assert clicks == []
 
 
