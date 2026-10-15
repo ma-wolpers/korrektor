@@ -195,6 +195,49 @@ def test_a_synced_group_never_enters_an_einzelseiten_region(correction):
     assert anna.region_id == ben.region_id == "sup"
     assert (anna.x, anna.y) == (ben.x, ben.y) and anna.y == 300.0
 
+
+def test_comment_inserted_while_the_preview_centre_is_on_a_gap_goes_into_the_nearest_crop(correction, monkeypatch):
+    window = correction
+    canvas = window._correction_canvas
+    first = window._correction_segments[0]
+    gap_y = first.y_offset + first.height + 4.0  # 4 px below the first crop, far from the second one
+    monkeypatch.setattr(canvas, "winfo_height", lambda: int(round(2 * (gap_y - canvas.canvasy(0)))))
+    window._correction_comment_var.set("Gut gemacht")
+
+    window._insert_current_comment_into_preview_center()
+
+    mark = window._current_exam.pdf_annotations[-1]
+    assert (mark.annotation_type, mark.content, mark.region_id) == ("text", "Gut gemacht", "sup")
+    assert mark.y == pytest.approx(first.clip_box[3])
+
+
+def test_a_click_beside_a_narrow_crop_places_the_mark_on_its_edge(correction):
+    window = correction
+    first = window._correction_segments[0]
+
+    assert window._place_annotation_from_canvas(canvas_x=5000.0, canvas_y=first.y_offset + 10.0, annotation_type="symbol", content="✓")
+
+    mark = window._current_exam.pdf_annotations[-1]
+    assert (mark.region_id, mark.x) == ("sup", first.clip_box[2])
+
+
+def test_after_a_failed_move_save_the_mark_is_drawn_at_its_start_again(correction, monkeypatch):
+    window = correction
+    errors = []
+    monkeypatch.setattr(dialog_services.messagebox, "showerror", lambda title, text, **_: errors.append(text))
+    _add_marks(window, PdfAnnotation("m-fail", "Anna.pdf", 1, "symbol", "✓", "#ff0000", 100, 100, task_code="1A", region_id="sup"))
+    start = window._pdf_to_canvas_coords(100, 100, window._correction_segments[0])
+
+    def _boom(*_args, **_kwargs):
+        raise OSError("Datei gesperrt")
+
+    monkeypatch.setattr(window.deps.exam_repository, "save_exam", _boom)
+    _drag_mark(window, "m-fail", (start[0] + 80.0, start[1] + 40.0))
+
+    assert errors and "Datei gesperrt" in errors[-1]
+    drawn = window._correction_canvas.coords(window._correction_annotation_items["m-fail"])
+    assert drawn == pytest.approx(list(start))
+
 @FOCUS_ONLY
 def test_keys_switch_subtask_and_main_task(correction):
     window = correction

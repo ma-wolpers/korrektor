@@ -96,6 +96,24 @@ class MainWindowCorrectionSegmentsMixin:
                 return segment
         return None
 
+    def _nearest_segment_point(self, canvas_x: float, canvas_y: float) -> tuple[float, float] | None:
+        """Canvas point on the image of the segment nearest to ``(canvas_x, canvas_y)``, or ``None`` without segments.
+
+        A point on a segment's image is returned unchanged. On a header, a
+        gap, beside a narrow image or past the last one, it moves to the
+        nearest point of the vertically nearest segment's image, so a mark
+        placed there ("Kommentar einfügen" uses the preview centre) always
+        lands inside a region instead of being silently dropped.
+        """
+        if not self._correction_segments:
+            return None
+        segment = min(
+            self._correction_segments,
+            key=lambda item: max(item.y_offset - canvas_y, 0.0, canvas_y - (item.y_offset + item.height)),
+        )
+        image_width = (segment.clip_box[2] - segment.clip_box[0]) * segment.scale
+        return min(max(canvas_x, 0.0), image_width), min(max(canvas_y, segment.y_offset), segment.y_offset + segment.height)
+
     def _drag_target_segment(self, canvas_y: float, *, moves_whole_group: bool, is_synced: bool) -> CorrectionSegment | None:
         """Segment a dragged mark belongs to now: the region under the cursor, or the one it is in.
 

@@ -336,5 +336,7 @@ class MainWindowCorrectionMarkersMixin:
             )
             if updated is not None:
                 self._current_exam = updated
-                self._render_correction_annotations()
+            # Also after a failed save: the controller rolled the marks back
+            # to the drag start, the canvas still shows the live position.
+            self._render_correction_annotations()
         return EventResult.HANDLED

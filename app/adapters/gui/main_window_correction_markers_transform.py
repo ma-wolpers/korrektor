@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 from app.adapters.gui.dialog_services import messagebox
+from app.core.domain.annotation_move import clamp_into_box
 from app.core.domain.models import PdfAnnotation
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
@@ -159,6 +160,13 @@ class MainWindowCorrectionMarkersTransformMixin:
         self._status_var.set(f"Markierungswinkel: {next_rotation:.0f}°")
 
     def _insert_current_comment_into_preview_center(self) -> None:
+        """Place the typed comment as a text mark at the preview centre, or in the nearest crop.
+
+        If the centre is on a header, a gap or beside the image, the comment
+        goes to the nearest point of the nearest crop (`_nearest_segment_point`)
+        instead of being silently dropped; without any crop (the person has
+        no region for this task) a hint says so.
+        """
         if not self._correction_mode_active:
             return
         comment = self._correction_comment_var.get().strip()
@@ -170,14 +178,13 @@ class MainWindowCorrectionMarkersTransformMixin:
             return
         center_x = float(self._correction_canvas.canvasx(self._correction_canvas.winfo_width() / 2.0))
         center_y = float(self._correction_canvas.canvasy(self._correction_canvas.winfo_height() / 2.0))
-        created = self._place_annotation_from_canvas(
-            canvas_x=center_x,
-            canvas_y=center_y,
-            annotation_type="text",
-            content=comment,
-        )
-        if created:
-            self._status_var.set("Kommentar in Vorschau-Mitte eingefügt")
+        point = self._nearest_segment_point(center_x, center_y)
+        if point is None:
+            messagebox.showinfo("Hinweis", "Kommentar nicht eingefügt: Hier ist kein Ausschnitt, in den er gesetzt werden kann.")
+            return
+        # A failed save is already reported by the controller.
+        if self._place_annotation_from_canvas(canvas_x=point[0], canvas_y=point[1], annotation_type="text", content=comment):
+            self._status_var.set("Kommentar eingefügt")
 
     def _place_annotation_from_canvas(
         self,
@@ -187,7 +194,13 @@ class MainWindowCorrectionMarkersTransformMixin:
         annotation_type: str,
         content: str,
     ) -> bool:
-        """Place a new correction mark at the clicked canvas position and persist it immediately."""
+        """Place a new correction mark at the clicked canvas position and persist it immediately.
+
+        The point is clamped into the segment's crop (`clamp_into_box`): a
+        click beside a narrow image (same height, but right of it) would
+        otherwise create a mark outside its region - drawn on no crop and
+        skipped by the PDF export (see `app.core.domain.annotation_move`).
+        """
         if self._current_exam is None or self._controller is None:
             return False
         student = self._current_correction_student()
@@ -197,6 +210,7 @@ class MainWindowCorrectionMarkersTransformMixin:
         pdf_pos = self._canvas_to_pdf_coords(canvas_x, canvas_y, segment)
         if pdf_pos is None:
             return False
+        pdf_pos = clamp_into_box(pdf_pos[0], pdf_pos[1], segment.clip_box)
 
         task_code, _max_points = self._selected_correction_task()
         default_font_size = self._default_annotation_font_size
