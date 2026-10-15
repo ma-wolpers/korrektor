@@ -1,10 +1,7 @@
 # Changelog
 
-## [Unreleased]
-
-- Das Fenster "PDF aufteilen" begrenzt seine Startgröße auf den Monitor, auf dem es öffnet, statt auf den Hauptmonitor.
-
 ## Unreleased
+- Das Fenster "PDF aufteilen" begrenzt seine Startgröße auf den Monitor, auf dem es öffnet, statt auf den Hauptmonitor.
 - **Behoben:** Wer nacheinander zwei Klausuren mit gleich benannten PDFs öffnete (z. B. `Abgabe_01.pdf` nach dem Aufteilen), konnte in der zweiten Klausur Seiten der ersten sehen. Außerdem gibt Korrektor die PDFs beim Zurückkehren zur Übersicht frei (unter Windows lassen sich Ordner dann wieder verschieben).
 - **Scan-Werkstatt: Seiteninhalt verschieben.** Strg+Shift+Pfeile verschieben den Inhalt der aktuellen Seite um 0,5 cm (Schritt in den Einstellungen änderbar, 0,1–5 cm), auch per Knöpfe „←→↑↓“ oder durch Eintippen von x/y in cm. Verschieben, Drehen, Löschen und Umsortieren lassen sich frei kombinieren; Symbole und Einzelseiten-Bereiche wandern mit. **Geändert:** Die 90°-Drehung liegt jetzt auf **Shift+←/→** (vorher Strg+Shift+←/→).
 - **Korrektur nach Aufgaben:** Die Korrektur zeigt jetzt eine (Teil-)Aufgabe zur Zeit – mit **allen** ihren Bereichen untereinander (z. B. „Seite 2“ und „Seite 5 · Einzelseite“), Symbole lassen sich in jeden davon setzen. ↑/↓ wechselt die Teilaufgabe (4a → 4b → … → 5a), Strg+↑/↓ springt zur nächsten Hauptaufgabe (4b → 5a), ←/→ wechselt die Person. In der Klausuransicht wählt man „Ab Aufgabe“ statt „Bereich“. „Fertig korrigiert“ und „Aufgabe: alle als fertig markieren“ gelten für die aktuelle Aufgabe. Hat eine Person zu einer Aufgabe keinen Bereich, steht das in der Ansicht; bewerten geht trotzdem. Supersymbol und Superposition nutzen den ersten Superseiten-Bereich der Aufgabe; „Durchdrücken“ geht nur in Superseiten-Bereichen.
