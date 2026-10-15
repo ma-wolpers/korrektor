@@ -16,8 +16,8 @@ Shapes (unrotated), with their size in em:
 * ``jargon``         - empty speech bubble with its tail at the bottom left
 * ``example``        - "Bsp" over a bold "≠" over "Bew" (example is no proof)
 
-* ``smile``/``sad``/``shocked`` - round faces (emoji style, in the mark colour)
-* ``heart``          - filled heart
+* ``smile``/``sad``/``shocked``/``heart`` - emojis in a slim hand-drawn style
+  (``mark_emoji_shapes.py``)
 
 Compact shapes are about as tall as a glyph (~0.7 em, like ✗); strike, wave and the
 straight arrow are longer by nature - their length follows A+/A−.
@@ -29,6 +29,8 @@ import math
 from collections.abc import Callable
 
 from PIL import Image, ImageDraw, ImageFont
+
+from app.infrastructure.rendering.mark_emoji_shapes import EMOJI_SHAPES
 
 Color = tuple[int, int, int, int]
 TRANSPARENT: Color = (0, 0, 0, 0)
@@ -134,51 +136,6 @@ def draw_example(em: float, color: Color, font_path: str) -> Image.Image:
 COMBO_GAP_EM = 0.07
 
 
-def _face(em: float, color: Color, mouth: str) -> Image.Image:
-    """Round face outline with two eyes; ``mouth`` = "smile", "sad" or "shocked" (~0.8 em)."""
-    image, draw = _new(0.9, 0.9, em)
-    width = _stroke(em)
-    draw.ellipse([0.05 * em, 0.05 * em, 0.85 * em, 0.85 * em], outline=color, width=width)
-    eye = 0.075 * em if mouth == "shocked" else 0.06 * em
-    for eye_x in (0.32, 0.58):
-        draw.ellipse([eye_x * em - eye, 0.34 * em - eye, eye_x * em + eye, 0.34 * em + eye], fill=color)
-    if mouth == "smile":
-        draw.arc([0.24 * em, 0.3 * em, 0.66 * em, 0.68 * em], start=25, end=155, fill=color, width=width)
-    elif mouth == "sad":
-        draw.arc([0.24 * em, 0.55 * em, 0.66 * em, 0.9 * em], start=205, end=335, fill=color, width=width)
-    else:
-        draw.ellipse([0.36 * em, 0.5 * em, 0.54 * em, 0.72 * em], outline=color, width=width)
-    return image
-
-
-def draw_smile(em: float, color: Color, _font_path: str) -> Image.Image:
-    """Smiling face."""
-    return _face(em, color, "smile")
-
-
-def draw_sad(em: float, color: Color, _font_path: str) -> Image.Image:
-    """Sad face."""
-    return _face(em, color, "sad")
-
-
-def draw_shocked(em: float, color: Color, _font_path: str) -> Image.Image:
-    """Shocked face: bigger eyes, open round mouth."""
-    return _face(em, color, "shocked")
-
-
-def draw_heart(em: float, color: Color, _font_path: str) -> Image.Image:
-    """Filled heart (classic parametric heart curve), ~0.8 em."""
-    image, draw = _new(0.95, 0.85, em)
-    points = []
-    for step in range(120):
-        t = 2 * math.pi * step / 120
-        x = 16 * math.sin(t) ** 3
-        y = 13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)
-        points.append(((0.475 + x / 36.0) * em, (0.38 - y / 36.0) * em))
-    draw.polygon(points, fill=color)
-    return image
-
-
 def _ink_on_baseline(char: str, font: ImageFont.FreeTypeFont, color: Color) -> tuple[Image.Image, int]:
     """``char`` cropped to its real ink, plus the ink top's offset from the baseline (negative = above).
 
@@ -228,8 +185,5 @@ DRAWN_SHAPES: dict[str, Callable[[float, Color, str], Image.Image]] = {
     "arrow_curved": draw_arrow_curved,
     "jargon": draw_jargon,
     "example": draw_example,
-    "smile": draw_smile,
-    "sad": draw_sad,
-    "shocked": draw_shocked,
-    "heart": draw_heart,
+    **EMOJI_SHAPES,
 }
