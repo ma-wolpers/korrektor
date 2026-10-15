@@ -13,6 +13,9 @@ counter-clockwise by ``rotation_deg`` (Pillow's ``rotate`` direction, same as Tk
 
 What is drawn:
 
+Size: 1 em = ``font_size`` × ``SCREEN_POINT_SCALE`` (the former on-screen size) × the
+symbol's catalog ``scale`` (evens out glyphs that are naturally small or large).
+
 * ``annotation_type == "symbol"``: a catalog symbol (``mark_symbols``) - a glyph in
   DejaVu Sans Bold or a drawn shape (``mark_shapes``); unknown content (e.g. the
   removed △) is drawn as plain glyph text, so no stored mark ever disappears.
@@ -47,11 +50,17 @@ from matplotlib.figure import Figure
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 
 from app.core.domain.annotation_sync import normalize_rotation_deg
-from app.core.domain.mark_symbols import SYMBOL_BY_CONTENT
-from app.infrastructure.rendering.mark_shapes import DRAWN_SHAPES, TRANSPARENT, crop_to_ink
+from app.core.domain.mark_symbols import SYMBOL_BY_CONTENT, SYMBOL_BY_KEY
+from app.infrastructure.rendering.mark_shapes import DRAWN_SHAPES, TRANSPARENT, crop_to_ink, draw_combo
 
 EXPORT_DPI = 600
 EXPORT_PX_PER_PT = EXPORT_DPI / 72.0
+# Size of 1 ``font_size`` point in PDF points. The former canvas drew marks with a Tk font
+# size in *points*, which Tk turns into pixels at 96 dpi (x 4/3), so on screen they were a
+# third larger than ``font_size`` (and than in the PDF). The user chose the old screen size
+# as the reference, so preview and PDF now both use it. Fixed, not the live DPI: the PDF
+# must look the same on every computer.
+SCREEN_POINT_SCALE = 96.0 / 72.0
 FONT_PATH = os.path.join(matplotlib.get_data_path(), "fonts", "ttf", "DejaVuSans-Bold.ttf")
 _FALLBACK_RGB = (214, 40, 40)
 _UNESCAPED_DOLLAR = re.compile(r"(?<!\\)\$")
@@ -217,12 +226,17 @@ def _text_image(content: str, color: tuple[int, int, int, int], size_pt: float) 
 def _base_image(annotation_type: str, content: str, color_hex: str, font_size_pt: float) -> Image.Image:
     """Stage 1: the untransformed mark at export resolution (never mutated by callers)."""
     color = _rgba(color_hex)
-    em = max(1.0, font_size_pt * EXPORT_PX_PER_PT)
+    size_pt = font_size_pt * SCREEN_POINT_SCALE
     if annotation_type == "text":
-        return _text_image(content, color, font_size_pt)
+        return _text_image(content, color, size_pt)
     symbol = SYMBOL_BY_CONTENT.get(content)
+    em = max(1.0, size_pt * EXPORT_PX_PER_PT * (symbol.scale if symbol is not None else 1.0))
     if symbol is not None and symbol.drawing == "drawn":
         return crop_to_ink(DRAWN_SHAPES[symbol.key](em, color, FONT_PATH), _padding(em))
+    if symbol is not None and symbol.drawing == "combo":
+        # A ✓ inside a combo gets the stand-alone ✓'s size correction.
+        char_scale = {SYMBOL_BY_KEY["check"].content: SYMBOL_BY_KEY["check"].scale}
+        return crop_to_ink(draw_combo(content, em, color, FONT_PATH, char_scale, symbol.combo_gap_em), _padding(em))
     return _render_glyph(content, color, em)
 
 

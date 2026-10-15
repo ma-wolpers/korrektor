@@ -125,3 +125,52 @@ def test_45_degrees_expands_to_the_rotated_bounding_box(content):
     expected = (upright.width + upright.height) / 2 ** 0.5
     assert tilted.width == pytest.approx(expected, abs=3)
     assert tilted.height == pytest.approx(expected, abs=3)
+
+
+# Ink heights (px) of the former canvas preview: Tk font "Segoe UI" bold at font_size
+# 20 pt × zoom 4 (Tk: 4/3 px per pt), measured from a screenshot (2026-10-15).
+_FORMER_SCREEN_HEIGHT_PX = {"✓": 76, "✗": 77, "↻": 68, "⇄": 56, "⇅": 64, "!": 76, "?": 77}
+_FORMER_X_HEIGHT_PX = 77
+
+
+def _red_ink_height(image: Image.Image) -> int:
+    """Ink height with the same red threshold as the former-preview screenshot."""
+    white = Image.new("RGB", image.size, "white")
+    white.paste(image, mask=image.getchannel("A"))
+    rgb = numpy.asarray(white).astype(int)
+    rows = numpy.nonzero(((rgb[..., 0] > 150) & (rgb[..., 1] < 120) & (rgb[..., 2] < 120)).any(axis=1))[0]
+    return int(rows[-1] - rows[0] + 1)
+
+
+@pytest.mark.parametrize("symbol", MARK_SYMBOLS, ids=lambda s: s.key)
+def test_symbols_have_the_former_on_screen_size(symbol):
+    """User decision: marks are as big as in the former canvas preview (±12 %).
+
+    Former symbols match their own former height; new compact symbols match the former ✗.
+    Long shapes (straight arrow, strike, wave) are sized by length and only bounded.
+    """
+    height = _red_ink_height(render_mark_image(MarkStyle("symbol", symbol.content, "#d62828", 20.0), 4.0))
+    if symbol.key in {"arrow_straight", "strike", "wavy"}:
+        assert 0.3 * _FORMER_X_HEIGHT_PX <= height <= 1.2 * _FORMER_X_HEIGHT_PX
+        return
+    target = _FORMER_SCREEN_HEIGHT_PX.get(symbol.content, _FORMER_X_HEIGHT_PX)
+    assert height == pytest.approx(target, rel=0.12)
+
+
+@pytest.mark.parametrize("key", ["consequential", "useless"])
+def test_combo_symbols_are_set_tightly(key):
+    """Combos are set ink to ink: no empty column run between the characters is wider than the fixed gap."""
+    from app.core.domain.mark_symbols import SYMBOL_BY_KEY
+    from app.infrastructure.rendering.mark_renderer import EXPORT_PX_PER_PT, SCREEN_POINT_SCALE
+    from app.infrastructure.rendering.mark_shapes import COMBO_GAP_EM
+
+    symbol = SYMBOL_BY_KEY[key]
+    image = render_mark_image(MarkStyle("symbol", symbol.content, RED, 20.0), EXPORT_PX_PER_PT)
+    columns = (numpy.asarray(image.getchannel("A")) > 0).any(axis=0)
+    inked = numpy.nonzero(columns)[0]
+    longest_gap, run = 0, 0
+    for has_ink in columns[inked[0]:inked[-1] + 1]:
+        run = 0 if has_ink else run + 1
+        longest_gap = max(longest_gap, run)
+    em = 20.0 * SCREEN_POINT_SCALE * EXPORT_PX_PER_PT * symbol.scale
+    assert longest_gap <= round(COMBO_GAP_EM * em) + 2

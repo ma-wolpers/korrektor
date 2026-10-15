@@ -35,4 +35,4 @@ def test_every_drawn_symbol_has_a_shape_and_drawn_contents_are_namespaced():
             assert symbol.key in DRAWN_SHAPES
             assert symbol.content == f"sym:{symbol.key}"
         else:
-            assert symbol.drawing == "glyph" and not symbol.content.startswith("sym:")
+            assert symbol.drawing in {"glyph", "combo"} and not symbol.content.startswith("sym:")
