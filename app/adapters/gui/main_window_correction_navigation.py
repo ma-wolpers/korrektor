@@ -85,13 +85,27 @@ class MainWindowCorrectionNavigationMixin:
         self._refresh_correction_nav_dropdowns()
         self._focus_first_input_field()
 
+    def _correction_view_at_bottom(self) -> bool:
+        """True if the preview shows its lower end - also when everything fits and nothing scrolls.
+
+        Tk reports ``yview() == (0.0, 1.0)`` for content that fits, so one test covers
+        both "scrolled to the very bottom" and "no scrolling at all".
+        """
+        return float(self._correction_canvas.yview()[1]) >= 1.0 - 1e-3
+
     def _go_to_correction_cursor(self, cursor: int) -> None:
         """Switch to the person at ``cursor`` (same task), cancelling any Supersymbol filter.
 
         The entries of the current person are saved before the cursor moves.
+        Scrolling: the preview keeps its scroll position (Tk keeps the pixel origin,
+        clamped to the new content) - unless it was at the bottom before the switch
+        (incl. "everything visible"), then the new person's preview is scrolled to
+        its bottom as well, so working through the last region of a task stays at
+        the same place from person to person.
         """
         if not self._correction_mode_active or not self._correction_student_indices:
             return
+        stick_to_bottom = self._correction_view_at_bottom()
         self._cancel_supersymbol_filter()
         self._save_current_correction_score()
         self._save_current_correction_comment()
@@ -101,6 +115,8 @@ class MainWindowCorrectionNavigationMixin:
         self._refresh_active_student_label()
         self._refresh_correction_task_meta(load_saved_points=True)
         self._render_correction_preview()
+        if stick_to_bottom:
+            self._correction_canvas.yview_moveto(1.0)
         self._refresh_correction_completion_controls()
         self._refresh_correction_nav_dropdowns()
         self._focus_first_input_field()

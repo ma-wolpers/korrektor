@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 from test_correction_segments_tk import correction  # noqa: F401  (fixture)
+from tk_test_support import settle
 
 from bw_gui.runtime import combobox_selection
 
@@ -101,3 +102,62 @@ def test_main_task_jump_saves_before_switching(correction, delta):
     assert window._selected_correction_task()[0] == "2A"
     assert _saved(window, "anna", "1A")[1] == "vor Sprung"
     assert window._correction_task_dropdown.selected_key == "2A"
+
+
+def _zoomed(window, percent: int = 240):
+    """Make the preview taller than the canvas, so there is something to scroll."""
+    window._correction_zoom_percent = percent
+    window._render_correction_preview()
+    settle(window, 50)
+    first, last = window._correction_canvas.yview()
+    assert last - first < 0.95, "preview must be scrollable for this test"
+    return window._correction_canvas
+
+
+def test_person_switch_keeps_the_scroll_position(correction):
+    window = correction
+    window._go_to_correction_task("1B")  # same single region for both people
+    canvas = _zoomed(window)
+    canvas.yview_moveto(0.2)
+    settle(window, 20)
+    before = canvas.yview()
+    window._change_correction_student(1)
+    settle(window, 20)
+    assert canvas.yview() == pytest.approx(before, abs=0.01)
+
+
+def test_person_switch_at_the_bottom_stays_at_the_bottom(correction):
+    window = correction
+    canvas = _zoomed(window)  # task 1A: Anna has two regions, Ben one (different heights)
+    canvas.yview_moveto(1.0)
+    settle(window, 20)
+    window._change_correction_student(1)
+    settle(window, 20)
+    assert canvas.yview()[1] == pytest.approx(1.0, abs=0.001)
+    canvas.yview_moveto(1.0)
+    window._change_correction_student(1)  # back to Anna, taller: jumps to her bottom too
+    settle(window, 20)
+    assert canvas.yview()[1] == pytest.approx(1.0, abs=0.001) and canvas.yview()[0] > 0.0
+
+
+def test_everything_visible_counts_as_bottom(correction):
+    window = correction
+    window._correction_zoom_percent = 10  # everything fits: yview == (0, 1)
+    window._render_correction_preview()
+    settle(window, 50)
+    assert window._correction_canvas.yview() == pytest.approx((0.0, 1.0))
+    window._correction_zoom_percent = 240
+    window._change_correction_student(1)  # renders zoomed: taller than the canvas -> bottom
+    settle(window, 20)
+    first, last = window._correction_canvas.yview()
+    assert last == pytest.approx(1.0, abs=0.001) and first > 0.0
+
+
+def test_top_or_middle_is_not_forced_to_the_bottom(correction):
+    window = correction
+    canvas = _zoomed(window)
+    canvas.yview_moveto(0.0)
+    settle(window, 20)
+    window._change_correction_student(1)
+    settle(window, 20)
+    assert canvas.yview()[0] == pytest.approx(0.0)
