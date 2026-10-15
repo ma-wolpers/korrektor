@@ -63,15 +63,16 @@ def _curve(start: tuple[float, float], control: tuple[float, float], end: tuple[
 
 
 def _face(em: float, color: Color, mouth: str) -> Image.Image:
-    """Hand-drawn head (slightly taller than wide), two uneven eye strokes and a ``mouth``."""
+    """Hand-drawn head (slightly taller than wide), two round, slightly uneven eyes and a ``mouth``."""
     image, draw = _canvas(0.9, 1.0, em)
     width = _slim_stroke(em)
     head = _hand_loop(0.45 * em, 0.5 * em, 0.36 * em, 0.42 * em, start_deg=-100, sweep_deg=385)
     draw.line(head, fill=color, width=width, joint="curve")
-    eye_length = 0.11 * em if mouth == "shocked" else 0.08 * em
-    for eye_x, eye_y, tilt in ((0.33, 0.37, 0.01), (0.57, 0.36, -0.015)):
-        top = (eye_x * em + tilt * em, eye_y * em)
-        draw.line([top, (eye_x * em, eye_y * em + eye_length)], fill=color, width=width + 1)
+    grow = 1.3 if mouth == "shocked" else 1.0
+    # Round, slightly uneven eyes (filled ovals; line ends would look square).
+    for eye_x, eye_y, half_w, half_h in ((0.33, 0.41, 0.042, 0.06), (0.57, 0.4, 0.038, 0.056)):
+        cx, cy, rx, ry = eye_x * em, eye_y * em, half_w * em * grow, half_h * em * grow
+        draw.ellipse([cx - rx, cy - ry, cx + rx, cy + ry], fill=color)
     if mouth == "smile":
         draw.line(_curve((0.27 * em, 0.6 * em), (0.44 * em, 0.8 * em), (0.64 * em, 0.57 * em)), fill=color, width=width, joint="curve")
     elif mouth == "sad":
@@ -93,7 +94,7 @@ def draw_sad(em: float, color: Color, _font_path: str) -> Image.Image:
 
 
 def draw_shocked(em: float, color: Color, _font_path: str) -> Image.Image:
-    """Shocked face: longer eye strokes, small open mouth."""
+    """Shocked face: bigger eyes, small open mouth."""
     return _face(em, color, "shocked")
 
 
