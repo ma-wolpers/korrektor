@@ -7,9 +7,11 @@ Where each key works (the bindings themselves are declared centrally in
   different keys), **digits**, **Space** ("Fertig korrigiert") and **Ctrl+Space**
   ("Aufgabe: alle als fertig markieren") fire on the canvas, the window and in the
   points field - never in the comment field or any other text field (the app-level
-  bindings use ``allow_when_text_input=False``), and never while another native
-  control that owns Space (button, combobox) has the focus (``applies_when``). The two
-  "Fertig" switches bind Space/Ctrl+Space themselves (``_bind_finished_switch_hotkeys``).
+  bindings use ``allow_when_text_input=False``), and never while a native control
+  whose own Tk binding uses that key has the focus (``applies_when``): plain Space
+  stays with a focused button, switch or combobox; Ctrl+Space only with a focused
+  ordinary button or radiobutton - bw-gui's ``Switch``/``Checkbox`` react to plain
+  Space only (exact modifiers), so Ctrl+Space on them is the "alle" shortcut.
 * In the **points field** the same letters and Space/Ctrl+Space are bound on the
   field itself (widget binder, runs before the Entry's class bindings), so they act
   as shortcuts instead of being typed; digits are typed there as usual.
@@ -22,7 +24,6 @@ Where each key works (the bindings themselves are declared centrally in
 
 from __future__ import annotations
 
-from app.adapters.gui.local_keys import bind_widget_keys
 from app.adapters.gui.main_window_correction_marker_palette import shortcut_display
 from app.adapters.gui.ui_intents import UiIntent
 from app.core.domain.mark_symbols import MARK_SYMBOLS
@@ -39,6 +40,9 @@ SPACE = KeySpec.parse("Space")
 CTRL_SPACE = KeySpec.parse("Ctrl+Space (tolerate: Shift)")
 DIGITS = "0123456789"
 _OWNS_SPACE = (widgets.Button, widgets.Checkbutton, widgets.Radiobutton, widgets.Combobox, ui.Button, ui.Checkbutton, ui.Radiobutton)
+# Tk's own Space binding of these classes also fires with Ctrl held; bw-gui toggles
+# (ttk.Checkbutton) do not (bw-gui TOGGLE_CONTRACT, "Space is exact").
+_OWNS_CTRL_SPACE = (widgets.Button, widgets.Radiobutton, ui.Button, ui.Radiobutton)
 
 
 class MainWindowCorrectionKeysMixin:
@@ -48,12 +52,18 @@ class MainWindowCorrectionKeysMixin:
         """True while the correction view is shown and active."""
         return self._active_view == "correction" and self._correction_mode_active
 
-    def _correction_hotkey_applies(self, event) -> bool:
-        """``applies_when`` of the app-level hotkeys: not while a native control owning Space has the focus."""
+    def _event_widget(self, event):
+        """The widget a key event went to (falls back to the focus widget)."""
         widget = getattr(event, "widget", None)
-        if widget is None:
-            widget = self.root.focus_get()
-        return not isinstance(widget, _OWNS_SPACE)
+        return widget if widget is not None else self.root.focus_get()
+
+    def _correction_hotkey_applies(self, event) -> bool:
+        """``applies_when`` of letters, digits and Space: not while a native control owning Space has the focus."""
+        return not isinstance(self._event_widget(event), _OWNS_SPACE)
+
+    def _correction_ctrl_space_applies(self, event) -> bool:
+        """``applies_when`` of Ctrl+Space: only a focused button/radiobutton keeps it (Tk activates them)."""
+        return not isinstance(self._event_widget(event), _OWNS_CTRL_SPACE)
 
     def _arrow_keys_stay_in_field(self) -> bool:
         """True if an arrow key must stay in the focused field instead of navigating.
@@ -118,22 +128,6 @@ class MainWindowCorrectionKeysMixin:
         rows.append((CTRL_SPACE, "correction.points.toggle_finished_all", self._on_ctrl_space_key))
         return rows
 
-    def _bind_finished_switch_hotkeys(self, switch) -> None:
-        """Space/Ctrl+Space on one of the two "Fertig" switches, ahead of Tk's own Space binding.
-
-        When the points field is locked (person finished), the focus sits on the
-        "Fertig korrigiert" switch (`_focus_first_input_field`). Tk's native
-        ``<Key-space>`` binding of a checkbutton also fires with Ctrl held, so without
-        this widget binder Ctrl+Space toggled "Fertig korrigiert" instead of "alle".
-        The widget binder runs before the class binding and consumes the key, so on
-        both switches Space = "Fertig korrigiert" and Ctrl+Space = "alle als fertig".
-        """
-        bind_widget_keys(
-            switch,
-            ((SPACE, "correction.switch.toggle_finished", self._on_space_key),
-             (CTRL_SPACE, "correction.switch.toggle_finished_all", self._on_ctrl_space_key)),
-        )
-
     def _register_correction_hotkeys(self, bind) -> None:
         """Declare the app-level correction hotkeys (called from the central shortcut table).
 
@@ -153,4 +147,5 @@ class MainWindowCorrectionKeysMixin:
         bind(SPACE, self._on_space_key, binding_id="correction.toggle_finished",
              intent=UiIntent.CORRECTION_TOGGLE_FINISHED, **common)
         bind(CTRL_SPACE, self._on_ctrl_space_key, binding_id="correction.toggle_finished_all",
-             intent=UiIntent.CORRECTION_TOGGLE_FINISHED_ALL, **common)
+             intent=UiIntent.CORRECTION_TOGGLE_FINISHED_ALL,
+             **{**common, "applies_when": self._correction_ctrl_space_applies})

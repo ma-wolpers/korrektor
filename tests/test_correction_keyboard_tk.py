@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 from test_correction_segments_tk import correction  # noqa: F401  (fixture)
+from tk_test_support import FOCUS_ONLY
 
 from app.core.domain.mark_symbols import MARK_SYMBOLS, SYMBOL_BY_KEY
 from bw_gui.testing.keys import press_key
@@ -86,40 +87,81 @@ def test_space_toggles_finished_and_ctrl_space_toggles_all(correction, monkeypat
     assert clicks == ["finished", "finished", "all", "all"]
 
 
-@pytest.mark.parametrize("focused", ["_correction_finished_check", "_correction_finished_all_check"])
-def test_on_the_fertig_switches_space_is_fertig_and_ctrl_space_is_all(correction, monkeypatch, focused):
-    """Regression: with the points field locked the focus sits on the "Fertig" switch, whose
-    native Space binding also fired for Ctrl+Space - so Ctrl+Space toggled "Fertig" instead of "alle"."""
-    window = correction
-    clicks = []
+def _record_switch_clicks(window, monkeypatch) -> list[str]:
+    clicks: list[str] = []
     monkeypatch.setattr(window._correction_finished_check, "invoke", lambda: clicks.append("finished"))
     monkeypatch.setattr(window._correction_finished_all_check, "invoke", lambda: clicks.append("all"))
     window._correction_finished_check.configure(state="normal")
     window._correction_finished_all_check.configure(state="normal")
-    switch = getattr(window, focused)
+    return clicks
 
-    assert press_key(switch, "space", char=" ", state=CONTROL)  # consumed before Tk's own Space binding
-    assert press_key(switch, "space", char=" ")
-    assert clicks == ["all", "finished"]
+
+@pytest.mark.parametrize("focused", ["_correction_finished_check", "_correction_finished_all_check"])
+def test_ctrl_space_on_a_focused_fertig_switch_is_the_all_shortcut(correction, monkeypatch, focused):
+    """Ctrl+Space reaches the app shortcut on a focused switch (bw-gui toggles react to plain Space only);
+    plain Space stays with the focused switch itself (native activation, not the app binder)."""
+    window = correction
+    clicks = _record_switch_clicks(window, monkeypatch)
+    switch = getattr(window, focused)
+    assert press_key(switch, "space", char=" ", state=CONTROL)
+    assert not press_key(switch, "space", char=" ")
+    assert clicks == ["all"]
 
 
 def test_ctrl_space_does_nothing_when_the_all_switch_is_locked(correction, monkeypatch):
     window = correction
-    clicks = []
-    monkeypatch.setattr(window._correction_finished_check, "invoke", lambda: clicks.append("finished"))
-    monkeypatch.setattr(window._correction_finished_all_check, "invoke", lambda: clicks.append("all"))
-    window._correction_finished_check.configure(state="normal")
+    clicks = _record_switch_clicks(window, monkeypatch)
     window._correction_finished_all_check.configure(state="disabled")
     assert press_key(window._correction_finished_check, "space", char=" ", state=CONTROL)
     assert clicks == []
 
 
-def test_space_on_another_focused_button_stays_native(correction, monkeypatch):
+def test_space_and_ctrl_space_on_an_ordinary_focused_button_stay_native(correction, monkeypatch):
+    """Tk activates a focused ttk.Button on Space and on Ctrl+Space; the app shortcuts step aside."""
     window = correction
-    clicks = []
-    monkeypatch.setattr(window._correction_finished_check, "invoke", lambda: clicks.append("finished"))
-    assert not press_key(window._marker_palette_buttons["check"], "space", char=" ")
+    clicks = _record_switch_clicks(window, monkeypatch)
+    button = window._marker_palette_buttons["check"]
+    assert not press_key(button, "space", char=" ")
+    assert not press_key(button, "space", char=" ", state=CONTROL)
     assert clicks == []
+
+
+def test_locked_points_field_puts_the_focus_on_the_preview_not_on_the_switch(correction, monkeypatch):
+    window = correction
+    focused: list[str] = []
+    monkeypatch.setattr(window._correction_canvas, "focus_set", lambda: focused.append("canvas"))
+    monkeypatch.setattr(window._correction_finished_check, "focus_set", lambda: focused.append("switch"))
+    window._correction_points_entry.configure(state="disabled")
+    try:
+        window._focus_first_input_field()
+    finally:
+        window._correction_points_entry.configure(state="normal")
+    assert focused == ["canvas"]
+
+
+@FOCUS_ONLY
+def test_real_ctrl_space_with_focus_on_the_fertig_switch_toggles_only_all(correction, monkeypatch):
+    """End to end with real Tk events: the native switch binding and the app shortcut together."""
+    window = correction
+    switch = window._correction_finished_check
+    window.root.deiconify()
+    window.root.update()
+    # Move the focus first and let its side effects settle: leaving the points field
+    # saves and refreshes the completion controls (locks "alle", rewrites the variable).
+    switch.focus_force()
+    window.root.update()
+    if window.root.focus_get() is not switch:
+        pytest.skip("no OS keyboard focus available")
+    clicks = _record_switch_clicks(window, monkeypatch)
+    # Tk's native activation flips the switch's display variable (it never calls the
+    # monkeypatched Python `invoke`), so a native toggle shows up as "native-finished".
+    trace = switch._display.trace_add("write", lambda *_: clicks.append("native-finished"))
+    try:
+        switch.event_generate("<Control-Key-space>", when="now")
+        window.root.update()
+    finally:
+        switch._display.trace_remove("write", trace)
+    assert clicks == ["all"]
 
 
 @pytest.mark.parametrize("handler", ["_on_left_key", "_on_right_key", "_on_up_key", "_on_down_key", "_on_ctrl_up_key", "_on_ctrl_down_key"])

@@ -239,10 +239,17 @@ class MainWindowViewStateMixin:
         self._attach_hover_help(next_student_button, label="Nächste Person", shortcut="Rechts")
 
     def _focus_first_input_field(self) -> None:
+        """Put the keyboard focus where typing continues after a navigation step.
+
+        Correction: the points field, pre-selected so the next digits replace the
+        value. If it is locked (person finished), the preview gets the focus - not the
+        "Fertig" switch: Space/Ctrl+Space are application shortcuts that work from
+        there, a focused switch would only take keys away from them.
+        """
         if self._correction_mode_active:
             if str(self._correction_points_entry.cget("state")) == "disabled":
-                if self._correction_finished_check is not None:
-                    self._correction_finished_check.focus_set()
+                if self._correction_canvas is not None:
+                    self._correction_canvas.focus_set()
                 return
             self._correction_points_entry.focus_set()
             self._correction_points_entry.selection_range(0, ui.END)
