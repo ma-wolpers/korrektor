@@ -63,8 +63,9 @@ EXPORT_PX_PER_PT = EXPORT_DPI / 72.0
 SCREEN_POINT_SCALE = 96.0 / 72.0
 FONT_PATH = os.path.join(matplotlib.get_data_path(), "fonts", "ttf", "DejaVuSans-Bold.ttf")
 _FALLBACK_RGB = (214, 40, 40)
-# Parentheses next to the ✓ in "(✓)": smaller than the ✓, so the check stays the main sign.
-COMBO_BRACKET_SCALE = {"(": 0.62, ")": 0.62}
+# Companion characters next to the ✓ in "(✓)" and "✓∅": smaller than the ✓, so the check
+# stays the main sign (centred on it, see ``mark_shapes.COMBO_COMPANIONS``).
+COMBO_COMPANION_SCALE = {"(": 0.62, ")": 0.62, "∅": 0.62}
 _UNESCAPED_DOLLAR = re.compile(r"(?<!\\)\$")
 
 
@@ -236,8 +237,8 @@ def _base_image(annotation_type: str, content: str, color_hex: str, font_size_pt
     if symbol is not None and symbol.drawing == "drawn":
         return crop_to_ink(DRAWN_SHAPES[symbol.key](em, color, FONT_PATH), _padding(em))
     if symbol is not None and symbol.drawing == "combo":
-        # A ✓ inside a combo gets the stand-alone ✓'s size correction; brackets stay smaller.
-        char_scale = {SYMBOL_BY_KEY["check"].content: SYMBOL_BY_KEY["check"].scale, **COMBO_BRACKET_SCALE}
+        # A ✓ inside a combo gets the stand-alone ✓'s size correction; companions stay smaller.
+        char_scale = {SYMBOL_BY_KEY["check"].content: SYMBOL_BY_KEY["check"].scale, **COMBO_COMPANION_SCALE}
         return crop_to_ink(draw_combo(content, em, color, FONT_PATH, char_scale, symbol.combo_gap_em), _padding(em))
     return _render_glyph(content, color, em)
 

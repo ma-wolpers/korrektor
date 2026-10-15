@@ -51,7 +51,7 @@ MARK_SYMBOLS: tuple[MarkSymbol, ...] = (
     MarkSymbol("hint", "!", "Hinweis", "h", "glyph"),
     MarkSymbol("question", "?", "Unklar", "u", "glyph"),
     MarkSymbol("gap", "[…]", "Hier fehlt etwas", "l", "glyph", 0.85),
-    MarkSymbol("useless", "✓∅", "Stimmt, hilft aber nicht", "n", "combo", 0.8, combo_gap_em=-0.04),
+    MarkSymbol("useless", "✓∅", "Stimmt, hilft aber nicht", "n", "combo", combo_gap_em=-0.04),
     MarkSymbol("jargon", "sym:jargon", "Fachsprache", "s", "drawn", 0.84),
     MarkSymbol("arrow_curved", "sym:arrow_curved", "Gebogener Pfeil", "b", "drawn", 0.86),
     MarkSymbol("arrow_straight", "sym:arrow_straight", "Gerader Pfeil", "p", "drawn"),

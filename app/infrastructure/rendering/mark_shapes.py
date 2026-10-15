@@ -134,7 +134,7 @@ def draw_example(em: float, color: Color, font_path: str) -> Image.Image:
 
 
 COMBO_GAP_EM = 0.07
-COMBO_BRACKETS = frozenset("()[]")
+COMBO_COMPANIONS = frozenset("()[]∅")
 
 
 def _ink_on_baseline(char: str, font: ImageFont.FreeTypeFont, color: Color) -> tuple[Image.Image, int]:
@@ -161,18 +161,19 @@ def draw_combo(
     way the catalog does for them alone (DejaVu's ✓ is small), so a ✓ inside a combo
     matches the stand-alone ✓. ``gap_em`` is the space between the inks (negative =
     slight overlap, e.g. the ✓'s tail reaching into the ∅). Ordinary characters sit on
-    the font baseline; brackets (``COMBO_BRACKETS``) are centred vertically on the other
-    characters' ink, so the reduced parentheses of "(✓)" enclose the check symmetrically.
+    the font baseline; companion characters (``COMBO_COMPANIONS``: brackets, ∅) are
+    centred vertically on the other characters' ink, so the reduced parentheses of "(✓)"
+    enclose the check symmetrically and the reduced ∅ of "✓∅" sits beside its middle.
     """
     pieces = [
         _ink_on_baseline(char, ImageFont.truetype(font_path, max(1, round(em * char_scale.get(char, 1.0)))), color)
         for char in text
     ]
     gap = round(gap_em * em)
-    content = [(ink, offset) for char, (ink, offset) in zip(text, pieces) if char not in COMBO_BRACKETS] or pieces
+    content = [(ink, offset) for char, (ink, offset) in zip(text, pieces) if char not in COMBO_COMPANIONS] or pieces
     middle = (min(offset for _i, offset in content) + max(offset + ink.height for ink, offset in content)) / 2.0
     tops = [
-        round(middle - ink.height / 2.0) if char in COMBO_BRACKETS else offset
+        round(middle - ink.height / 2.0) if char in COMBO_COMPANIONS else offset
         for char, (ink, offset) in zip(text, pieces)
     ]
     top = min(tops)
