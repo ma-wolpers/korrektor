@@ -43,7 +43,7 @@ class MarkSymbol:
 MARK_SYMBOLS: tuple[MarkSymbol, ...] = (
     MarkSymbol("check", "✓", "Richtig", "r", "glyph", 1.36),
     MarkSymbol("wrong", "✗", "Falsch", "f", "glyph"),
-    MarkSymbol("consequential", "(✓)", "Folgerichtig", "g", "combo", 0.75),
+    MarkSymbol("consequential", "(✓)", "Folgerichtig", "g", "combo"),
     # Formerly "Folgefehler"; same glyph, so existing ↻ marks keep their look.
     MarkSymbol("circular", "↻", "Zirkelschluss", "z", "glyph"),
     MarkSymbol("swap_h", "⇄", "Vertauschung horizontal", "t", "glyph", 0.71),

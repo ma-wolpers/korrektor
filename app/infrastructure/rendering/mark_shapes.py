@@ -134,6 +134,7 @@ def draw_example(em: float, color: Color, font_path: str) -> Image.Image:
 
 
 COMBO_GAP_EM = 0.07
+COMBO_BRACKETS = frozenset("()[]")
 
 
 def _ink_on_baseline(char: str, font: ImageFont.FreeTypeFont, color: Color) -> tuple[Image.Image, int]:
@@ -159,21 +160,29 @@ def draw_combo(
     side bearings leave wide gaps. ``char_scale`` enlarges single characters the same
     way the catalog does for them alone (DejaVu's ✓ is small), so a ✓ inside a combo
     matches the stand-alone ✓. ``gap_em`` is the space between the inks (negative =
-    slight overlap, e.g. the ✓'s tail reaching into the ∅).
+    slight overlap, e.g. the ✓'s tail reaching into the ∅). Ordinary characters sit on
+    the font baseline; brackets (``COMBO_BRACKETS``) are centred vertically on the other
+    characters' ink, so the reduced parentheses of "(✓)" enclose the check symmetrically.
     """
     pieces = [
         _ink_on_baseline(char, ImageFont.truetype(font_path, max(1, round(em * char_scale.get(char, 1.0)))), color)
         for char in text
     ]
     gap = round(gap_em * em)
-    top = min(offset for _ink, offset in pieces)
-    bottom = max(offset + ink.height for ink, offset in pieces)
+    content = [(ink, offset) for char, (ink, offset) in zip(text, pieces) if char not in COMBO_BRACKETS] or pieces
+    middle = (min(offset for _i, offset in content) + max(offset + ink.height for ink, offset in content)) / 2.0
+    tops = [
+        round(middle - ink.height / 2.0) if char in COMBO_BRACKETS else offset
+        for char, (ink, offset) in zip(text, pieces)
+    ]
+    top = min(tops)
+    bottom = max(item_top + ink.height for item_top, (ink, _offset) in zip(tops, pieces))
     width = sum(ink.width for ink, _offset in pieces) + gap * (len(pieces) - 1)
     width = max(width, max(ink.width for ink, _offset in pieces))
     image = Image.new("RGBA", (max(1, width), max(1, bottom - top)), TRANSPARENT)
     x = 0
-    for ink, offset in pieces:
-        image.paste(ink, (x, offset - top), ink)
+    for item_top, (ink, _offset) in zip(tops, pieces):
+        image.paste(ink, (x, item_top - top), ink)
         x += ink.width + gap
     return image
 
