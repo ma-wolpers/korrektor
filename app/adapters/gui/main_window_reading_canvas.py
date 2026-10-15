@@ -8,7 +8,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.contracts.pointer import Axis, wheel_axis
-from bw_gui.runtime import bind_drag, bind_wheel, ui, widgets
+from bw_gui.runtime import bind_canvas_item, bind_drag, bind_wheel, ui, widgets
 from bw_gui.widgets import ScrollableFrame
 
 
@@ -58,6 +58,9 @@ class MainWindowReadingCanvasMixin:
             on_cancel=self._on_canvas_drag_cancel,
         )
         bind_wheel(self._reading_canvas, self._on_canvas_mousewheel)
+        # Regions and drafts carry the shared "region" tag (grey Superseiten only "superseite"):
+        # one stable hook instead of a tag_bind per redrawn rectangle id.
+        bind_canvas_item(self._reading_canvas, "region", on_click=self._on_canvas_region_click)
 
     def _draw_existing_regions(self, student_pdf: str, page_number: int) -> None:
         """Draw the regions of this page plus open drafts (the name field lives in the naming window).
@@ -82,13 +85,12 @@ class MainWindowReadingCanvasMixin:
                 self._reading_canvas.create_text(coords[0] + 4, coords[1] + 4, anchor=ui.NW, text=f"{label} (Superseite)", fill="#6b7280")
                 continue
             is_selected = self._selected_region_kind == "region" and region.region_id == self._selected_region_id
-            rect_id = self._reading_canvas.create_rectangle(
+            self._reading_canvas.create_rectangle(
                 *coords,
                 outline="#d17a00" if is_selected else "#0b8f59",
                 width=3 if is_selected else 2,
                 tags=("region", f"region:{region.region_id}"),
             )
-            self._reading_canvas.tag_bind(rect_id, "<Button-1>", self._on_canvas_region_click)
 
         for draft in self._draft_regions.values():
             if draft.page_number != page_number or draft.student_pdf != (student_pdf if step2 else ""):
@@ -98,7 +100,7 @@ class MainWindowReadingCanvasMixin:
             x1 = draft.box[2] / self._x_factor
             y1 = draft.box[3] / self._y_factor
             is_selected = self._selected_region_kind == "draft" and draft.draft_id == self._selected_region_id
-            rect_id = self._reading_canvas.create_rectangle(
+            self._reading_canvas.create_rectangle(
                 x0,
                 y0,
                 x1,
@@ -108,7 +110,6 @@ class MainWindowReadingCanvasMixin:
                 width=3 if is_selected else 2,
                 tags=("region", f"draft:{draft.draft_id}"),
             )
-            self._reading_canvas.tag_bind(rect_id, "<Button-1>", self._on_canvas_region_click)
 
     def _on_canvas_region_click(self, event: ui.Event[ui.Misc]) -> None:
         """Click on a drawn region or draft: select it in the list (grey Superseiten-Bereiche in Schritt 2 are not clickable)."""

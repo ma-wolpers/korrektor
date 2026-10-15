@@ -17,7 +17,7 @@ from app.core.domain.score_filter import compute_student_value, filter_matching_
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import on_combobox_select, ui, widgets
 from bw_gui.widgets import Checkbox
 from app.adapters.gui.main_window_superposition import MainWindowSuperpositionMixin
 
@@ -40,7 +40,7 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
             values=(),
         )
         self._supersymbol_scope_combo.pack(side=ui.LEFT, padx=(8, 0))
-        self._supersymbol_scope_combo.bind("<<ComboboxSelected>>", self._on_supersymbol_scope_changed)
+        on_combobox_select(self._supersymbol_scope_combo, self._on_supersymbol_scope_changed)
 
         supersymbol_row2 = widgets.Frame(supersymbol_controls, style="Surface.TFrame")
         supersymbol_row2.pack(fill=ui.X, pady=(4, 0))

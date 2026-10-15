@@ -13,7 +13,7 @@ ensure_bw_gui_on_path()
 from bw_gui.dialogs import ScrollablePopupWindow
 from bw_gui.contracts.events import EventResult
 from bw_gui.contracts.key_spec import KeySpec
-from bw_gui.runtime import WindowShortcutBinder, ui, widgets
+from bw_gui.runtime import WindowShortcutBinder, listbox_selection, ui, widgets
 
 _EXPORT_FORMAT_LABELS: tuple[str, ...] = ("PNG", "JPG", "PDF")
 _EXPORT_EXTENSION_BY_LABEL: dict[str, str] = {"PNG": "png", "JPG": "jpg", "PDF": "pdf"}
@@ -51,7 +51,7 @@ class MainWindowStudentResultMixin:
         self._student_result_export_list.delete(0, ui.END)
         for student in self._current_exam.students:
             self._student_result_export_list.insert(ui.END, student.display_name)
-        self._student_result_export_list.select_set(0, ui.END)
+        listbox_selection.set(self._student_result_export_list, range(self._student_result_export_list.size()))
         self._refresh_student_result_popup()
 
     def _build_student_result_popup(self) -> None:

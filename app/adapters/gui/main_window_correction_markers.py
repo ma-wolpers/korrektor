@@ -14,7 +14,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 ensure_bw_gui_on_path()
 from bw_gui.contracts import KeyModifiers
 from bw_gui.contracts.events import EventResult
-from bw_gui.runtime import bind_drag, bind_wheel, ui, widgets
+from bw_gui.runtime import bind_drag, bind_wheel, on_combobox_select, ui, widgets
 from bw_gui.widgets import ScrollableFrame
 
 
@@ -75,7 +75,7 @@ class MainWindowCorrectionMarkersMixin:
             width=12,
         )
         color_combo.pack(side=ui.LEFT, padx=(8, 0))
-        color_combo.bind("<<ComboboxSelected>>", self._on_correction_marker_color_changed)
+        on_combobox_select(color_combo, self._on_correction_marker_color_changed)
 
         marker_row = widgets.Frame(marker_controls, style="Surface.TFrame")
         marker_row.pack(fill=ui.X, pady=(6, 0))

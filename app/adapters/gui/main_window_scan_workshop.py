@@ -12,7 +12,7 @@ from bw_gui.theming import theme_canvas
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import bind_click, on_key, ui, widgets
+from bw_gui.runtime import bind_click, on_focus_change, on_key, on_resize, on_treeview_select, ui, widgets
 
 SCAN_KEY_HELP = (
     "←/→ Person · ↑/↓ Seite · Strg+↑/↓ Seite umsortieren · Entf löschen · Strg+←/→ drehen · Shift+←/→ 90° · "
@@ -89,7 +89,7 @@ class MainWindowScanWorkshopMixin:
         widgets.Label(tools, textvariable=degree_hint_var, style="Status.TLabel", anchor=ui.W).pack(side=ui.LEFT, fill=ui.X, expand=True, padx=(8, 0))
         on_key(degree_entry, self._on_scan_degree_typed, phase="after")
         bind_widget_keys(degree_entry, ((ENTER, "scan.degree.commit", lambda _event: self._flush_scan_degree()),))
-        degree_entry.bind("<FocusOut>", lambda _event: self._flush_scan_degree())
+        on_focus_change(degree_entry, on_lost=lambda _change: self._flush_scan_degree())
         shift_row = widgets.Frame(root, style="Surface.TFrame")
         shift_row.pack(side=ui.BOTTOM, fill=ui.X, pady=(6, 0))
         widgets.Label(shift_row, text="Inhalt verschieben:", style="Muted.TLabel").pack(side=ui.LEFT, padx=(0, 6))
@@ -105,7 +105,7 @@ class MainWindowScanWorkshopMixin:
             widgets.Label(shift_row, text="cm", style="Muted.TLabel").pack(side=ui.LEFT, padx=(2, 0))
             on_key(entry, self._on_scan_shift_typed, phase="after")
             bind_widget_keys(entry, ((ENTER, f"scan.shift_{label}.commit", lambda _event: self._flush_scan_shift()),))
-            entry.bind("<FocusOut>", lambda _event: self._flush_scan_shift())
+            on_focus_change(entry, on_lost=lambda _change: self._flush_scan_shift())
             shift_entries.append(entry)
         widgets.Label(root, text=SCAN_KEY_HELP, style="Muted.TLabel", anchor=ui.W).pack(side=ui.BOTTOM, fill=ui.X, pady=(4, 0))
 
@@ -119,13 +119,13 @@ class MainWindowScanWorkshopMixin:
             page_tree.heading(column, text=title)
             page_tree.column(column, width=width, anchor=ui.CENTER, stretch=column == "status")
         page_tree.pack(fill=ui.BOTH, expand=True)
-        page_tree.bind("<<TreeviewSelect>>", self._on_scan_page_selected)
+        on_treeview_select(page_tree, self._on_scan_page_selected)
         canvas_bg, canvas_border = self._canvas_theme_tokens()
         canvas = ui.Canvas(middle, bg=canvas_bg, highlightthickness=1, highlightbackground=canvas_border, takefocus=0)
         canvas.pack(side=ui.LEFT, fill=ui.BOTH, expand=True)
         theme_canvas(canvas, self._tooltip_theme_key)
         bind_click(canvas, self._on_scan_canvas_click)
-        canvas.bind("<Configure>", lambda _event: self._schedule_scan_render(), add="+")
+        on_resize(canvas, lambda _event: self._schedule_scan_render())
 
         self._scan_view = ScanWorkshopView(
             info_var=info_var, pending_var=pending_var, degree_var=degree_var, degree_hint_var=degree_hint_var,

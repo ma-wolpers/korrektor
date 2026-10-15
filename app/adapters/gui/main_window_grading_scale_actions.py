@@ -11,7 +11,7 @@ from app.core.domain.grading_scale import GradeThreshold, GradingScale
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui
+from bw_gui.runtime import treeview_selection, ui
 
 
 class MainWindowGradingScaleActionsMixin:
@@ -20,7 +20,7 @@ class MainWindowGradingScaleActionsMixin:
     def _clear_grading_scale_form(self) -> None:
         self._grading_scale_selected_id = None
         if self._grading_scale_tree is not None:
-            self._grading_scale_tree.selection_remove(*self._grading_scale_tree.selection())
+            treeview_selection.clear(self._grading_scale_tree, notify=True)
         self._gs_name_var.set("")
         self._gs_subject_var.set("")
         self._gs_year_var.set("")
@@ -89,7 +89,7 @@ class MainWindowGradingScaleActionsMixin:
         saved = self._controller.save_grading_scale_immediate(scale=scale)
         self._refresh_grading_scale_tree()
         if self._grading_scale_tree is not None:
-            self._grading_scale_tree.selection_set(saved.scale_id)
+            treeview_selection.set(self._grading_scale_tree, [saved.scale_id], notify=True)
         self._grading_scale_selected_id = saved.scale_id
         self._refresh_grading_scale_assignment_choices()
 

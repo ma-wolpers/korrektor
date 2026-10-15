@@ -10,7 +10,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.contracts.events import EventResult
-from bw_gui.runtime import ui
+from bw_gui.runtime import treeview_selection, ui
 
 _CROSSHAIR_COLOR = "#e11d48"
 _LOCKED_HINT = "gesperrt: Auswertungsseite zuerst entfernen (Auswertung → von der PDF entfernen)"
@@ -131,7 +131,7 @@ class MainWindowScanWorkshopViewMixin:
             shift = f"{page_edit.offset_x_pt / POINTS_PER_CM:+.1f}/{page_edit.offset_y_pt / POINTS_PER_CM:+.1f}" if page_edit.is_shifted else ""
             iid = tree.insert("", ui.END, values=(position, original, f"{page_edit.rotation_deg:g}°", shift, status))
             if position == session.position:
-                tree.selection_set(iid)
+                treeview_selection.set(tree, [iid], notify=True)
                 tree.see(iid)
 
     # --- actions (buttons, keys) -----------------------------------------------------

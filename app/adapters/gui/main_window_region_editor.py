@@ -7,7 +7,7 @@ from app.core.domain.task_spec import format_task_specs
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import on_focus_change, on_treeview_select, treeview_selection, ui, widgets
 
 
 class MainWindowRegionEditorMixin:
@@ -60,7 +60,7 @@ class MainWindowRegionEditorMixin:
         self._regions_tree.pack(side=ui.LEFT, fill=ui.BOTH, expand=True)
         regions_tree_scroll.pack(side=ui.RIGHT, fill=ui.Y)
 
-        self._regions_tree.bind("<<TreeviewSelect>>", self._on_region_selected)
+        on_treeview_select(self._regions_tree, self._on_region_selected)
 
         editor_head = widgets.Frame(self._regions_editor, style="Surface.TFrame")
         editor_head.pack(fill=ui.X, pady=(8, 4))
@@ -74,7 +74,7 @@ class MainWindowRegionEditorMixin:
         self._quick_tasks_var = ui.StringVar(value="")
         self._quick_tasks_entry = widgets.Entry(self._task_input_container, textvariable=self._quick_tasks_var)
         self._quick_tasks_entry.pack(fill=ui.X)
-        self._quick_tasks_entry.bind("<FocusOut>", self._on_reading_fields_focus_out)
+        on_focus_change(self._quick_tasks_entry, on_lost=self._on_reading_fields_focus_out)
         bind_widget_keys(
             self._quick_tasks_entry,
             ((ENTER, "reading.tasks.commit", self._on_reading_fields_commit),
@@ -82,9 +82,9 @@ class MainWindowRegionEditorMixin:
         )
 
         self._form_tasks_text = ui.Text(self._task_input_container, height=4, wrap="word")
-        # No <Return> binding here: Enter must insert a newline between tasks
-        # in Formular-Modus. <FocusOut> is the commit path for this widget.
-        self._form_tasks_text.bind("<FocusOut>", self._on_reading_fields_focus_out)
+        # No Enter shortcut here: Enter must insert a newline between tasks
+        # in Formular-Modus. Losing the focus is the commit path for this widget.
+        on_focus_change(self._form_tasks_text, on_lost=self._on_reading_fields_focus_out)
         bind_widget_keys(self._form_tasks_text, ((ESCAPE, "reading.form_tasks.escape", self._on_reading_fields_escape),))
 
         self._task_input_example_var = ui.StringVar(value="")
@@ -172,7 +172,7 @@ class MainWindowRegionEditorMixin:
     def _select_region_by_id(self, region_id: str) -> None:
         for row_id, candidate in self._region_tree_rows.items():
             if candidate[1] == region_id:
-                self._regions_tree.selection_set(row_id)
+                treeview_selection.set(self._regions_tree, [row_id], notify=True)
                 self._regions_tree.focus(row_id)
                 self._on_region_selected(None)
                 return

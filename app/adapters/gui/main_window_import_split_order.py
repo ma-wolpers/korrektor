@@ -11,7 +11,7 @@ from bw_gui.contracts.key_spec import KeySpec
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import listbox_selection, on_destroy, ui, widgets
 
 
 class MainWindowImportSplitOrderMixin:
@@ -54,7 +54,7 @@ class MainWindowImportSplitOrderMixin:
         pending.popup = popup
         self._register_popup_window(popup)
         popup.protocol("WM_DELETE_WINDOW", self._end_import_split_pending)
-        popup.bind("<Destroy>", self._on_import_split_order_destroyed, add="+")
+        on_destroy(popup, self._on_import_split_order_destroyed)
 
         body = widgets.Frame(popup, padding=12)
         body.pack(fill=ui.BOTH, expand=True)
@@ -115,8 +115,7 @@ class MainWindowImportSplitOrderMixin:
         listbox.delete(0, ui.END)
         for info in pending.infos:
             listbox.insert(ui.END, f"{info.path.name}  ({info.page_count} Seite{'' if info.page_count == 1 else 'n'})")
-        listbox.selection_clear(0, ui.END)
-        listbox.selection_set(selected_index)
+        listbox_selection.set(listbox, [selected_index])
         listbox.activate(selected_index)
         listbox.see(selected_index)
 
@@ -148,9 +147,9 @@ class MainWindowImportSplitOrderMixin:
         if pending is not None:
             self._destroy_import_split_window(pending.popup)
 
-    def _on_import_split_order_destroyed(self, event) -> None:
-        """``<Destroy>`` on the order dialog itself (children are ignored): end the pending phase."""
+    def _on_import_split_order_destroyed(self, popup) -> None:
+        """The order dialog was destroyed (``on_destroy``: the dialog itself only): end its pending phase."""
         pending = self._import_split_pending
-        if pending is None or event.widget is not pending.popup:
+        if pending is None or popup is not pending.popup:
             return
         self._end_import_split_pending()

@@ -7,7 +7,7 @@ from app.core.domain.task_spec import main_task_of
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import on_combobox_select, ui, widgets
 
 
 class MainWindowCorrectionCoreMixin:
@@ -45,7 +45,7 @@ class MainWindowCorrectionCoreMixin:
             values=(),
         )
         self._correction_task_combo.pack(side=ui.LEFT)
-        self._correction_task_combo.bind("<<ComboboxSelected>>", self._on_correction_task_changed)
+        on_combobox_select(self._correction_task_combo, self._on_correction_task_changed)
 
         self._correction_max_points_var = ui.StringVar(value="Max: -")
         widgets.Label(correction_actions, textvariable=self._correction_max_points_var, style="Status.TLabel").pack(side=ui.LEFT, padx=(12, 0))

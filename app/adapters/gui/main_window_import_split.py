@@ -127,14 +127,10 @@ class MainWindowImportSplitMixin:
         self._end_import_split_session()
         self.set_status("Neue Klausur abgebrochen – es wurde nichts angelegt." if creates_exam else "PDF-Import geschlossen")
 
-    def _on_import_split_popup_destroyed(self, event) -> None:
-        """``<Destroy>`` on the wizard toplevel: end the session if it was destroyed from outside.
-
-        The toplevel's bindtag is part of every child's bindtags, so this
-        fires for each destroyed child as well - only the toplevel itself counts.
-        """
+    def _on_import_split_popup_destroyed(self, popup) -> None:
+        """The wizard toplevel was destroyed (``on_destroy``: the toplevel itself only): end its session."""
         view = self._import_split_view
-        if view is None or event.widget is not view.popup:
+        if view is None or popup is not view.popup:
             return
         self._end_import_split_session()
 

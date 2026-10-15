@@ -25,7 +25,7 @@ from bw_gui.widgets import Checkbox, ScrollableImagePreview
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import on_destroy, on_resize, on_treeview_select, treeview_selection, ui, widgets
 
 _SECTION_LIST_WIDTH = 270
 _PREVIEW_MIN_WIDTH = 240
@@ -170,9 +170,9 @@ class MainWindowImportSplitViewMixin:
         )
         self._import_split_view = view
         popup.protocol("WM_DELETE_WINDOW", self._request_close_import_split)
-        popup.bind("<Destroy>", self._on_import_split_popup_destroyed, add="+")
+        on_destroy(popup, self._on_import_split_popup_destroyed)
         for bar in view.bars:
-            bar.bind("<Configure>", lambda _event: self._update_import_split_minsize(), add="+")
+            on_resize(bar, lambda _event: self._update_import_split_minsize())
         self._install_import_split_input(view)
         self._update_import_split_minsize(initial=True)
         self._focus_import_split_name_field()
@@ -193,7 +193,7 @@ class MainWindowImportSplitViewMixin:
         tree.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side=ui.RIGHT, fill=ui.Y)
         tree.pack(side=ui.LEFT, fill=ui.BOTH, expand=True)
-        tree.bind("<<TreeviewSelect>>", self._on_import_split_section_selected)
+        on_treeview_select(tree, self._on_import_split_section_selected)
         return tree
 
     def _render_import_split_page_image(self, width: int):
@@ -281,7 +281,7 @@ class MainWindowImportSplitViewMixin:
             if section.start_page == current.start_page:
                 current_iid = iid
         if current_iid is not None:
-            tree.selection_set(current_iid)
+            treeview_selection.set(tree, [current_iid], notify=True)
             tree.see(current_iid)
 
     def _update_import_split_minsize(self, *, initial: bool = False) -> None:

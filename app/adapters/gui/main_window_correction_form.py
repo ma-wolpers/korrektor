@@ -4,7 +4,7 @@ from app.adapters.gui.local_keys import ENTER, ESCAPE, bind_widget_keys
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import on_focus_change, ui, widgets
 
 
 class MainWindowCorrectionFormMixin:
@@ -24,7 +24,7 @@ class MainWindowCorrectionFormMixin:
         self._correction_points_var = ui.StringVar(value="")
         self._correction_points_entry = widgets.Entry(correction_form, textvariable=self._correction_points_var)
         self._correction_points_entry.grid(row=0, column=1, sticky=ui.EW, pady=4)
-        self._correction_points_entry.bind("<FocusOut>", self._on_correction_points_focus_out)
+        on_focus_change(self._correction_points_entry, on_lost=self._on_correction_points_focus_out)
         bind_widget_keys(
             self._correction_points_entry,
             ((ENTER, "correction.points.commit", self._on_correction_points_commit),
@@ -40,7 +40,7 @@ class MainWindowCorrectionFormMixin:
         )
         self._correction_comment_entry = widgets.Entry(correction_form, textvariable=self._correction_comment_var)
         self._correction_comment_entry.grid(row=1, column=1, sticky=ui.EW, pady=4)
-        self._correction_comment_entry.bind("<FocusOut>", self._on_correction_comment_focus_out)
+        on_focus_change(self._correction_comment_entry, on_lost=self._on_correction_comment_focus_out)
         bind_widget_keys(
             self._correction_comment_entry,
             ((ENTER, "correction.comment.commit", self._on_correction_comment_commit),

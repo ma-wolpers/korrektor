@@ -16,7 +16,7 @@ from bw_gui.theming import theme_canvas
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import bind_drag, ui, widgets
+from bw_gui.runtime import bind_drag, on_destroy, on_focus_change, on_resize, ui, widgets
 
 _STAGE_REGION = "region"
 _STAGE_CAPTURE = "capture"
@@ -114,7 +114,7 @@ class MainWindowNamingMixin:
         name_var = ui.StringVar(value="")
         name_entry = widgets.Entry(nav, textvariable=name_var, width=36)
         name_entry.pack(side=ui.LEFT, fill=ui.X, expand=True)
-        name_entry.bind("<FocusOut>", lambda _event: self._commit_naming_field_if_possible())
+        on_focus_change(name_entry, on_lost=lambda _change: self._commit_naming_field_if_possible())
         progress_var = ui.StringVar(value="")
         widgets.Label(capture_bar, textvariable=progress_var, style="Muted.TLabel", anchor=ui.W).pack(fill=ui.X, pady=(4, 0))
 
@@ -129,7 +129,7 @@ class MainWindowNamingMixin:
             on_end=self._on_naming_canvas_release,
             on_cancel=self._on_naming_canvas_cancel,
         )
-        canvas.bind("<Configure>", lambda _event: self._schedule_naming_render(), add="+")
+        on_resize(canvas, lambda _event: self._schedule_naming_render())
 
         view = NamingWindowView(
             popup=popup, canvas=canvas, info_var=info_var, hint_var=hint_var, name_var=name_var, name_entry=name_entry,
@@ -137,7 +137,7 @@ class MainWindowNamingMixin:
             region_bar=region_bar, capture_bar=capture_bar, bars=[header, actions],
         )
         popup.protocol("WM_DELETE_WINDOW", self._end_naming_window)
-        popup.bind("<Destroy>", lambda event: self._on_naming_window_destroyed(event, view), add="+")
+        on_destroy(popup, lambda destroyed: self._on_naming_window_destroyed(destroyed, view))
         self._install_naming_keys(view)
         popup.minsize(560, 420)
         return view
@@ -223,8 +223,9 @@ class MainWindowNamingMixin:
         self._commit_naming_field_if_possible(view)
         self._destroy_import_split_window(view.popup)
 
-    def _on_naming_window_destroyed(self, event, view: NamingWindowView) -> None:
-        if event.widget is view.popup and self._naming_window_view is view:
+    def _on_naming_window_destroyed(self, popup, view: NamingWindowView) -> None:
+        """The naming window was destroyed (``on_destroy``: the window itself only): drop its view."""
+        if popup is view.popup and self._naming_window_view is view:
             self._naming_window_view = None
             self._destroy_import_split_window(view.popup)
 

@@ -8,7 +8,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.dialogs import ScrollablePopupWindow
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import on_treeview_select, ui, widgets
 
 
 class MainWindowGradingScaleMixin(MainWindowGradingScaleActionsMixin):
@@ -75,7 +75,7 @@ class MainWindowGradingScaleMixin(MainWindowGradingScaleActionsMixin):
         tree_scroll.configure(command=self._grading_scale_tree.yview)
         self._grading_scale_tree.pack(side=ui.LEFT, fill=ui.BOTH, expand=True)
         tree_scroll.pack(side=ui.RIGHT, fill=ui.Y)
-        self._grading_scale_tree.bind("<<TreeviewSelect>>", self._on_grading_scale_selected)
+        on_treeview_select(self._grading_scale_tree, self._on_grading_scale_selected)
 
         self._grading_scale_usage_var = ui.StringVar(value="Verwendung: -")
         widgets.Label(

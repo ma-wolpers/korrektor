@@ -11,7 +11,7 @@ from app.core.domain.progress import ProgressCalculator
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import bind_click, ui, widgets
+from bw_gui.runtime import bind_click, treeview_selection, ui, widgets
 
 
 class MainWindowOverviewMixin:
@@ -107,7 +107,7 @@ class MainWindowOverviewMixin:
 
         children = self._tree.get_children()
         if children:
-            self._tree.selection_set(children[0])
+            treeview_selection.set(self._tree, [children[0]])
             self._tree.focus(children[0])
 
         self._status_var.set(f"{len(rows)} Klausuren geladen")
@@ -120,7 +120,7 @@ class MainWindowOverviewMixin:
         if not children:
             return None
         first = children[0]
-        self._tree.selection_set(first)
+        treeview_selection.set(self._tree, [first])
         self._tree.focus(first)
         return self._rows_by_tree_id.get(first)
 

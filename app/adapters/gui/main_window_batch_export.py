@@ -10,7 +10,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.dialogs import ScrollablePopupWindow
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import listbox_selection, on_listbox_select, ui, widgets
 from bw_gui.widgets import Checkbox
 
 _SECTION_LABELS: tuple[tuple[str, str], ...] = (
@@ -46,7 +46,7 @@ class MainWindowBatchExportMixin:
         self._batch_export_list.delete(0, ui.END)
         for student in self._current_exam.students:
             self._batch_export_list.insert(ui.END, student.display_name)
-        self._batch_export_list.select_set(0, ui.END)
+        listbox_selection.set(self._batch_export_list, range(self._batch_export_list.size()))
         self._update_batch_export_preview()
 
     def _build_batch_export_popup(self) -> None:
@@ -67,7 +67,7 @@ class MainWindowBatchExportMixin:
         self._attach_hover_help(
             self._batch_export_list, label="Auswahl der zu exportierenden Personen (Mehrfachauswahl möglich)"
         )
-        self._batch_export_list.bind("<<ListboxSelect>>", lambda _event: self._update_batch_export_preview())
+        on_listbox_select(self._batch_export_list, lambda _change: self._update_batch_export_preview())
 
         sections_frame = widgets.Frame(body, style="Surface.TFrame")
         sections_frame.pack(fill=ui.X, pady=(12, 0))
