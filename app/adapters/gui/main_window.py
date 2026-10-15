@@ -67,6 +67,7 @@ from app.adapters.gui.main_window_batch_export import MainWindowBatchExportMixin
 from app.adapters.gui.main_window_reading_canvas import MainWindowReadingCanvasMixin
 from app.adapters.gui.main_window_reading import MainWindowReadingMixin
 from app.adapters.gui.main_window_correction_core import MainWindowCorrectionCoreMixin
+from app.adapters.gui.main_window_correction_navigation import MainWindowCorrectionNavigationMixin
 from app.adapters.gui.main_window_correction_segments import MainWindowCorrectionSegmentsMixin
 from app.adapters.gui.main_window_region_editor import MainWindowRegionEditorMixin
 from app.adapters.gui.main_window_region_form import MainWindowRegionFormMixin
@@ -115,6 +116,7 @@ class MainWindow(
     MainWindowReadingCanvasMixin,
     MainWindowReadingMixin,
     MainWindowCorrectionCoreMixin,
+    MainWindowCorrectionNavigationMixin,
     MainWindowCorrectionSegmentsMixin,
     MainWindowRegionEditorMixin,
     MainWindowRegionFormMixin,

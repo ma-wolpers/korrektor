@@ -115,6 +115,7 @@ class MainWindowBase(BwBaseWindow):
         self._redraw_on_next_box: bool = False
         self._correction_templates: dict[str, CorrectionTemplate] = {}
         self._correction_task_items: list[tuple[str, float]] = []
+        self._correction_task_code: str | None = None
         self._correction_photo: ui.PhotoImage | None = None
         self._correction_zoom_percent = 100
         self._correction_comment_entry: widgets.Entry | None = None

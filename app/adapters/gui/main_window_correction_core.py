@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from app.adapters.gui.dialog_services import messagebox
-from app.core.domain.models import ExamProject, StudentExam
-from app.core.domain.task_spec import main_task_of
+from app.core.domain.models import ExamProject
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import on_combobox_select, ui, widgets
+from bw_gui.runtime import ui, widgets
 
 
 class MainWindowCorrectionCoreMixin:
@@ -35,17 +34,7 @@ class MainWindowCorrectionCoreMixin:
         correction_back_button.pack(side=ui.LEFT)
         self._attach_hover_help(correction_back_button, label="Korrekturansicht verlassen", shortcut="Esc")
 
-        widgets.Label(correction_actions, text="Aufgabe", style="Muted.TLabel").pack(side=ui.LEFT, padx=(14, 4))
-        self._correction_task_var = ui.StringVar(value="")
-        self._correction_task_combo = widgets.Combobox(
-            correction_actions,
-            textvariable=self._correction_task_var,
-            state="readonly",
-            width=20,
-            values=(),
-        )
-        self._correction_task_combo.pack(side=ui.LEFT)
-        on_combobox_select(self._correction_task_combo, self._on_correction_task_changed)
+        self._build_correction_nav_dropdowns(correction_actions)
 
         self._correction_max_points_var = ui.StringVar(value="Max: -")
         widgets.Label(correction_actions, textvariable=self._correction_max_points_var, style="Status.TLabel").pack(side=ui.LEFT, padx=(12, 0))
@@ -143,9 +132,9 @@ class MainWindowCorrectionCoreMixin:
         self._correction_cursor = 0
         self._student_cursor = indices[0]
         self._correction_task_items = [(task.code, float(task.max_points)) for task in self._current_exam.tasks]
-        labels = tuple(f"{code} ({max_points:g} P.)" for code, max_points in self._correction_task_items)
-        self._correction_task_combo["values"] = labels
-        self._correction_task_var.set(next((label for label in labels if label.startswith(f"{start_code} ")), labels[0]))
+        codes = [code for code, _max_points in self._correction_task_items]
+        self._correction_task_code = start_code if start_code in codes else codes[0]
+        self._refresh_correction_nav_dropdowns()
         self._set_correction_marker_tool(self._correction_marker_tool_key)
         self._show_view("correction")
         self._refresh_active_student_label()
@@ -159,6 +148,7 @@ class MainWindowCorrectionCoreMixin:
         self._correction_mode_active = False
         self._correction_templates = {}
         self._correction_task_items = []
+        self._correction_task_code = None
         self._correction_student_indices = []
         self._correction_cursor = 0
         self._correction_segments = []
@@ -222,71 +212,3 @@ class MainWindowCorrectionCoreMixin:
         self._correction_points_var.set(existing_points if existing_points is not None else "")
         self._correction_comment_var.set(existing_comment if existing_comment is not None else "")
         self._refresh_correction_completion_controls()
-
-    def _cycle_combobox_value(self, combo: widgets.Combobox, value_var: ui.StringVar, delta: int) -> bool:
-        """Select the next/previous value of ``combo`` (wrapping); ``False`` if it has no values."""
-        values = tuple(str(item) for item in combo.cget("values"))
-        if not values:
-            return False
-        current = value_var.get()
-        current_index = values.index(current) if current in values else 0
-        value_var.set(values[(current_index + delta) % len(values)])
-        return True
-
-    def _cycle_correction_task(self, delta: int) -> None:
-        """↑/↓: previous/next (sub)task (4A -> 4B -> ... -> 5A), wrapping around."""
-        if not self._correction_mode_active:
-            return
-        self._save_current_correction_score()
-        self._save_current_correction_comment()
-        if self._cycle_combobox_value(self._correction_task_combo, self._correction_task_var, delta):
-            self._on_correction_task_switched()
-            self._focus_first_input_field()
-
-    def _cycle_correction_main_task(self, delta: int) -> None:
-        """Strg+↑/↓: first subtask of the next/previous main task (4B -> 5A; ↑ from 5B -> 4A), wrapping around."""
-        if not self._correction_mode_active or not self._correction_task_items:
-            return
-        code, _max_points = self._selected_correction_task()
-        codes = [item[0] for item in self._correction_task_items]
-        mains = list(dict.fromkeys(main_task_of(item) for item in codes))
-        current = mains.index(main_task_of(code)) if code is not None else 0
-        target = mains[(current + delta) % len(mains)]
-        first = next(item for item in codes if main_task_of(item) == target)
-        self._save_current_correction_score()
-        self._save_current_correction_comment()
-        labels = tuple(str(item) for item in self._correction_task_combo.cget("values"))
-        self._correction_task_var.set(labels[codes.index(first)])
-        self._on_correction_task_switched()
-        self._focus_first_input_field()
-
-    def _current_correction_student(self) -> StudentExam | None:
-        """The person currently shown in the correction view, or ``None``."""
-        if not self._current_exam or not self._correction_student_indices:
-            return None
-        index = self._correction_student_indices[self._correction_cursor]
-        return self._current_exam.students[index]
-
-    def _selected_correction_task(self) -> tuple[str | None, float]:
-        """``(code, max_points)`` of the task chosen in the combo, or ``(None, 0.0)``."""
-        selected = self._correction_task_var.get().strip()
-        for code, max_points in self._correction_task_items:
-            if selected.startswith(f"{code} ") or selected == code:
-                return code, max_points
-        return None, 0.0
-
-    def _change_correction_student(self, delta: int) -> None:
-        """←/→: next/previous person (same task), cancelling any Supersymbol filter."""
-        if not self._correction_mode_active or not self._correction_student_indices:
-            return
-        self._cancel_supersymbol_filter()
-        self._save_current_correction_score()
-        self._save_current_correction_comment()
-        self._correction_cursor = (self._correction_cursor + delta) % len(self._correction_student_indices)
-        self._student_cursor = self._correction_student_indices[self._correction_cursor]
-        self._correction_selected_annotation_id = None
-        self._refresh_active_student_label()
-        self._refresh_correction_task_meta(load_saved_points=True)
-        self._render_correction_preview()
-        self._refresh_correction_completion_controls()
-        self._focus_first_input_field()

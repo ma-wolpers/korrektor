@@ -222,6 +222,7 @@ class MainWindowOverviewMixin:
         self._refresh_grading_scale_assignment_choices()
 
         if self._correction_mode_active:
+            self._refresh_correction_nav_dropdowns()
             self._render_correction_preview()
             self._refresh_correction_completion_controls()
             if hasattr(self, "_refresh_correction_sync_info"):
