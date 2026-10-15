@@ -17,9 +17,9 @@ Size: 1 em = ``font_size`` × ``SCREEN_POINT_SCALE`` (the former on-screen size)
 symbol's catalog ``scale`` (evens out glyphs that are naturally small or large).
 
 * ``annotation_type == "symbol"``: a catalog symbol (``mark_symbols``) - a glyph in
-  DejaVu Sans Bold or a drawn shape (``mark_shapes``); unknown content (e.g. the
+  Segoe UI Semibold / Segoe UI Symbol (``mark_fonts``) or a drawn shape (``mark_shapes``); unknown content (e.g. the
   removed △) is drawn as plain glyph text, so no stored mark ever disappears.
-* ``annotation_type == "text"``: the comment, set by matplotlib (DejaVu Sans Bold).
+* ``annotation_type == "text"``: the comment, set by matplotlib (Segoe UI Semibold / Segoe UI Symbol (``mark_fonts``)).
   Text between unescaped ``$…$`` is matplotlib mathtext (any number of formulas per
   comment, mixed with text; ``\\$`` is a literal dollar). An odd number of unescaped
   ``$`` or an invalid formula draws the comment as typed, ``$`` visible, so it is
@@ -47,10 +47,12 @@ from typing import Any
 import matplotlib
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
+from matplotlib.font_manager import FontProperties
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 
 from app.core.domain.annotation_sync import normalize_rotation_deg
 from app.core.domain.mark_symbols import SYMBOL_BY_CONTENT, SYMBOL_BY_KEY
+from app.infrastructure.rendering.mark_fonts import TEXT_FONT_PATH, font_for_char, font_for_text
 from app.infrastructure.rendering.mark_shapes import DRAWN_SHAPES, TRANSPARENT, crop_to_ink, draw_combo
 
 EXPORT_DPI = 600
@@ -61,7 +63,6 @@ EXPORT_PX_PER_PT = EXPORT_DPI / 72.0
 # as the reference, so preview and PDF now both use it. Fixed, not the live DPI: the PDF
 # must look the same on every computer.
 SCREEN_POINT_SCALE = 96.0 / 72.0
-FONT_PATH = os.path.join(matplotlib.get_data_path(), "fonts", "ttf", "DejaVuSans-Bold.ttf")
 _FALLBACK_RGB = (214, 40, 40)
 # Companion characters next to the ✓ in "(✓)" and "✓∅": smaller than the ✓, so the check
 # stays the main sign (centred on it, see ``mark_shapes.COMBO_COMPANIONS``).
@@ -177,9 +178,9 @@ def _rgba(color_hex: str) -> tuple[int, int, int, int]:
 
 
 @lru_cache(maxsize=64)
-def _font(size_px: int) -> ImageFont.FreeTypeFont:
-    """DejaVu Sans Bold at ``size_px`` (fonts are reused across marks)."""
-    return ImageFont.truetype(FONT_PATH, max(1, size_px))
+def _font(font_path: str, size_px: int) -> ImageFont.FreeTypeFont:
+    """``font_path`` at ``size_px`` (fonts are reused across marks)."""
+    return ImageFont.truetype(font_path, max(1, size_px))
 
 
 def _padding(em: float) -> int:
@@ -188,8 +189,8 @@ def _padding(em: float) -> int:
 
 
 def _render_glyph(content: str, color: tuple[int, int, int, int], em: float) -> Image.Image:
-    """``content`` as DejaVu Sans Bold text, cropped to its ink."""
-    font = _font(round(em))
+    """``content`` in its font (``mark_fonts.font_for_text``), cropped to its ink."""
+    font = _font(font_for_text(content or " "), round(em))
     probe = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
     left, top, right, bottom = probe.textbbox((0, 0), content or " ", font=font)
     pad = _padding(em)
@@ -205,8 +206,8 @@ def _render_text(content: str, color: tuple[int, int, int, int], size_pt: float,
     FigureCanvasAgg(figure)
     with matplotlib.rc_context({"mathtext.fontset": "dejavusans", "text.usetex": False}):
         figure.text(
-            0, 0, content, fontsize=size_pt, color=tuple(c / 255 for c in color), fontweight="bold",
-            family="DejaVu Sans", parse_math=parse_math,
+            0, 0, content, color=tuple(c / 255 for c in color), parse_math=parse_math,
+            fontproperties=FontProperties(fname=TEXT_FONT_PATH, size=size_pt),
         )
         buffer = io.BytesIO()
         figure.savefig(buffer, format="png", dpi=dpi, transparent=True, bbox_inches="tight", pad_inches=0.05)
@@ -235,11 +236,11 @@ def _base_image(annotation_type: str, content: str, color_hex: str, font_size_pt
     symbol = SYMBOL_BY_CONTENT.get(content)
     em = max(1.0, size_pt * EXPORT_PX_PER_PT * (symbol.scale if symbol is not None else 1.0))
     if symbol is not None and symbol.drawing == "drawn":
-        return crop_to_ink(DRAWN_SHAPES[symbol.key](em, color, FONT_PATH), _padding(em))
+        return crop_to_ink(DRAWN_SHAPES[symbol.key](em, color, TEXT_FONT_PATH), _padding(em))
     if symbol is not None and symbol.drawing == "combo":
         # A ✓ inside a combo gets the stand-alone ✓'s size correction; companions stay smaller.
         char_scale = {SYMBOL_BY_KEY["check"].content: SYMBOL_BY_KEY["check"].scale, **COMBO_COMPANION_SCALE}
-        return crop_to_ink(draw_combo(content, em, color, FONT_PATH, char_scale, symbol.combo_gap_em), _padding(em))
+        return crop_to_ink(draw_combo(content, em, color, font_for_char, char_scale, symbol.combo_gap_em), _padding(em))
     return _render_glyph(content, color, em)
 
 

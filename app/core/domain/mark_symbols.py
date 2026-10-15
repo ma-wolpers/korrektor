@@ -17,7 +17,7 @@ the same characters set tightly, ink to ink (``mark_shapes.draw_combo``); ``"dra
 a shape from ``app/infrastructure/rendering/mark_shapes.py`` (keyed by ``key``).
 
 ``scale`` multiplies the symbol's size so that every symbol shows about as big as the
-former on-screen ✗ (DejaVu's ✓ is small, its ⇄/⇅ are large compared with the old font);
+former on-screen ✗ (glyphs differ in size within and between fonts - see ``mark_fonts``);
 measured, see ``tests/test_mark_renderer.py::test_symbols_have_the_former_on_screen_size``.
 ``combo_gap_em`` is the ink-to-ink gap of a ``"combo"`` (negative = slight overlap).
 """
@@ -41,21 +41,21 @@ class MarkSymbol:
 
 
 MARK_SYMBOLS: tuple[MarkSymbol, ...] = (
-    MarkSymbol("check", "✓", "Richtig", "r", "glyph", 1.36),
-    MarkSymbol("wrong", "✗", "Falsch", "f", "glyph"),
+    MarkSymbol("check", "✓", "Richtig", "r", "glyph", 0.96),
+    MarkSymbol("wrong", "✗", "Falsch", "f", "glyph", 0.88),
     MarkSymbol("consequential", "(✓)", "Folgerichtig", "g", "combo"),
     # Formerly "Folgefehler"; same glyph, so existing ↻ marks keep their look.
-    MarkSymbol("circular", "↻", "Zirkelschluss", "z", "glyph"),
-    MarkSymbol("swap_h", "⇄", "Vertauschung horizontal", "t", "glyph", 0.71),
-    MarkSymbol("swap_v", "⇅", "Vertauschung vertikal", "T", "glyph", 0.82),
+    MarkSymbol("circular", "↻", "Zirkelschluss", "z", "glyph", 1.17),
+    MarkSymbol("swap_h", "⇄", "Vertauschung horizontal", "t", "glyph", 0.83),
+    MarkSymbol("swap_v", "⇅", "Vertauschung vertikal", "T", "glyph", 0.89),
     MarkSymbol("hint", "!", "Hinweis", "h", "glyph"),
     MarkSymbol("question", "?", "Unklar", "u", "glyph"),
-    MarkSymbol("gap", "[…]", "Hier fehlt etwas", "l", "glyph", 0.85),
+    MarkSymbol("gap", "[…]", "Hier fehlt etwas", "l", "glyph", 0.84),
     MarkSymbol("useless", "✓∅", "Stimmt, hilft aber nicht", "n", "combo", combo_gap_em=-0.04),
     MarkSymbol("jargon", "sym:jargon", "Fachsprache", "s", "drawn", 0.84),
     MarkSymbol("arrow_curved", "sym:arrow_curved", "Gebogener Pfeil", "b", "drawn", 0.86),
     MarkSymbol("arrow_straight", "sym:arrow_straight", "Gerader Pfeil", "p", "drawn"),
-    MarkSymbol("example", "sym:example", "Beispiel ist kein Beweis", "e", "drawn", 0.85),
+    MarkSymbol("example", "sym:example", "Beispiel ist kein Beweis", "e", "drawn", 0.92),
     MarkSymbol("strike", "sym:strike", "Durchstreichen", "d", "drawn"),
     MarkSymbol("wavy", "sym:wavy", "Wellenlinie (Form/Schreibweise)", "w", "drawn"),
     MarkSymbol("smile", "sym:smile", "Lächeln", "L", "drawn", 0.79),

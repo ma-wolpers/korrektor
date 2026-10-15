@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Schrift der Markierungen wie früher:** Kommentare und Buchstaben-Symbole („Bsp ≠ Bew“, „[…]“, „!“, „?“) in Segoe UI Semibold, Symbolzeichen (✓ ✗ ↻ ⇄ ⇅ ∅) in Segoe UI Symbol – schmaler und runder als die zwischenzeitlich verwendete DejaVu Sans Bold. Formeln behalten die Mathe-Schrift von matplotlib. Auf Rechnern ohne Segoe (nicht Windows) wird DejaVu verwendet.
 - **Emoji-Symbole:** Lächeln, Traurig, Schockiert und Herz (als Umriss) – im Handzeichnungs-Stil, in der gewählten Markierungsfarbe (Kürzel Umschalt+L, Umschalt+U, O, Umschalt+H). Alle Symbole sind etwa so groß wie die bisherigen am Bildschirm; „(✓)“ und „✓∅“ stehen eng zusammen, „Bsp ≠ Bew“ ist kompakter gestapelt.
 - **Geändert:** Ist eine Person „Fertig korrigiert“ (Punktefeld gesperrt), liegt der Tastaturfokus danach auf der Vorschau statt auf dem Schalter. Leertaste, Strg+Leertaste, Symbol-Kürzel und Ziffern wirken dort wie gewohnt; Strg+Leertaste schaltet zuverlässig „alle als fertig“ statt „Fertig korrigiert“.
 - **Korrektur: Scrollposition beim Personenwechsel.** Beim Wechsel zur vorherigen/nächsten Abgabe (←/→, Knöpfe, Abgaben-Liste) bleibt die Vorschau an derselben Stelle. Steht sie ganz unten – oder passt alles ohne Scrollen hinein –, springt sie auch bei der nächsten Abgabe ganz nach unten.

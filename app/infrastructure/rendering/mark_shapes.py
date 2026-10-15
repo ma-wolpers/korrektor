@@ -152,21 +152,23 @@ def _ink_on_baseline(char: str, font: ImageFont.FreeTypeFont, color: Color) -> t
 
 
 def draw_combo(
-    text: str, em: float, color: Color, font_path: str, char_scale: dict[str, float], gap_em: float = COMBO_GAP_EM
+    text: str, em: float, color: Color, font_for: Callable[[str], str], char_scale: dict[str, float],
+    gap_em: float = COMBO_GAP_EM,
 ) -> Image.Image:
     """Characters of ``text`` set tightly: ink to ink with a small fixed gap, on one baseline.
 
     Used for combined symbols such as "✓∅" and "(✓)": set as plain text, the font's
     side bearings leave wide gaps. ``char_scale`` enlarges single characters the same
-    way the catalog does for them alone (DejaVu's ✓ is small), so a ✓ inside a combo
-    matches the stand-alone ✓. ``gap_em`` is the space between the inks (negative =
+    way the catalog does for them alone (its ``scale``), so a ✓ inside a combo
+    matches the stand-alone ✓. ``font_for(char)`` picks each character's font (letters
+    and symbol glyphs come from different fonts, ``mark_fonts.font_for_char``). ``gap_em`` is the space between the inks (negative =
     slight overlap, e.g. the ✓'s tail reaching into the ∅). Ordinary characters sit on
     the font baseline; companion characters (``COMBO_COMPANIONS``: brackets, ∅) are
     centred vertically on the other characters' ink, so the reduced parentheses of "(✓)"
     enclose the check symmetrically and the reduced ∅ of "✓∅" sits beside its middle.
     """
     pieces = [
-        _ink_on_baseline(char, ImageFont.truetype(font_path, max(1, round(em * char_scale.get(char, 1.0)))), color)
+        _ink_on_baseline(char, ImageFont.truetype(font_for(char), max(1, round(em * char_scale.get(char, 1.0)))), color)
         for char in text
     ]
     gap = round(gap_em * em)

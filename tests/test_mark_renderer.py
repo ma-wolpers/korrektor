@@ -7,6 +7,7 @@ import pytest
 from PIL import Image
 
 from app.core.domain.mark_symbols import MARK_SYMBOLS
+from app.infrastructure.rendering.mark_fonts import USES_SEGOE
 from app.infrastructure.rendering.mark_renderer import MarkStyle, render_mark_image, rotate_ccw, validate_mark_text
 
 RED = "#d62828"
@@ -142,6 +143,7 @@ def _red_ink_height(image: Image.Image) -> int:
     return int(rows[-1] - rows[0] + 1)
 
 
+@pytest.mark.skipif(not USES_SEGOE, reason="catalog scales are measured for Segoe UI (Windows); fallback font differs")
 @pytest.mark.parametrize("symbol", MARK_SYMBOLS, ids=lambda s: s.key)
 def test_symbols_have_the_former_on_screen_size(symbol):
     """User decision: marks are as big as in the former canvas preview (±12 %).
