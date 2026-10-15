@@ -12,7 +12,8 @@ are still shown and exported: the renderer draws them as plain glyph text.
 key without Shift, an uppercase letter means Shift + that key (bw-gui matches
 letters by Shift, never by CapsLock), so ``"t"`` and ``"T"`` are different shortcuts.
 
-``drawing``: ``"glyph"`` = the content string set in DejaVu Sans Bold; ``"combo"`` =
+``drawing``: ``"glyph"`` = the content string in its font (Segoe UI Semibold / Segoe UI Symbol, see
+``app/infrastructure/rendering/mark_fonts.py``); ``"combo"`` =
 the same characters set tightly, ink to ink (``mark_shapes.draw_combo``); ``"drawn"`` =
 a shape from ``app/infrastructure/rendering/mark_shapes.py`` (keyed by ``key``).
 
