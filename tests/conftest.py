@@ -19,6 +19,24 @@ _DIALOG_METHODS = {
 
 
 @pytest.fixture(autouse=True)
+def _isolated_appdata(tmp_path, monkeypatch):
+    """Point ``APPDATA`` at a per-test temp folder so no test touches the real settings or Klausurliste.
+
+    `JsonAppSettingsRepository` finds ``settings.json`` via
+    `AppPaths.discover`, i.e. via ``%APPDATA%`` - not via the ``base_dir``
+    a test passes to `build_gui_dependencies`. Without this, a test read the
+    developer's real ``settings.json`` and, if that names a custom exam
+    index folder, registered its temp exam in the real ``known_exams.json``
+    (a dead "Ordner nicht gefunden" entry once pytest cleaned up). Tests that
+    need several distinct app-data folders (e.g. two simulated PCs) still
+    override ``APPDATA`` themselves; their ``monkeypatch.setenv`` wins. Only
+    effective on Windows (elsewhere `AppPaths` uses ``Path.home()``); CI runs
+    no pytest.
+    """
+    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+
+
+@pytest.fixture(autouse=True)
 def _no_unpatched_dialogs(monkeypatch):
     """Safety net: a modal dialog a test did not replace fails the test instead of blocking the run.
 

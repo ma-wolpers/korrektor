@@ -61,8 +61,7 @@ def _build_exam(exam_folder: Path) -> ExamProject:
     )
 
 
-def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[UiIntentController, ExamProject]:
-    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+def _setup(tmp_path: Path) -> tuple[UiIntentController, ExamProject]:
     exam_folder = tmp_path / "exam"
     exam_folder.mkdir()
     deps = build_gui_dependencies(tmp_path / "repo")
@@ -77,8 +76,8 @@ def _reload(controller: UiIntentController) -> ExamProject:
     return controller._deps.exam_repository.load_exam(controller._deps.exam_repository.exam_file_for_id("exam-1"))
 
 
-def test_apply_scored_superposition_creates_personalized_content_per_student(tmp_path: Path, monkeypatch) -> None:
-    controller, exam = _setup(tmp_path, monkeypatch)
+def test_apply_scored_superposition_creates_personalized_content_per_student(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
     controller._deps.score_repository.save_score(exam=exam, student_id="bob", task_code="1A", points=5.0, max_points=10.0)
 
@@ -103,8 +102,8 @@ def test_apply_scored_superposition_creates_personalized_content_per_student(tmp
     assert by_pdf["Alice.pdf"].x == by_pdf["Bob.pdf"].x == 10.0
 
 
-def test_apply_scored_superposition_is_one_undoable_action(tmp_path: Path, monkeypatch) -> None:
-    controller, exam = _setup(tmp_path, monkeypatch)
+def test_apply_scored_superposition_is_one_undoable_action(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
     controller._deps.score_repository.save_score(exam=exam, student_id="bob", task_code="1A", points=5.0, max_points=10.0)
 
@@ -121,8 +120,8 @@ def test_apply_scored_superposition_is_one_undoable_action(tmp_path: Path, monke
     assert len(_reload(controller).pdf_annotations) == 2
 
 
-def test_apply_scored_superposition_rejects_entirely_when_one_student_missing_points(tmp_path: Path, monkeypatch) -> None:
-    controller, exam = _setup(tmp_path, monkeypatch)
+def test_apply_scored_superposition_rejects_entirely_when_one_student_missing_points(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
     # Bob has no recorded points for 1A.
 
@@ -135,9 +134,9 @@ def test_apply_scored_superposition_rejects_entirely_when_one_student_missing_po
     assert len(_reload(controller).pdf_annotations) == 0
 
 
-def test_scored_superposition_style_change_never_touches_personalized_content(tmp_path: Path, monkeypatch) -> None:
+def test_scored_superposition_style_change_never_touches_personalized_content(tmp_path: Path) -> None:
     """Meilenstein 3 invariant: sync-group style propagation must never overwrite personalized content."""
-    controller, exam = _setup(tmp_path, monkeypatch)
+    controller, exam = _setup(tmp_path)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
     controller._deps.score_repository.save_score(exam=exam, student_id="bob", task_code="1A", points=5.0, max_points=10.0)
 
@@ -172,8 +171,8 @@ def _assign_scale(controller: UiIntentController, exam: ExamProject) -> None:
     controller.assign_grading_scale_immediate(exam=exam, scale_id=saved.scale_id)
 
 
-def test_apply_grade_superposition_requires_assigned_scale(tmp_path: Path, monkeypatch) -> None:
-    controller, exam = _setup(tmp_path, monkeypatch)
+def test_apply_grade_superposition_requires_assigned_scale(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
 
     updated = controller.apply_grade_superposition_immediate(
@@ -184,8 +183,8 @@ def test_apply_grade_superposition_requires_assigned_scale(tmp_path: Path, monke
     assert updated is None
 
 
-def test_apply_grade_superposition_computes_personalized_grades(tmp_path: Path, monkeypatch) -> None:
-    controller, exam = _setup(tmp_path, monkeypatch)
+def test_apply_grade_superposition_computes_personalized_grades(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
     _assign_scale(controller, exam)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=9.0, max_points=10.0)
     controller._deps.score_repository.save_score(exam=exam, student_id="bob", task_code="1A", points=6.0, max_points=10.0)
@@ -201,8 +200,8 @@ def test_apply_grade_superposition_computes_personalized_grades(tmp_path: Path, 
     assert by_pdf["Bob.pdf"].content == "2"
 
 
-def test_apply_grade_superposition_rejects_entirely_when_one_student_below_lowest_threshold(tmp_path: Path, monkeypatch) -> None:
-    controller, exam = _setup(tmp_path, monkeypatch)
+def test_apply_grade_superposition_rejects_entirely_when_one_student_below_lowest_threshold(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
     _assign_scale(controller, exam)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=9.0, max_points=10.0)
     controller._deps.score_repository.save_score(exam=exam, student_id="bob", task_code="1A", points=1.0, max_points=10.0)
@@ -253,7 +252,7 @@ def _build_two_region_exam(exam_folder: Path) -> ExamProject:
     )
 
 
-def test_apply_grade_superposition_uses_exam_wide_grade_not_just_the_active_bereich(tmp_path: Path, monkeypatch) -> None:
+def test_apply_grade_superposition_uses_exam_wide_grade_not_just_the_active_bereich(tmp_path: Path) -> None:
     """Regression test: the placed grade must equal the Auswertung's exam-wide grade, not a Bereich-only one.
 
     Alice scores full points (10/10) in Bereich r-a alone - a Bereich-scoped
@@ -263,7 +262,7 @@ def test_apply_grade_superposition_uses_exam_wide_grade_not_just_the_active_bere
     this test would have observed content == "1" (the old, wrong, Bereich-
     scoped behavior) instead of "2".
     """
-    controller, exam = _setup(tmp_path, monkeypatch)
+    controller, exam = _setup(tmp_path)
     # Replacing the whole exam under the same exam_id right after _setup's own
     # save - carry over its updated_at so this is recognized as building on
     # that save, not as an unrelated stale write (see ExamConflictError).
@@ -291,8 +290,8 @@ def test_apply_grade_superposition_uses_exam_wide_grade_not_just_the_active_bere
     assert placed.content == result.grade_label
 
 
-def test_apply_scored_superposition_shows_achieved_only_by_default(tmp_path: Path, monkeypatch) -> None:
-    controller, exam = _setup(tmp_path, monkeypatch)
+def test_apply_scored_superposition_shows_achieved_only_by_default(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
 
     updated = controller.apply_scored_superposition_immediate(
@@ -305,8 +304,8 @@ def test_apply_scored_superposition_shows_achieved_only_by_default(tmp_path: Pat
     assert placed.content == "8"
 
 
-def test_apply_scored_superposition_shows_achieved_over_max_when_requested(tmp_path: Path, monkeypatch) -> None:
-    controller, exam = _setup(tmp_path, monkeypatch)
+def test_apply_scored_superposition_shows_achieved_over_max_when_requested(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
 
     updated = controller.apply_scored_superposition_immediate(
@@ -320,9 +319,9 @@ def test_apply_scored_superposition_shows_achieved_over_max_when_requested(tmp_p
     assert placed.content == "8/10"
 
 
-def test_apply_grade_superposition_rejects_entirely_when_page_missing_for_one_student(tmp_path: Path, monkeypatch) -> None:
+def test_apply_grade_superposition_rejects_entirely_when_page_missing_for_one_student(tmp_path: Path) -> None:
     """Regression: a page navigated to independent of the Bereich must exist for every target student."""
-    controller, exam = _setup(tmp_path, monkeypatch)
+    controller, exam = _setup(tmp_path)
     _assign_scale(controller, exam)
     exam.students[0].page_count = 2  # Alice has 2 pages
     # Bob keeps page_count=1 from _build_exam - does not have page 2
@@ -339,8 +338,8 @@ def test_apply_grade_superposition_rejects_entirely_when_page_missing_for_one_st
     assert len(_reload(controller).pdf_annotations) == 0
 
 
-def test_apply_grade_superposition_places_when_page_exists_for_all(tmp_path: Path, monkeypatch) -> None:
-    controller, exam = _setup(tmp_path, monkeypatch)
+def test_apply_grade_superposition_places_when_page_exists_for_all(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
     _assign_scale(controller, exam)
     exam.students[0].page_count = 2
     exam.students[1].page_count = 2

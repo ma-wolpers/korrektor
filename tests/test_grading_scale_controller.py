@@ -39,8 +39,7 @@ class _FakeApp:
         pass
 
 
-def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[UiIntentController, ExamProject]:
-    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+def _setup(tmp_path: Path) -> tuple[UiIntentController, ExamProject]:
     exam_folder = tmp_path / "exam"
     exam_folder.mkdir()
     deps = build_gui_dependencies(tmp_path / "repo")
@@ -72,8 +71,8 @@ def _scale() -> GradingScale:
     )
 
 
-def test_save_grading_scale_immediate_assigns_id_when_new(tmp_path: Path, monkeypatch) -> None:
-    controller, _exam = _setup(tmp_path, monkeypatch)
+def test_save_grading_scale_immediate_assigns_id_when_new(tmp_path: Path) -> None:
+    controller, _exam = _setup(tmp_path)
 
     saved = controller.save_grading_scale_immediate(scale=_scale())
 
@@ -81,8 +80,8 @@ def test_save_grading_scale_immediate_assigns_id_when_new(tmp_path: Path, monkey
     assert controller.list_grading_scales() == [saved]
 
 
-def test_save_grading_scale_immediate_updates_existing(tmp_path: Path, monkeypatch) -> None:
-    controller, _exam = _setup(tmp_path, monkeypatch)
+def test_save_grading_scale_immediate_updates_existing(tmp_path: Path) -> None:
+    controller, _exam = _setup(tmp_path)
     saved = controller.save_grading_scale_immediate(scale=_scale())
 
     saved.name = "Mathe 8 (neu)"
@@ -93,8 +92,8 @@ def test_save_grading_scale_immediate_updates_existing(tmp_path: Path, monkeypat
     assert scales[0].name == "Mathe 8 (neu)"
 
 
-def test_list_active_grading_scales_excludes_archived(tmp_path: Path, monkeypatch) -> None:
-    controller, _exam = _setup(tmp_path, monkeypatch)
+def test_list_active_grading_scales_excludes_archived(tmp_path: Path) -> None:
+    controller, _exam = _setup(tmp_path)
     saved = controller.save_grading_scale_immediate(scale=_scale())
 
     assert controller.list_active_grading_scales() == [saved]
@@ -103,8 +102,8 @@ def test_list_active_grading_scales_excludes_archived(tmp_path: Path, monkeypatc
     assert controller.list_grading_scales()[0].status == STATUS_ARCHIVED
 
 
-def test_reactivate_grading_scale_immediate(tmp_path: Path, monkeypatch) -> None:
-    controller, _exam = _setup(tmp_path, monkeypatch)
+def test_reactivate_grading_scale_immediate(tmp_path: Path) -> None:
+    controller, _exam = _setup(tmp_path)
     saved = controller.save_grading_scale_immediate(scale=_scale())
     controller.archive_grading_scale_immediate(scale_id=saved.scale_id)
 
@@ -113,16 +112,16 @@ def test_reactivate_grading_scale_immediate(tmp_path: Path, monkeypatch) -> None
     assert controller.list_grading_scales()[0].status == STATUS_ACTIVE
 
 
-def test_delete_grading_scale_immediate_succeeds_when_never_used(tmp_path: Path, monkeypatch) -> None:
-    controller, _exam = _setup(tmp_path, monkeypatch)
+def test_delete_grading_scale_immediate_succeeds_when_never_used(tmp_path: Path) -> None:
+    controller, _exam = _setup(tmp_path)
     saved = controller.save_grading_scale_immediate(scale=_scale())
 
     assert controller.delete_grading_scale_immediate(scale_id=saved.scale_id) is True
     assert controller.list_grading_scales() == []
 
 
-def test_delete_grading_scale_immediate_rejected_once_used(tmp_path: Path, monkeypatch) -> None:
-    controller, exam = _setup(tmp_path, monkeypatch)
+def test_delete_grading_scale_immediate_rejected_once_used(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
     saved = controller.save_grading_scale_immediate(scale=_scale())
     controller.assign_grading_scale_immediate(exam=exam, scale_id=saved.scale_id)
 
@@ -130,8 +129,8 @@ def test_delete_grading_scale_immediate_rejected_once_used(tmp_path: Path, monke
     assert len(controller.list_grading_scales()) == 1
 
 
-def test_assign_grading_scale_immediate_sets_snapshot_and_records_usage(tmp_path: Path, monkeypatch) -> None:
-    controller, exam = _setup(tmp_path, monkeypatch)
+def test_assign_grading_scale_immediate_sets_snapshot_and_records_usage(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
     saved = controller.save_grading_scale_immediate(scale=_scale())
 
     updated = controller.assign_grading_scale_immediate(exam=exam, scale_id=saved.scale_id)
@@ -146,8 +145,8 @@ def test_assign_grading_scale_immediate_sets_snapshot_and_records_usage(tmp_path
     assert usage[0].exam_id == "exam-1"
 
 
-def test_assign_grading_scale_immediate_is_undoable(tmp_path: Path, monkeypatch) -> None:
-    controller, exam = _setup(tmp_path, monkeypatch)
+def test_assign_grading_scale_immediate_is_undoable(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
     saved = controller.save_grading_scale_immediate(scale=_scale())
 
     controller.assign_grading_scale_immediate(exam=exam, scale_id=saved.scale_id)
@@ -161,7 +160,7 @@ def test_assign_grading_scale_immediate_is_undoable(tmp_path: Path, monkeypatch)
     assert len(controller.list_grading_scale_usage(saved.scale_id)) == 1
 
 
-def test_assign_grading_scale_immediate_returns_none_for_unknown_scale(tmp_path: Path, monkeypatch) -> None:
-    controller, exam = _setup(tmp_path, monkeypatch)
+def test_assign_grading_scale_immediate_returns_none_for_unknown_scale(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
 
     assert controller.assign_grading_scale_immediate(exam=exam, scale_id="missing") is None

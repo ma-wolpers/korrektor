@@ -63,18 +63,17 @@ def dialogs(monkeypatch: pytest.MonkeyPatch):
     return state
 
 
-def _controller(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, app: _FakeApp) -> UiIntentController:
-    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+def _controller(tmp_path: Path, app: _FakeApp) -> UiIntentController:
     deps = build_gui_dependencies(tmp_path / "repo")
     return UiIntentController(app=app, deps=deps)
 
 
-def test_folder_choice_keeps_the_previous_flow(tmp_path, monkeypatch, dialogs):
+def test_folder_choice_keeps_the_previous_flow(tmp_path, dialogs):
     folder = tmp_path / "exam"
     folder.mkdir()
     _build_pdf(folder / "Anna_Müller.pdf")
     app = _FakeApp()
-    controller = _controller(tmp_path, monkeypatch, app)
+    controller = _controller(tmp_path, app)
     dialogs.update(choice="folder", folder=str(folder), strings=["Mathe", "", ""])
 
     controller.create_exam()
@@ -84,9 +83,9 @@ def test_folder_choice_keeps_the_previous_flow(tmp_path, monkeypatch, dialogs):
     assert app.reading_started == 1
 
 
-def test_split_choice_opens_wizard_and_callback_creates_exam_with_typed_names(tmp_path, monkeypatch, dialogs):
+def test_split_choice_opens_wizard_and_callback_creates_exam_with_typed_names(tmp_path, dialogs):
     app = _FakeApp()
-    controller = _controller(tmp_path, monkeypatch, app)
+    controller = _controller(tmp_path, app)
     dialogs.update(choice="split")
 
     controller.create_exam()
@@ -105,9 +104,9 @@ def test_split_choice_opens_wizard_and_callback_creates_exam_with_typed_names(tm
     assert exam.exam_name == "Mathe 10a" and app.reading_started == 1
 
 
-def test_split_callback_cancelled_name_dialog_reports_folder(tmp_path, monkeypatch, dialogs):
+def test_split_callback_cancelled_name_dialog_reports_folder(tmp_path, dialogs):
     app = _FakeApp()
-    controller = _controller(tmp_path, monkeypatch, app)
+    controller = _controller(tmp_path, app)
     split_folder = tmp_path / "split"
     split_folder.mkdir()
     _build_pdf(split_folder / "Anna.pdf")
@@ -119,9 +118,9 @@ def test_split_callback_cancelled_name_dialog_reports_folder(tmp_path, monkeypat
     assert str(split_folder) in dialogs["infos"][-1]
 
 
-def test_split_choice_rejected_by_running_import_creates_nothing(tmp_path, monkeypatch, dialogs):
+def test_split_choice_rejected_by_running_import_creates_nothing(tmp_path, dialogs):
     app = _FakeApp(wizard_starts=False)
-    controller = _controller(tmp_path, monkeypatch, app)
+    controller = _controller(tmp_path, app)
     dialogs.update(choice="split")
 
     controller.create_exam()
@@ -130,9 +129,9 @@ def test_split_choice_rejected_by_running_import_creates_nothing(tmp_path, monke
     assert "nicht gestartet" in app.statuses[-1]
 
 
-def test_cancelling_the_choice_does_nothing(tmp_path, monkeypatch, dialogs):
+def test_cancelling_the_choice_does_nothing(tmp_path, dialogs):
     app = _FakeApp()
-    controller = _controller(tmp_path, monkeypatch, app)
+    controller = _controller(tmp_path, app)
     dialogs.update(choice=None)
 
     controller.create_exam()

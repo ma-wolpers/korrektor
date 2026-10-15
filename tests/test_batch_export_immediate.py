@@ -75,8 +75,7 @@ def _build_exam(exam_folder: Path, *, student_names: tuple[str, ...] = ("Alice",
     )
 
 
-def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, **exam_kwargs) -> tuple[UiIntentController, ExamProject, Path]:
-    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+def _setup(tmp_path: Path, **exam_kwargs) -> tuple[UiIntentController, ExamProject, Path]:
     exam_folder = tmp_path / "exam"
     exam_folder.mkdir()
     deps = build_gui_dependencies(tmp_path / "repo")
@@ -105,8 +104,8 @@ def _default_scores(controller: UiIntentController, exam: ExamProject) -> dict[s
 _ALL_SECTIONS = frozenset({"summary", "tasks", "categories", "chart"})
 
 
-def test_export_batch_succeeds_from_scratch(tmp_path: Path, monkeypatch) -> None:
-    controller, exam, folder = _setup(tmp_path, monkeypatch)
+def test_export_batch_succeeds_from_scratch(tmp_path: Path) -> None:
+    controller, exam, folder = _setup(tmp_path)
     scores = _default_scores(controller, exam)
     output_dir = tmp_path / "export"
 
@@ -136,8 +135,8 @@ def test_export_batch_succeeds_from_scratch(tmp_path: Path, monkeypatch) -> None
     assert _page_count(folder / "Alice.pdf") == 1
 
 
-def test_export_batch_rejects_empty_sections(tmp_path: Path, monkeypatch) -> None:
-    controller, exam, _folder = _setup(tmp_path, monkeypatch)
+def test_export_batch_rejects_empty_sections(tmp_path: Path) -> None:
+    controller, exam, _folder = _setup(tmp_path)
     scores = _default_scores(controller, exam)
 
     result = controller.export_students_batch(
@@ -155,8 +154,8 @@ def test_export_batch_rejects_empty_sections(tmp_path: Path, monkeypatch) -> Non
     assert result is None
 
 
-def test_export_batch_sanitizes_unsafe_display_name_into_folder_name(tmp_path: Path, monkeypatch) -> None:
-    controller, exam, _folder = _setup(tmp_path, monkeypatch, student_names=("Anna",))
+def test_export_batch_sanitizes_unsafe_display_name_into_folder_name(tmp_path: Path) -> None:
+    controller, exam, _folder = _setup(tmp_path, student_names=("Anna",))
     exam.students[0].display_name = "Müller / Anna"
     controller._deps.exam_repository.save_exam(exam)
     scores = _default_scores(controller, exam)
@@ -183,8 +182,8 @@ def test_export_batch_sanitizes_unsafe_display_name_into_folder_name(tmp_path: P
     assert "/" not in created_dirs[0]
 
 
-def test_export_batch_aborts_entirely_on_existing_destination_file(tmp_path: Path, monkeypatch) -> None:
-    controller, exam, _folder = _setup(tmp_path, monkeypatch)
+def test_export_batch_aborts_entirely_on_existing_destination_file(tmp_path: Path) -> None:
+    controller, exam, _folder = _setup(tmp_path)
     scores = _default_scores(controller, exam)
     output_dir = tmp_path / "export"
     output_dir.mkdir()
@@ -207,8 +206,8 @@ def test_export_batch_aborts_entirely_on_existing_destination_file(tmp_path: Pat
     assert (output_dir / "Alice.pdf").read_bytes() == b"already here"
 
 
-def test_export_batch_aborts_entirely_on_within_batch_collision(tmp_path: Path, monkeypatch) -> None:
-    controller, exam, _folder = _setup(tmp_path, monkeypatch)
+def test_export_batch_aborts_entirely_on_within_batch_collision(tmp_path: Path) -> None:
+    controller, exam, _folder = _setup(tmp_path)
     scores = _default_scores(controller, exam)
     output_dir = tmp_path / "export"
 
@@ -229,7 +228,7 @@ def test_export_batch_aborts_entirely_on_within_batch_collision(tmp_path: Path, 
 
 
 def test_export_batch_mid_write_failure_leaves_source_untouched_and_no_broken_file(tmp_path: Path, monkeypatch) -> None:
-    controller, exam, folder = _setup(tmp_path, monkeypatch)
+    controller, exam, folder = _setup(tmp_path)
     scores = _default_scores(controller, exam)
     output_dir = tmp_path / "export"
     source_bytes_before = (folder / "Bob.pdf").read_bytes()
@@ -267,8 +266,8 @@ def test_export_batch_mid_write_failure_leaves_source_untouched_and_no_broken_fi
     assert (folder / "Bob.pdf").read_bytes() == source_bytes_before
 
 
-def test_export_batch_replaces_existing_marked_stats_page_instead_of_duplicating(tmp_path: Path, monkeypatch) -> None:
-    controller, exam, folder = _setup(tmp_path, monkeypatch, student_names=("Alice",))
+def test_export_batch_replaces_existing_marked_stats_page_instead_of_duplicating(tmp_path: Path) -> None:
+    controller, exam, folder = _setup(tmp_path, student_names=("Alice",))
     scores = _default_scores(controller, exam)
     source_path = folder / "Alice.pdf"
     pdf_writer_module.append_marked_stats_page(source_path, _one_page_pdf_bytes(), replace_existing=False)
@@ -298,8 +297,8 @@ def test_export_batch_replaces_existing_marked_stats_page_instead_of_duplicating
     assert pdf_writer_module.read_trailing_page_marker(destination) == pdf_writer_module.KORREKTOR_STATS_PAGE_MARKER
 
 
-def test_export_batch_flags_inconsistent_state_as_per_student_failure_not_whole_batch(tmp_path: Path, monkeypatch) -> None:
-    controller, exam, folder = _setup(tmp_path, monkeypatch)
+def test_export_batch_flags_inconsistent_state_as_per_student_failure_not_whole_batch(tmp_path: Path) -> None:
+    controller, exam, folder = _setup(tmp_path)
     scores = _default_scores(controller, exam)
     alice = next(s for s in exam.students if s.student_id == "alice")
     alice.stats_report_appended = True  # no marker was ever actually written to Alice.pdf

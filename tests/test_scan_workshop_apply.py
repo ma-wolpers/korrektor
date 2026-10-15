@@ -44,8 +44,7 @@ def dialogs(monkeypatch):
     return seen
 
 
-def _setup(tmp_path: Path, monkeypatch):
-    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+def _setup(tmp_path: Path):
     folder = tmp_path / "exam"
     folder.mkdir()
     build_pdf(folder / "a.pdf", 3, "A")
@@ -94,8 +93,8 @@ def _state(folder):
     return pdf_texts(folder / "a.pdf"), pdf_texts(folder / "b.pdf")
 
 
-def test_apply_writes_pdfs_backups_and_remapped_exam(tmp_path, monkeypatch, dialogs):
-    controller, exam, folder, exam_file = _setup(tmp_path, monkeypatch)
+def test_apply_writes_pdfs_backups_and_remapped_exam(tmp_path, dialogs):
+    controller, exam, folder, exam_file = _setup(tmp_path)
     updated = _apply(controller, exam, _edit_a)
 
     assert _state(folder) == (["A 3", "A 1"], ["B 2"])
@@ -107,8 +106,8 @@ def test_apply_writes_pdfs_backups_and_remapped_exam(tmp_path, monkeypatch, dial
     assert controller.can_undo() and set(controller._app.invalidated) == {"a.pdf", "b.pdf"}
 
 
-def test_sequence_apply_a_b_undo_b_a_redo_a_b(tmp_path, monkeypatch, dialogs):
-    controller, exam, folder, exam_file = _setup(tmp_path, monkeypatch)
+def test_sequence_apply_a_b_undo_b_a_redo_a_b(tmp_path, dialogs):
+    controller, exam, folder, exam_file = _setup(tmp_path)
     repo = controller._deps.exam_repository
     original = _state(folder)
     after_a = _apply(controller, exam, _edit_a)
@@ -125,8 +124,8 @@ def test_sequence_apply_a_b_undo_b_a_redo_a_b(tmp_path, monkeypatch, dialogs):
     assert not dialogs["errors"] and len(dialogs["asked"]) == 4
 
 
-def test_declined_warning_keeps_stacks_and_files(tmp_path, monkeypatch, dialogs):
-    controller, exam, folder, _ = _setup(tmp_path, monkeypatch)
+def test_declined_warning_keeps_stacks_and_files(tmp_path, dialogs):
+    controller, exam, folder, _ = _setup(tmp_path)
     _apply(controller, exam, _edit_a)
     dialogs["yes"] = False
 
@@ -135,8 +134,8 @@ def test_declined_warning_keeps_stacks_and_files(tmp_path, monkeypatch, dialogs)
     assert _state(folder) == (["A 3", "A 1"], ["B 2"])
 
 
-def test_undo_refuses_when_the_pdf_changed_meanwhile(tmp_path, monkeypatch, dialogs):
-    controller, exam, folder, _ = _setup(tmp_path, monkeypatch)
+def test_undo_refuses_when_the_pdf_changed_meanwhile(tmp_path, dialogs):
+    controller, exam, folder, _ = _setup(tmp_path)
     _apply(controller, exam, _edit_a)
     build_pdf(folder / "a.pdf", 1, "fremd")
 
@@ -153,7 +152,7 @@ def _assert_untouched(folder, exam_file, before_json, controller):
 
 
 def test_failure_while_writing_temp_files_changes_nothing(tmp_path, monkeypatch, dialogs):
-    controller, exam, folder, exam_file = _setup(tmp_path, monkeypatch)
+    controller, exam, folder, exam_file = _setup(tmp_path)
     before = exam_file.read_bytes()
     real_write, calls = apply_module.write_edited_pdf, []
 
@@ -170,7 +169,7 @@ def test_failure_while_writing_temp_files_changes_nothing(tmp_path, monkeypatch,
 
 
 def test_failure_while_swapping_rolls_back(tmp_path, monkeypatch, dialogs):
-    controller, exam, folder, exam_file = _setup(tmp_path, monkeypatch)
+    controller, exam, folder, exam_file = _setup(tmp_path)
     before = exam_file.read_bytes()
     real_replace = Path.replace
 
@@ -187,7 +186,7 @@ def test_failure_while_swapping_rolls_back(tmp_path, monkeypatch, dialogs):
 
 
 def test_failure_while_saving_the_exam_rolls_back_the_pdfs(tmp_path, monkeypatch, dialogs):
-    controller, exam, folder, exam_file = _setup(tmp_path, monkeypatch)
+    controller, exam, folder, exam_file = _setup(tmp_path)
     before = exam_file.read_bytes()
 
     def failing_save(_exam):

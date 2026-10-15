@@ -1,10 +1,10 @@
+import os
 from pathlib import Path
 
 from app.infrastructure.repositories.json_app_settings_repository import AppRuntimeSettings, JsonAppSettingsRepository
 
 
-def test_load_uses_default_exam_index_dir_when_no_settings_file(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+def test_load_uses_default_exam_index_dir_when_no_settings_file(tmp_path: Path) -> None:
 
     base_dir = tmp_path / "repo"
     base_dir.mkdir(parents=True)
@@ -24,8 +24,7 @@ def test_load_uses_default_exam_index_dir_when_no_settings_file(tmp_path: Path, 
     assert settings.default_annotation_pdf_font_size == 14.0
 
 
-def test_save_and_reload_custom_exam_index_dir(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+def test_save_and_reload_custom_exam_index_dir(tmp_path: Path) -> None:
 
     base_dir = tmp_path / "repo"
     base_dir.mkdir(parents=True)
@@ -47,8 +46,7 @@ def test_save_and_reload_custom_exam_index_dir(tmp_path: Path, monkeypatch) -> N
     assert settings.default_annotation_pdf_font_size == 14.0
 
 
-def test_save_exam_index_dir_keeps_annotation_defaults(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+def test_save_exam_index_dir_keeps_annotation_defaults(tmp_path: Path) -> None:
 
     base_dir = tmp_path / "repo"
     base_dir.mkdir(parents=True)
@@ -76,3 +74,8 @@ def test_save_exam_index_dir_keeps_annotation_defaults(tmp_path: Path, monkeypat
     assert settings.exam_index_dir == second_index.resolve()
     assert settings.default_annotation_color == "#ff4fa3"
     assert settings.default_annotation_pdf_font_size == 22.0
+
+
+def test_every_test_runs_with_an_isolated_appdata(tmp_path: Path) -> None:
+    """Guard for the conftest fixture: no test may read the real settings or register exams in the real Klausurliste."""
+    assert Path(os.environ["APPDATA"]).is_relative_to(tmp_path)

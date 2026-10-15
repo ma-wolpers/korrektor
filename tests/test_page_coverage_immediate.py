@@ -27,7 +27,6 @@ class _FakeApp:
 
 @pytest.fixture
 def controller_and_exam(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
     monkeypatch.setattr(uic_module.messagebox, "showerror", lambda *args, **kwargs: None)
     monkeypatch.setattr(uic_module.messagebox, "showinfo", lambda *args, **kwargs: None)
     folder = tmp_path / "exam"

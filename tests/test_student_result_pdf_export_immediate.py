@@ -76,8 +76,7 @@ def _build_exam(exam_folder: Path, *, student_ids: tuple[str, ...] = ("alice", "
     )
 
 
-def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, **exam_kwargs) -> tuple[UiIntentController, ExamProject, Path]:
-    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+def _setup(tmp_path: Path, **exam_kwargs) -> tuple[UiIntentController, ExamProject, Path]:
     exam_folder = tmp_path / "exam"
     exam_folder.mkdir()
     deps = build_gui_dependencies(tmp_path / "repo")
@@ -108,8 +107,8 @@ def _last_page_text(pdf_path: Path) -> str:
         document.close()
 
 
-def test_append_grows_page_count_and_stamps_marker_and_flag(tmp_path: Path, monkeypatch) -> None:
-    controller, exam, folder = _setup(tmp_path, monkeypatch)
+def test_append_grows_page_count_and_stamps_marker_and_flag(tmp_path: Path) -> None:
+    controller, exam, folder = _setup(tmp_path)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
     scores = controller._deps.score_repository.load_scores(exam=exam)
 
@@ -125,8 +124,8 @@ def test_append_grows_page_count_and_stamps_marker_and_flag(tmp_path: Path, monk
     assert pdf_writer_module.read_trailing_page_marker(pdf_path) == KORREKTOR_STATS_PAGE_MARKER
 
 
-def test_repeat_append_replaces_not_accumulates(tmp_path: Path, monkeypatch) -> None:
-    controller, exam, folder = _setup(tmp_path, monkeypatch)
+def test_repeat_append_replaces_not_accumulates(tmp_path: Path) -> None:
+    controller, exam, folder = _setup(tmp_path)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
     scores = controller._deps.score_repository.load_scores(exam=exam)
     pdf_path = folder / "Alice.pdf"
@@ -142,8 +141,8 @@ def test_repeat_append_replaces_not_accumulates(tmp_path: Path, monkeypatch) -> 
     assert _page_count(pdf_path) == 2
 
 
-def test_undo_removes_page_and_resets_flag(tmp_path: Path, monkeypatch) -> None:
-    controller, exam, folder = _setup(tmp_path, monkeypatch)
+def test_undo_removes_page_and_resets_flag(tmp_path: Path) -> None:
+    controller, exam, folder = _setup(tmp_path)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
     scores = controller._deps.score_repository.load_scores(exam=exam)
     pdf_path = folder / "Alice.pdf"
@@ -162,9 +161,9 @@ def test_undo_removes_page_and_resets_flag(tmp_path: Path, monkeypatch) -> None:
     assert _reload(controller).students[0].stats_report_appended is True
 
 
-def test_redo_reinstates_the_exact_originally_rendered_page_not_a_recomputation(tmp_path: Path, monkeypatch) -> None:
+def test_redo_reinstates_the_exact_originally_rendered_page_not_a_recomputation(tmp_path: Path) -> None:
     """Regression: redo must never re-render from the (possibly since-changed) current StudentResult."""
-    controller, exam, folder = _setup(tmp_path, monkeypatch)
+    controller, exam, folder = _setup(tmp_path)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
     scores = controller._deps.score_repository.load_scores(exam=exam)
     pdf_path = folder / "Alice.pdf"
@@ -184,8 +183,8 @@ def test_redo_reinstates_the_exact_originally_rendered_page_not_a_recomputation(
     assert redone_text == original_text
 
 
-def test_remove_rejects_entire_batch_when_one_student_has_no_statistikseite(tmp_path: Path, monkeypatch) -> None:
-    controller, exam, folder = _setup(tmp_path, monkeypatch)
+def test_remove_rejects_entire_batch_when_one_student_has_no_statistikseite(tmp_path: Path) -> None:
+    controller, exam, folder = _setup(tmp_path)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
     controller._deps.score_repository.save_score(exam=exam, student_id="bob", task_code="1A", points=6.0, max_points=10.0)
     scores = controller._deps.score_repository.load_scores(exam=exam)
@@ -202,8 +201,8 @@ def test_remove_rejects_entire_batch_when_one_student_has_no_statistikseite(tmp_
     assert _reload(controller).students[0].stats_report_appended is True
 
 
-def test_remove_removes_page_and_is_undoable(tmp_path: Path, monkeypatch) -> None:
-    controller, exam, folder = _setup(tmp_path, monkeypatch)
+def test_remove_removes_page_and_is_undoable(tmp_path: Path) -> None:
+    controller, exam, folder = _setup(tmp_path)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
     scores = controller._deps.score_repository.load_scores(exam=exam)
     pdf_path = folder / "Alice.pdf"
@@ -224,9 +223,9 @@ def test_remove_removes_page_and_is_undoable(tmp_path: Path, monkeypatch) -> Non
     assert pdf_writer_module.read_trailing_page_marker(pdf_path) == KORREKTOR_STATS_PAGE_MARKER
 
 
-def test_append_rejects_when_flag_says_appended_but_marker_is_missing(tmp_path: Path, monkeypatch) -> None:
+def test_append_rejects_when_flag_says_appended_but_marker_is_missing(tmp_path: Path) -> None:
     """Regression: physical PDF state must win over a stale/corrupted JSON flag - never guess."""
-    controller, exam, folder = _setup(tmp_path, monkeypatch)
+    controller, exam, folder = _setup(tmp_path)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
     scores = controller._deps.score_repository.load_scores(exam=exam)
 
@@ -244,7 +243,7 @@ def test_append_rejects_when_flag_says_appended_but_marker_is_missing(tmp_path: 
 
 
 def test_append_batch_rolls_back_fully_when_second_student_fails(tmp_path: Path, monkeypatch) -> None:
-    controller, exam, folder = _setup(tmp_path, monkeypatch)
+    controller, exam, folder = _setup(tmp_path)
     controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=8.0, max_points=10.0)
     controller._deps.score_repository.save_score(exam=exam, student_id="bob", task_code="1A", points=6.0, max_points=10.0)
     scores = controller._deps.score_repository.load_scores(exam=exam)
