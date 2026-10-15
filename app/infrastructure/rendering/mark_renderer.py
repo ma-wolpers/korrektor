@@ -64,7 +64,7 @@ SCREEN_POINT_SCALE = 96.0 / 72.0
 FONT_PATH = os.path.join(matplotlib.get_data_path(), "fonts", "ttf", "DejaVuSans-Bold.ttf")
 _FALLBACK_RGB = (214, 40, 40)
 # Parentheses next to the ✓ in "(✓)": smaller than the ✓, so the check stays the main sign.
-COMBO_BRACKET_SCALE = {"(": 0.8, ")": 0.8}
+COMBO_BRACKET_SCALE = {"(": 0.62, ")": 0.62}
 _UNESCAPED_DOLLAR = re.compile(r"(?<!\\)\$")
 
 
