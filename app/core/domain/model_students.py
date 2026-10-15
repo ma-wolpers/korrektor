@@ -44,6 +44,11 @@ class PdfAnnotation:
     (renameable, potentially reused) `assigned_area_codes` display label.
     `task_code` is a `TaskDefinition.code` and is unrelated to region
     identity; it is never rewritten by region relabeling.
+
+    Orientation is ``rotation_deg`` (counter-clockwise, 45° grid) plus ``mirrored``:
+    the mark is drawn mirrored horizontally first (if ``mirrored``), then rotated
+    (see ``app/core/domain/mark_transform.py``). ``mirrored`` is optional in JSON
+    (missing = ``False``), so older exam files load unchanged.
     """
 
     annotation_id: str
@@ -60,6 +65,7 @@ class PdfAnnotation:
     rotation_deg: float = 0.0
     sync_group_id: str = ""
     position_detached: bool = False
+    mirrored: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -77,6 +83,7 @@ class PdfAnnotation:
             "rotation_deg": self.rotation_deg,
             "sync_group_id": self.sync_group_id,
             "position_detached": self.position_detached,
+            "mirrored": self.mirrored,
         }
 
     @classmethod
@@ -96,6 +103,7 @@ class PdfAnnotation:
             rotation_deg=float(raw.get("rotation_deg", 0.0)),
             sync_group_id=str(raw.get("sync_group_id", "")).strip(),
             position_detached=bool(raw.get("position_detached", False)),
+            mirrored=bool(raw.get("mirrored", False)),
         )
 
 

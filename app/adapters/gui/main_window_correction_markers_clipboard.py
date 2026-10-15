@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import base64
 from uuid import uuid4
 
 from app.adapters.gui.dialog_services import messagebox
 from app.adapters.gui.main_window_types import CorrectionTemplate
 from app.core.domain.models import PdfAnnotation
+from app.infrastructure.rendering.mark_renderer import MarkStyle, render_mark
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
@@ -171,6 +173,7 @@ class MainWindowCorrectionMarkersClipboardMixin:
             return
         self._correction_canvas.delete("correction_annotation")
         self._correction_annotation_items.clear()
+        self._correction_annotation_photos.clear()
         annotations = self._current_correction_annotations()
         visible_ids = {item.annotation_id for item in annotations}
         if self._correction_selected_annotation_id not in visible_ids:
@@ -185,15 +188,15 @@ class MainWindowCorrectionMarkersClipboardMixin:
             if canvas_pos is None:
                 continue
             canvas_x, canvas_y = canvas_pos
-            font_size = max(8, int(round(float(annotation.font_size) * segment.scale)))
-            item_id = self._correction_canvas.create_text(
+            # Same pixels as the PDF stamp (mark_renderer); the image centre is the anchor point.
+            rendered = render_mark(MarkStyle.of(annotation), segment.scale)
+            photo = ui.PhotoImage(data=base64.b64encode(rendered.png).decode("ascii"), format="png")
+            self._correction_annotation_photos.append(photo)
+            item_id = self._correction_canvas.create_image(
                 canvas_x,
                 canvas_y,
-                text=annotation.content,
-                fill=annotation.color_hex,
-                font=("Segoe UI", font_size, "bold"),
+                image=photo,
                 anchor=ui.CENTER,
-                angle=self._normalize_rotation_deg(annotation.rotation_deg),
                 tags=("correction_annotation", f"annotation:{annotation.annotation_id}"),
             )
             self._correction_annotation_items[annotation.annotation_id] = item_id

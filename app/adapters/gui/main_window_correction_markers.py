@@ -4,7 +4,6 @@ from app.adapters.gui.main_window_constants import (
     CORRECTION_DEFAULT_COLOR_NAME,
     CORRECTION_DEFAULT_FONT_SIZE_PT,
     CORRECTION_MARKER_COLORS,
-    CORRECTION_MARKER_TOOLS,
 )
 from app.core.domain.annotation_move import move_annotations
 from app.core.domain.annotation_sync import normalize_rotation_deg
@@ -14,7 +13,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 ensure_bw_gui_on_path()
 from bw_gui.contracts import KeyModifiers
 from bw_gui.contracts.events import EventResult
-from bw_gui.runtime import bind_drag, bind_wheel, on_combobox_select, ui, widgets
+from bw_gui.runtime import bind_drag, bind_wheel, ui, widgets
 from bw_gui.widgets import ScrollableFrame
 
 
@@ -58,60 +57,12 @@ class MainWindowCorrectionMarkersMixin:
             on_cancel=lambda _reason: self._on_correction_canvas_release(None),
         )
 
-    def _build_correction_view_form_markers(self) -> None:
-        marker_controls = widgets.Frame(self._correction_form_panel.content, style="Surface.TFrame")
-        marker_controls.pack(fill=ui.X, pady=(10, 0))
-
-        widgets.Label(marker_controls, text="Markierungen", style="Muted.TLabel").pack(anchor=ui.W)
-
-        color_row = widgets.Frame(marker_controls, style="Surface.TFrame")
-        color_row.pack(fill=ui.X, pady=(4, 0))
-        widgets.Label(color_row, text="Farbe", style="Muted.TLabel").pack(side=ui.LEFT)
-        color_combo = widgets.Combobox(
-            color_row,
-            textvariable=self._correction_marker_color_name_var,
-            values=tuple(CORRECTION_MARKER_COLORS.keys()),
-            state="readonly",
-            width=12,
-        )
-        color_combo.pack(side=ui.LEFT, padx=(8, 0))
-        on_combobox_select(color_combo, self._on_correction_marker_color_changed)
-
-        marker_row = widgets.Frame(marker_controls, style="Surface.TFrame")
-        marker_row.pack(fill=ui.X, pady=(6, 0))
-        for tool_key, glyph, label in CORRECTION_MARKER_TOOLS:
-            marker_button = widgets.Button(
-                marker_row,
-                text=glyph,
-                style="SecondaryAction.TButton",
-                width=3,
-                command=lambda value=tool_key: self._set_correction_marker_tool(value),
-            )
-            marker_button.pack(side=ui.LEFT, padx=(0, 4))
-            self._attach_hover_help(marker_button, label=f"Markierung: {label}")
-
-        self._correction_marker_controls_frame = marker_controls
-
-    @staticmethod
-    def _marker_tool_lookup(tool_key: str) -> tuple[str, str] | None:
-        for key, glyph, label in CORRECTION_MARKER_TOOLS:
-            if key == tool_key:
-                return glyph, label
-        return None
-
-    def _set_correction_marker_tool(self, tool_key: str) -> None:
-        lookup = self._marker_tool_lookup(tool_key)
-        if lookup is None:
-            return
-        _glyph, label = lookup
-        self._correction_marker_tool_key = tool_key
-        self._correction_marker_info_var.set(f"Markierung: {label}")
-
     def _on_correction_marker_color_changed(self, _event: ui.Event[ui.Misc]) -> None:
         color_name = self._correction_marker_color_name_var.get()
         if color_name not in CORRECTION_MARKER_COLORS:
             color_name = CORRECTION_DEFAULT_COLOR_NAME
             self._correction_marker_color_name_var.set(color_name)
+        self._refresh_marker_palette_icons()
 
         if self._current_exam is None or self._controller is None:
             return
@@ -168,19 +119,6 @@ class MainWindowCorrectionMarkersMixin:
         if selected in CORRECTION_MARKER_COLORS:
             return CORRECTION_MARKER_COLORS[selected]
         return self._default_annotation_color_hex
-
-    @staticmethod
-    def _hex_to_rgb_fraction(color_hex: str) -> tuple[float, float, float]:
-        raw = color_hex.strip().lstrip("#")
-        if len(raw) != 6:
-            return (0.0, 0.0, 0.0)
-        try:
-            red = int(raw[0:2], 16) / 255.0
-            green = int(raw[2:4], 16) / 255.0
-            blue = int(raw[4:6], 16) / 255.0
-        except ValueError:
-            return (0.0, 0.0, 0.0)
-        return red, green, blue
 
     @staticmethod
     def _normalize_rotation_deg(raw_deg: float) -> float:

@@ -120,6 +120,8 @@ class MainWindowBase(BwBaseWindow):
         self._correction_zoom_percent = 100
         self._correction_comment_entry: widgets.Entry | None = None
         self._correction_marker_tool_key = "check"
+        # Tk PhotoImages of the drawn marks; Tk shows an image only while Python holds a reference.
+        self._correction_annotation_photos: list[ui.PhotoImage] = []
         self._supersymbol_filter_active = False
         self._supersymbol_matched_student_ids: list[str] = []
         self._superposition_mode: str | None = None
