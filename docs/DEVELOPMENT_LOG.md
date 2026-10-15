@@ -1,6 +1,7 @@
 # Development Log
 
 ## [Unreleased]
+- Guardrail-Skript aufgeteilt (300-Zeilen-Regel, 2026-10-15): `tools/ci/check_ai_guardrails.py` (600 ausführbare Zeilen) ist nur noch Einstieg (`main`); Konfiguration in `guardrail_config.py` (reine Daten, `# line-limit: data-only`), Repo-/Datei-/AST-Helfer in `guardrail_support.py`, Staged-/Changelog-/Hinweis-Prüfungen in `guardrail_process.py`, inhaltliche Checks in `guardrail_checks.py`. Funktionen und Konstanten per AST-Vergleich unverändert; einzige Ergänzung: die vier Module stehen in `GUARDRAIL_RELEVANT_PATHS`.
 - Import-Split-Startgröße (bw-gui-Wunschliste Schritt 1, 2026-10-09): `main_window_import_split_view.py` kappt gegen `bw_gui.runtime.screen_placement.work_area_for(popup)` statt `winfo_screenwidth/height` (nur Primärmonitor).
 - Schritt-0-Invariante (bw-gui-Wunschliste, 2026-10-09): neuer Test `tests/test_bw_gui_import_source.py` prüft per `bw_gui.testing.import_source.assert_bw_gui_from_sibling`, dass bw_gui aus dem Geschwister-Checkout und nie aus einer verschachtelten `bw-gui/`-Kopie geladen wird. Bleibt dauerhaft, auch nach Entfernen des Fallbacks 3 in `ensure_bw_gui_on_path`.
 - Fix PDF-Cache (2026-10-09, bei Commit 3 gefunden, auf Rückfrage behoben): `_doc_cache` ist nach Dateinamen geschlüsselt und wurde beim Klausurwechsel nie geleert. Neu `_close_all_cached_documents` (schließt alle Dokumente) in `open_exam_detail` und `_return_to_overview`. Test `test_doc_cache_tk.py`; die Isolations-Notlösung im Korrektur-Test entfällt.
