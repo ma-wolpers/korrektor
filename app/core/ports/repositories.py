@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
 
 from app.core.domain.grading_scale import GradingScale, GradingScaleUsageEntry
 from app.core.domain.models import ExamProject
 from app.core.domain.student_result import StudentResult
+from app.core.domain.symbol_usage import SymbolUsage
 
 
 class ExamRepository(Protocol):
@@ -84,6 +86,13 @@ class GradingScaleRepository(Protocol):
         ...
 
     def record_usage(self, entry: GradingScaleUsageEntry) -> None:
+        ...
+
+
+class SymbolLegendExportRepository(Protocol):
+    def export_symbol_legend(
+        self, *, entries: Sequence[SymbolUsage], title: str, color_hex: str, output_path: Path
+    ) -> None:
         ...
 
 

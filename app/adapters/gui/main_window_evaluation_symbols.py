@@ -27,7 +27,12 @@ class MainWindowEvaluationSymbolsMixin:
         nav.pack(fill=ui.X)
         widgets.Button(nav, text="← Übersicht", style="SecondaryAction.TButton",
                        command=lambda: self._show_evaluation_view("overview")).pack(side=ui.LEFT)
-        self._evaluation_symbols_actions = nav
+        self._evaluation_legend_button = widgets.Button(
+            nav, text="Symbol-Legende exportieren…", style="SecondaryAction.TButton", command=self._export_evaluation_legend
+        )
+        self._evaluation_legend_button.pack(side=ui.LEFT, padx=(12, 0))
+        self._attach_hover_help(self._evaluation_legend_button,
+                                label="Legende für Schüler:innen als PDF oder PNG: Symbol, Name und Erklärung (ohne Häufigkeiten)")
         widgets.Label(parent, style="Muted.TLabel", justify=ui.LEFT,
                       text="Alle Symbole, die in mindestens einer Abgabe dieser Klausur vorkommen.").pack(anchor=ui.W, pady=(10, 0))
         self._evaluation_symbols_rows = widgets.Frame(parent)
@@ -43,6 +48,7 @@ class MainWindowEvaluationSymbolsMixin:
             child.destroy()
         usages = self._controller.used_symbols_for_exam(exam=self._current_exam)
         self._evaluation_symbol_usages = usages
+        self._evaluation_legend_button.configure(state="normal" if usages else "disabled")
         for key in [key for key in self._evaluation_photos if key.startswith("symbol_")]:
             del self._evaluation_photos[key]
         if not usages:
@@ -64,3 +70,8 @@ class MainWindowEvaluationSymbolsMixin:
                 (f"{usage.count}× in {usage.submission_count} Abgabe(n) · Aufgaben: {tasks}", "Muted.TLabel"),
             )):
                 widgets.Label(row, text=text, style=style, justify=ui.LEFT).grid(row=line, column=1, sticky=ui.W)
+
+    def _export_evaluation_legend(self) -> None:
+        """Export the symbol legend (file dialog and writing in the controller)."""
+        if self._controller is not None and self._current_exam is not None:
+            self._controller.export_symbol_legend_for_exam(exam=self._current_exam, color_hex=self._default_annotation_color_hex)

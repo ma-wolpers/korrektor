@@ -156,3 +156,20 @@ def test_task_view_and_symbols_view(evaluation):
     labels = [usage.label for usage in evaluation._evaluation_symbol_usages]
     assert labels == ["Richtig", "△"]
     assert evaluation._evaluation_symbol_usages[0].submission_count == 2
+
+
+def test_symbol_legend_export_from_the_symbols_view(evaluation, monkeypatch, tmp_path):
+    target = tmp_path / "legende.pdf"
+    monkeypatch.setattr(dialog_services.filedialog, "asksaveasfilename", lambda **_: str(target))
+    evaluation._show_evaluation_view("symbols")
+    assert str(evaluation._evaluation_legend_button.cget("state")) == "normal"
+    evaluation._export_evaluation_legend()
+    assert target.is_file()
+
+
+def test_symbols_view_without_symbols_disables_the_export(evaluation):
+    evaluation._current_exam.pdf_annotations = []
+    evaluation._show_evaluation_view("symbols")
+    assert str(evaluation._evaluation_legend_button.cget("state")) == "disabled"
+    assert evaluation._controller.export_symbol_legend_for_exam(exam=evaluation._current_exam, color_hex="#000000") is None
+    assert any("noch keine Symbole" in text for text in evaluation.shown)

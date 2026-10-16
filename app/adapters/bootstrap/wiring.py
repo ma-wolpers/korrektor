@@ -11,6 +11,7 @@ from app.core.usecases.create_exam_usecase import CreateExamUseCase
 from app.core.usecases.adopt_exam_usecase import AdoptExamUseCase
 from app.core.usecases.export_scores_usecase import ExportScoresUseCase
 from app.core.usecases.export_student_result_usecase import ExportStudentResultUseCase
+from app.core.usecases.export_symbol_legend_usecase import ExportSymbolLegendUseCase
 from app.core.usecases.list_exams_usecase import ListExamsUseCase
 from app.core.usecases.load_exam_usecase import LoadExamUseCase
 from app.core.usecases.save_score_usecase import SaveScoreUseCase
@@ -21,6 +22,7 @@ from app.infrastructure.repositories.json_app_settings_repository import AppRunt
 from app.infrastructure.repositories.json_exam_repository import JsonExamRepository
 from app.infrastructure.repositories.json_grading_scale_repository import JsonGradingScaleRepository
 from app.infrastructure.repositories.pymupdf_scan_repository import PyMuPdfScanRepository
+from app.infrastructure.rendering.symbol_legend_renderer import MatplotlibSymbolLegendExportRepository
 from app.infrastructure.rendering.matplotlib_student_result_export_repository import (
     MatplotlibStudentResultExportRepository,
 )
@@ -35,6 +37,7 @@ class GuiDependencies:
     save_score_usecase: SaveScoreUseCase
     export_scores_usecase: ExportScoresUseCase
     export_student_result_usecase: ExportStudentResultUseCase
+    export_symbol_legend_usecase: ExportSymbolLegendUseCase
     set_reading_complete_usecase: SetReadingCompleteUseCase
     exam_repository: JsonExamRepository
     score_repository: CsvScoreRepository
@@ -79,6 +82,7 @@ def build_gui_dependencies(base_dir: Path) -> GuiDependencies:
         save_score_usecase=SaveScoreUseCase(score_repo=score_repo),
         export_scores_usecase=ExportScoresUseCase(export_repo=export_repo),
         export_student_result_usecase=ExportStudentResultUseCase(export_repo=student_result_export_repo),
+        export_symbol_legend_usecase=ExportSymbolLegendUseCase(export_repo=MatplotlibSymbolLegendExportRepository()),
         set_reading_complete_usecase=SetReadingCompleteUseCase(exam_repo=exam_repo),
         exam_repository=exam_repo,
         score_repository=score_repo,

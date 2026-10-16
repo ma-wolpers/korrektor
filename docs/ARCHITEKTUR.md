@@ -138,6 +138,7 @@ Eine oder mehrere Sammel-PDFs werden in einzelne Abgabe-PDFs aufgeteilt - eigens
 - **Verträge:** Grundgesamtheit = alle Personen; bewertet = Wert in der CSV (0 zählt); fertig = `PersonTaskCompletion`, unabhängig davon. Ø/Min/Max nur über bewertete. Gründe ohne Note in fester Reihenfolge (kein Notenschlüssel → unvollständig bewertet → unter der niedrigsten Stufe). Notendurchschnitt nur bei Skalentyp 1–6/15–0 und rein numerischen Labels. Klassenprofil = Mittel der Kategorie-Prozente pro Person (wie Personenansicht).
 - **Klicks (Übersicht/Aufgabe):** `bind_click` vor der nativen Treeview-Auswahl; Kopf → Aufgabe, Name → Person (ohne Modifier, Auswahl bleibt), sonst nativ (Strg/Umschalt-Mehrfachauswahl); Fußzeilen nicht auswählbar.
 - **Feedbackseite:** Quelle der Wahrheit `StudentExam.stats_report_appended` (Controller hält sie konsistent zum PDF-Marker). Anhängen = vorhandene `append_…_immediate` für die Auswahl (ersetzt vorhandene Seiten, ein Undo-Schritt); Entfernen nur für Personen mit Seite. Nach Aktionen und nach jedem Content-Undo/Redo (`refresh_exam_content_in_place` → `_refresh_evaluation_if_open`) wird neu geladen.
+- **Symbol-Legende** (Export für Schüler:innen): `symbol_legend_renderer.py` zeichnet Icon, Name und Erklärung der verwendeten Symbole (keine Zählungen), PDF mit 18 Zeilen pro A4-Seite, PNG als ein Bild; Port/Usecase `ExportSymbolLegendUseCase`.
 
 ## Gemeinsame technische Mechanismen (nicht pro Modus duplizieren)
 
