@@ -86,3 +86,16 @@ def test_compute_student_result_for_exam_missing_scores_stay_none(tmp_path: Path
 
     assert result is not None
     assert result.total_achieved_points is None
+
+
+def test_bonus_flag_comes_from_the_exam(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
+    exam.tasks[1].is_bonus = True
+    controller._deps.exam_repository.save_exam(exam)
+    controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=5.0, max_points=5.0)
+    controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1B", points=2.0, max_points=5.0)
+
+    result = controller.compute_student_result_for_exam(exam=exam, student_id="alice", scores=controller.load_scores_for_exam(exam=exam))
+
+    assert result is not None
+    assert (result.total_achieved_points, result.total_max_points) == (7.0, 5.0)

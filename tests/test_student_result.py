@@ -194,3 +194,72 @@ def test_compute_student_result_omits_empty_categories() -> None:
 
     names = {c.name for c in result.category_results}
     assert names == {"Geometrie"}
+
+
+def _bonus_tasks() -> list[TaskDefinition]:
+    return _tasks() + [TaskDefinition(code="3A", name="3A", max_points=4.0, is_bonus=True)]
+
+
+def _bonus_result(scores: dict[str, float], assignments: dict[str, str] | None = None):
+    return compute_student_result(
+        student_id="alice",
+        display_name="Alice",
+        scores_by_task=scores,
+        all_tasks=_bonus_tasks(),
+        categories=_categories(),
+        category_assignments=assignments if assignments is not None else {"1A": "cat-geo", "1B": "cat-geo", "2A": "cat-alg", "3A": "cat-geo"},
+        grading_scale_snapshot=_snapshot(),
+    )
+
+
+def test_bonus_task_adds_to_achieved_points_but_not_to_the_maximum() -> None:
+    result = _bonus_result({"1A": 5.0, "1B": 0.0, "2A": 5.0, "3A": 4.0})
+
+    assert result.total_max_points == 20.0
+    assert result.total_achieved_points == 14.0
+    assert result.grade_label == "2" and result.grade_percentage == 70.0
+    assert [task.is_bonus for task in result.task_results] == [False, False, False, True]
+
+
+def test_bonus_allows_more_than_100_percent_and_reaches_the_highest_grade() -> None:
+    result = _bonus_result({"1A": 5.0, "1B": 5.0, "2A": 10.0, "3A": 2.0})
+
+    assert (result.total_achieved_points, result.total_max_points) == (22.0, 20.0)
+    assert result.grade_label == "1" and result.grade_percentage == 110.0
+
+
+def test_unscored_bonus_task_leaves_total_and_grade_open() -> None:
+    result = _bonus_result({"1A": 5.0, "1B": 5.0, "2A": 10.0})
+
+    assert result.total_achieved_points is None and result.grade_label is None
+    geometry = next(category for category in result.category_results if category.name == "Geometrie")
+    assert geometry.achieved_points is None
+
+
+def test_category_with_bonus_may_exceed_100_percent_and_a_bonus_only_category_has_no_percentage() -> None:
+    result = _bonus_result(
+        {"1A": 5.0, "1B": 5.0, "2A": 10.0, "3A": 4.0}, assignments={"1A": "cat-geo", "1B": "cat-geo", "2A": "cat-alg", "3A": "cat-geo"}
+    )
+    geometry = next(category for category in result.category_results if category.name == "Geometrie")
+    assert (geometry.achieved_points, geometry.max_points) == (14.0, 10.0)
+    assert dict(category_competency_percentages(result))["Geometrie"] == 140.0
+
+    only_bonus = _bonus_result({"1A": 5.0, "1B": 5.0, "2A": 10.0, "3A": 4.0}, assignments={"3A": "cat-alg", "1A": "cat-geo"})
+    algebra = next(category for category in only_bonus.category_results if category.name == "Algebra")
+    assert (algebra.achieved_points, algebra.max_points) == (4.0, 0.0)
+    assert "Algebra" not in dict(category_competency_percentages(only_bonus))
+
+
+def test_exam_with_only_bonus_tasks_has_no_grade() -> None:
+    result = compute_student_result(
+        student_id="alice",
+        display_name="Alice",
+        scores_by_task={"3A": 4.0},
+        all_tasks=[TaskDefinition(code="3A", name="3A", max_points=4.0, is_bonus=True)],
+        categories=[],
+        category_assignments={},
+        grading_scale_snapshot=_snapshot(),
+    )
+
+    assert (result.total_achieved_points, result.total_max_points) == (4.0, 0.0)
+    assert result.grade_label is None

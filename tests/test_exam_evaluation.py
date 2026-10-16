@@ -9,6 +9,7 @@ from app.core.domain.exam_evaluation import (
     AVERAGE_NOT_NUMERIC,
     REASON_BELOW_LOWEST,
     REASON_INCOMPLETE,
+    REASON_NO_REQUIRED,
     REASON_NO_SCALE,
     category_class_averages,
     compute_exam_evaluation,
@@ -126,3 +127,17 @@ def test_class_profile_weighting_with_different_maxima():
     results = _results({"anna": {"1A": 2.0, "1B": 0.0}, "ben": {"1A": 0.0, "1B": 8.0}}, None, assignments)
     (name, percent, n), = category_class_averages(results)
     assert (name, n) == ("Algebra", 2) and percent == pytest.approx((20.0 + 80.0) / 2)
+
+
+def test_only_bonus_tasks_name_their_own_reason_instead_of_below_lowest():
+    snapshot = _snapshot()
+    bonus_only = [TaskDefinition("9A", "9A", 2.0, is_bonus=True)]
+    results = [
+        compute_student_result(
+            student_id=sid, display_name=sid.title(), scores_by_task=values, all_tasks=bonus_only, categories=[],
+            category_assignments={}, grading_scale_snapshot=snapshot,
+        )
+        for sid, values in {"anna": {"9A": 2.0}, "ben": {}}.items()
+    ]
+    grades = grade_distribution(results, snapshot)
+    assert grades.ungraded == [(REASON_INCOMPLETE, 1), (REASON_NO_REQUIRED, 1)]

@@ -20,6 +20,8 @@ class TaskResult:
     Always a concrete display string, never `None` - mirrors `CategoryResult.name`'s
     "Unkategorisiert" convention for tasks with no (or a stray/unknown) category assignment.
     """
+    is_bonus: bool = False
+    """Bonus task (`TaskDefinition.is_bonus`): its `max_points` stay out of every sum's maximum, see `_summarize`."""
 
 
 @dataclass(slots=True)
@@ -31,7 +33,8 @@ class CategoryResult:
     `StudentResult.category_results` when at least one such task exists.
     `achieved_points is None` if any task in this category is unscored -
     a category total is only meaningful once every task in it has a value,
-    same "no silent 0" rule as `TaskResult`.
+    same "no silent 0" rule as `TaskResult`. Bonus tasks count like the total
+    (`_summarize`), so a category may exceed 100 % or have ``max_points == 0``.
     """
 
     category_id: str | None
@@ -74,7 +77,7 @@ def task_competency_percentages(result: StudentResult) -> list[tuple[str, float]
 
 
 def category_competency_percentages(result: StudentResult) -> list[tuple[str, float]]:
-    """Normalized (0-100) competency per category, as `(name, percent)` pairs. See `task_competency_percentages`."""
+    """Normalized competency per category, as `(name, percent)` pairs (above 100 with bonus tasks). See `task_competency_percentages`."""
     return [
         (category.name, (category.achieved_points / category.max_points) * 100.0)
         for category in result.category_results
@@ -83,7 +86,13 @@ def category_competency_percentages(result: StudentResult) -> list[tuple[str, fl
 
 
 def _summarize(task_results: list[TaskResult]) -> tuple[float, float | None]:
-    max_points = sum(task.max_points for task in task_results)
+    """``(max, achieved)`` of a group of tasks - the one sum rule for the total and every category.
+
+    ``max`` leaves out bonus tasks, ``achieved`` includes them, so a person may reach
+    more than 100 %. ``achieved`` is ``None`` as soon as any task - bonus included -
+    is unscored (a bonus task not worked on is scored 0, never silently skipped).
+    """
+    max_points = sum(task.max_points for task in task_results if not task.is_bonus)
     if any(task.achieved_points is None for task in task_results):
         return max_points, None
     return max_points, sum(task.achieved_points for task in task_results)  # type: ignore[misc]
@@ -108,7 +117,9 @@ def compute_student_result(
     scored" (`achieved_points=None`) throughout - it is never coerced to
     0, all the way up to `total_achieved_points` and the grade: an
     incomplete result shows as incomplete, not as a possibly-misleading
-    partial percentage. The grade is computed only when a Notenschluessel
+    partial percentage. Bonus tasks (`TaskDefinition.is_bonus`) add to the
+    achieved points but not to the maximum (`_summarize`); the percentage
+    may then exceed 100 % and simply reaches the highest grade. The grade is computed only when a Notenschluessel
     is assigned, every task has a value, and `resolve_grade` does not
     raise `GradingError` (e.g. below the lowest threshold) - any of those
     missing simply leaves `grade_label`/`grade_percentage` as `None`,
@@ -121,6 +132,7 @@ def compute_student_result(
             max_points=task.max_points,
             achieved_points=scores_by_task.get(task.code),
             category_name=category_name_by_id.get(category_assignments.get(task.code), "Unkategorisiert"),
+            is_bonus=task.is_bonus,
         )
         for task in all_tasks
     ]

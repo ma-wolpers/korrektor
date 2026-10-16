@@ -28,6 +28,7 @@ from app.core.domain.student_result import StudentResult, category_competency_pe
 
 REASON_NO_SCALE = "kein Notenschlüssel"
 REASON_INCOMPLETE = "unvollständig bewertet"
+REASON_NO_REQUIRED = "keine Pflichtaufgaben (nur Bonus)"
 REASON_BELOW_LOWEST = "unter der niedrigsten Stufe"
 AVERAGE_NOT_NUMERIC = "Notenlabels nicht rein numerisch"
 AVERAGE_NO_GRADES = "noch keine Noten"
@@ -56,7 +57,7 @@ class GradeDistribution:
 
     ``rows``: every threshold label of the snapshot (highest ``min_percent`` first), also
     with 0 persons; empty without a snapshot. ``ungraded``: ``(reason, count)`` for the
-    reasons ``REASON_NO_SCALE``, ``REASON_INCOMPLETE``, ``REASON_BELOW_LOWEST`` (only
+    reasons ``REASON_NO_SCALE``, ``REASON_INCOMPLETE``, ``REASON_NO_REQUIRED``, ``REASON_BELOW_LOWEST`` (only
     non-zero ones, in that order). ``graded_count + sum(ungraded) == total_count``.
     ``average_grade`` is set only for numeric scales (see ``grade_distribution``);
     otherwise ``average_note`` says why.
@@ -134,6 +135,8 @@ def grade_reason(result: StudentResult, snapshot: GradingScaleSnapshot | None) -
         return REASON_NO_SCALE
     if result.total_achieved_points is None:
         return REASON_INCOMPLETE
+    if result.total_max_points <= 0:
+        return REASON_NO_REQUIRED
     return REASON_BELOW_LOWEST
 
 
@@ -145,7 +148,7 @@ def grade_distribution(results: Sequence[StudentResult], snapshot: GradingScaleS
     **and** at least one person is graded. No further guessing (e.g. "2+" is not 2).
     """
     reasons = Counter(reason for result in results if (reason := grade_reason(result, snapshot)) is not None)
-    ungraded = [(reason, reasons[reason]) for reason in (REASON_NO_SCALE, REASON_INCOMPLETE, REASON_BELOW_LOWEST) if reasons[reason]]
+    ungraded = [(reason, reasons[reason]) for reason in (REASON_NO_SCALE, REASON_INCOMPLETE, REASON_NO_REQUIRED, REASON_BELOW_LOWEST) if reasons[reason]]
     graded = [result.grade_label for result in results if result.grade_label is not None]
     if snapshot is None:
         return GradeDistribution(ungraded=ungraded, average_note=AVERAGE_NO_GRADES)

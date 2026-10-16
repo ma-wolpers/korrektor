@@ -3,6 +3,7 @@ from pathlib import Path
 from app.infrastructure.rendering.competency_chart_renderer import (
     figure_to_pdf_bytes,
     figure_to_png_bytes,
+    percent_axis_top,
     render_bar_chart,
     render_radar_chart,
     save_figure,
@@ -65,3 +66,12 @@ def test_save_figure_writes_pdf_file(tmp_path: Path) -> None:
 
     assert out_path.exists()
     assert out_path.read_bytes().startswith(b"%PDF")
+
+
+def test_percent_axis_grows_above_100_for_bonus_points() -> None:
+    assert percent_axis_top([]) == 100.0
+    assert percent_axis_top([40.0, 100.0]) == 100.0
+    assert percent_axis_top([101.0]) == 125.0
+    assert percent_axis_top([150.0]) == 150.0
+    assert render_bar_chart([("Geometrie", 140.0)]).axes[0].get_ylim()[1] == 150.0
+    assert render_radar_chart([("1A", 140.0), ("1B", 50.0), ("2A", 90.0)]).axes[0].get_ylim()[1] == 150.0

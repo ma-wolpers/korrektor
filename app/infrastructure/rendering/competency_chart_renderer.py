@@ -16,7 +16,7 @@ from matplotlib.figure import Figure  # noqa: E402
 
 
 def draw_radar(axes: Axes, values: list[tuple[str, float]], *, title: str = "") -> None:
-    """Draw a Spinnennetz/radar chart of already-normalized percentages (0-100) into `axes`.
+    """Draw a Spinnennetz/radar chart of already-normalized percentages (0-100, more with bonus tasks) into `axes`.
 
     `axes` must already have been created with `projection="polar"` (a
     plain rectangular Axes cannot be converted after the fact) - see
@@ -44,14 +44,25 @@ def draw_radar(axes: Axes, values: list[tuple[str, float]], *, title: str = "") 
     axes.fill(angles_closed, percents_closed, alpha=0.25, color="#1d4ed8")
     axes.set_xticks(angles)
     axes.set_xticklabels(labels)
-    axes.set_ylim(0, 100)
-    axes.set_yticks([0, 25, 50, 75, 100])
+    top = percent_axis_top(percents)
+    axes.set_ylim(0, top)
+    axes.set_yticks([tick for tick in range(0, int(top) + 1, 25)])
     if title:
         axes.set_title(title)
 
 
+def percent_axis_top(percents: list[float]) -> float:
+    """Upper limit of a percent axis: 100, or the next multiple of 25 above a larger value.
+
+    Bonus tasks allow more than 100 % (`student_result._summarize`); a fixed limit of
+    100 would cut those values off.
+    """
+    largest = max(percents, default=0.0)
+    return 100.0 if largest <= 100 else math.ceil(largest / 25.0) * 25.0
+
+
 def draw_bar(axes: Axes, values: list[tuple[str, float]], *, title: str = "") -> None:
-    """Draw a bar chart of already-normalized percentages (0-100) into `axes`. See `draw_radar`."""
+    """Draw a bar chart of already-normalized percentages (0-100, more with bonus tasks) into `axes`. See `draw_radar`."""
     labels = [label for label, _percent in values]
     percents = [percent for _label, percent in values]
     if not labels:
@@ -59,7 +70,7 @@ def draw_bar(axes: Axes, values: list[tuple[str, float]], *, title: str = "") ->
         return
 
     axes.bar(labels, percents, color="#1d4ed8")
-    axes.set_ylim(0, 100)
+    axes.set_ylim(0, percent_axis_top(percents))
     axes.set_ylabel("%")
     if title:
         axes.set_title(title)
