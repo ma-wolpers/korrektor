@@ -345,3 +345,26 @@ def test_annotation_mutation_rolls_back_in_memory_state_when_save_fails(tmp_path
     # The in-memory mutation was rolled back - not left at the failed new value.
     assert exam.pdf_annotations[0].font_size == 20.0
     assert controller.can_undo() is False
+
+
+def test_delete_annotations_immediate_removes_exactly_these_ids_in_one_action(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
+    exam.pdf_annotations = [
+        _annotation(annotation_id="ann-1", student_pdf="Alice.pdf", sync_group_id="sg-1"),
+        _annotation(annotation_id="ann-2", student_pdf="Bob.pdf", sync_group_id="sg-1"),
+        _annotation(annotation_id="ann-3", student_pdf="Bob.pdf"),
+    ]
+    controller._deps.exam_repository.save_exam(exam)
+
+    updated = controller.delete_annotations_immediate(exam=exam, annotation_ids=["ann-1", "ann-3", "missing"])
+
+    assert updated is not None
+    assert [a.annotation_id for a in _reload(controller).pdf_annotations] == ["ann-2"]  # sync group not expanded
+    assert controller.undo() is True
+    assert {a.annotation_id for a in _reload(controller).pdf_annotations} == {"ann-1", "ann-2", "ann-3"}
+
+
+def test_delete_annotations_immediate_without_existing_ids_does_nothing(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
+    assert controller.delete_annotations_immediate(exam=exam, annotation_ids=["missing"]) is None
+    assert not controller.can_undo()

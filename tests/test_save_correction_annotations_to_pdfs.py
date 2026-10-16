@@ -141,3 +141,48 @@ def _run_checks(window, pdf_path: Path) -> None:
     os.replace(temp_path, pdf_path)
 
     assert pdf_path.exists()
+
+
+@pytest.mark.parametrize("answer", [True, False])
+def test_marks_outside_their_region_are_named_and_deleted_on_request(tmp_path: Path, korrektor_window, monkeypatch, answer) -> None:
+    """The hint names person, page, sub-task and symbol; "Ja" deletes them (one undo step), "Nein" keeps them."""
+    from app.adapters.gui import dialog_services
+    from app.core.domain.mark_symbols import SYMBOL_BY_KEY
+
+    exam_folder = tmp_path / "exam"
+    exam_folder.mkdir()
+    pdf_path = exam_folder / "Alice.pdf"
+    _build_student_pdf(pdf_path)
+    window = korrektor_window
+    heart = SYMBOL_BY_KEY["heart"]
+    now = utc_now_iso()
+    exam = ExamProject(
+        exam_id="exam-outside", exam_name="Mathe", folder_path=str(exam_folder), created_at=now, updated_at=now,
+        standard_page_count=1,
+        students=[StudentExam(student_id="alice", display_name="Alice", pdf_filename="Alice.pdf", page_count=1)],
+        regions=[RegionAssignment("r-a", "", 1, RegionBox(0, 0, 100, 100), ["1A"], ["A"], is_read_complete=True)],
+        tasks=[TaskDefinition(code="1A", name="1A", max_points=10.0)],
+        pdf_annotations=[
+            PdfAnnotation("inside", "Alice.pdf", 1, "symbol", heart.content, "#d62828", 10.0, 10.0, task_code="1A", region_id="r-a"),
+            PdfAnnotation("outside", "Alice.pdf", 1, "symbol", heart.content, "#d62828", 150.0, 150.0, task_code="1A", region_id="r-a"),
+        ],
+    )
+    window.deps.exam_repository.save_exam(exam)
+    window._current_exam = exam
+    asked: list[str] = []
+    monkeypatch.setattr(dialog_services.messagebox, "askyesno", lambda title, text, **_: asked.append(text) or answer)
+    try:
+        window._save_correction_annotations_to_pdfs()
+        remaining = [item.annotation_id for item in window._current_exam.pdf_annotations]
+    finally:
+        window._current_exam = None
+        window.invalidate_doc_cache(["Alice.pdf"])
+
+    assert len(asked) == 1
+    assert f"Alice, S. 1, Aufgabe 1A: {heart.label}" in asked[0] and "outside" not in asked[0]
+    assert "Markierung löschen?" in asked[0]
+    if answer:
+        assert remaining == ["inside"]
+        assert window._controller.undo() is True
+    else:
+        assert remaining == ["inside", "outside"]

@@ -139,6 +139,10 @@ def _check_undo_redo_contracts(errors: list[str]) -> None:
     # through the shared tail-helper `_save_region_edit`
     # (ui_intent_controller_regions.py), which is itself tracked here and must
     # call `_record_exam_payload_action` directly.
+    # Annotation deletes: `delete_annotation_immediate`/`delete_annotations_immediate`
+    # go through `_remove_annotations_immediate` (ui_intent_controller_annotations.py),
+    # itself tracked here (``_immediate`` + `exam`) and calling
+    # `_save_annotation_mutation_immediate`.
     baseline_mutators = {
         "create_exam",
         "_create_exam_from_folder",
@@ -154,6 +158,7 @@ def _check_undo_redo_contracts(errors: list[str]) -> None:
         "_apply_superposition_clones",
         "_create_exam_from_folder",
         "_save_region_edit",
+        "_remove_annotations_immediate",
     }
 
     for rel_path in controller_files:

@@ -118,17 +118,36 @@ class UiIntentControllerAnnotationsMixin:
         annotation = self._find_annotation(exam, annotation_id)
         if annotation is None:
             return None
+        if annotation.sync_group_id:
+            return self._remove_annotations_immediate(
+                exam=exam, remove=lambda item: item.sync_group_id == annotation.sync_group_id, description="Sync-Gruppe gelöscht"
+            )
+        return self._remove_annotations_immediate(
+            exam=exam, remove=lambda item: item.annotation_id == annotation_id, description="Markierung gelöscht"
+        )
 
+    def delete_annotations_immediate(self, *, exam: ExamProject, annotation_ids) -> ExamProject | None:
+        """Delete exactly the annotations ``annotation_ids`` in one undo step; ``None`` if none of them exists.
+
+        Unlike `delete_annotation_immediate` a sync group is *not* expanded: this
+        cleans up stray copies (e.g. marks outside their region after "Alle PDFs
+        überschreiben"), while the group's other members stay where they belong.
+        """
+        ids = set(annotation_ids)
+        count = sum(1 for item in exam.pdf_annotations if item.annotation_id in ids)
+        if count == 0:
+            return None
+        return self._remove_annotations_immediate(
+            exam=exam,
+            remove=lambda item: item.annotation_id in ids,
+            description="1 Markierung gelöscht" if count == 1 else f"{count} Markierungen gelöscht",
+        )
+
+    def _remove_annotations_immediate(self, *, exam: ExamProject, remove, description: str) -> ExamProject | None:
+        """Drop every annotation with ``remove(item)`` and persist it as one undo step (shared delete path)."""
         before_payload = exam.to_dict()
         previous_annotations = list(exam.pdf_annotations)
-        if annotation.sync_group_id:
-            exam.pdf_annotations = [
-                item for item in exam.pdf_annotations if item.sync_group_id != annotation.sync_group_id
-            ]
-            description = "Sync-Gruppe gelöscht"
-        else:
-            exam.pdf_annotations = [item for item in exam.pdf_annotations if item.annotation_id != annotation_id]
-            description = "Markierung gelöscht"
+        exam.pdf_annotations = [item for item in exam.pdf_annotations if not remove(item)]
 
         def _rollback() -> None:
             exam.pdf_annotations = previous_annotations
