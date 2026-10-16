@@ -49,9 +49,9 @@ def test_letters_in_the_points_field_choose_the_symbol_and_are_not_typed(correct
 
 def test_digit_outside_a_field_starts_a_new_points_value(correction):
     window = correction
-    window._correction_points_var.set("12")
-    assert _press(window._correction_canvas, "7")
-    assert window._correction_points_var.get() == "7"
+    window._correction_points_var.set("1,5")  # task 1A allows at most 2 points
+    assert _press(window._correction_canvas, "2")
+    assert window._correction_points_var.get() == "2"
 
 
 def test_nothing_fires_in_the_comment_field(correction, monkeypatch):
@@ -60,7 +60,7 @@ def test_nothing_fires_in_the_comment_field(correction, monkeypatch):
     monkeypatch.setattr(window._correction_finished_check, "invoke", lambda: clicks.append("finished"))
     monkeypatch.setattr(window._correction_finished_all_check, "invoke", lambda: clicks.append("all"))
     window._set_correction_marker_tool("check")
-    window._correction_points_var.set("3")
+    window._correction_points_var.set("1")
     comment = window._correction_comment_entry
 
     assert not _press(comment, "f")
@@ -68,7 +68,7 @@ def test_nothing_fires_in_the_comment_field(correction, monkeypatch):
     assert not press_key(comment, "space", char=" ")
     assert not press_key(comment, "space", char=" ", state=CONTROL)
     assert window._correction_marker_tool_key == "check"
-    assert window._correction_points_var.get() == "3"
+    assert window._correction_points_var.get() == "1"
     assert clicks == []
 
 
