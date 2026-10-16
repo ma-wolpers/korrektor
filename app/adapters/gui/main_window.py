@@ -52,8 +52,13 @@ from app.adapters.gui.main_window_import_split_export import MainWindowImportSpl
 from app.adapters.gui.main_window_import_split_order import MainWindowImportSplitOrderMixin
 from app.adapters.gui.main_window_grading_scale import MainWindowGradingScaleMixin
 from app.adapters.gui.main_window_task_categories import MainWindowTaskCategoriesMixin
-from app.adapters.gui.main_window_student_result import MainWindowStudentResultMixin
-from app.adapters.gui.main_window_student_result_pdf_export import MainWindowStudentResultPdfExportMixin
+from app.adapters.gui.main_window_evaluation import MainWindowEvaluationMixin
+from app.adapters.gui.main_window_evaluation_overview import MainWindowEvaluationOverviewMixin
+from app.adapters.gui.main_window_evaluation_overview_actions import MainWindowEvaluationOverviewActionsMixin
+from app.adapters.gui.main_window_evaluation_person import MainWindowEvaluationPersonMixin
+from app.adapters.gui.main_window_evaluation_statistics import MainWindowEvaluationStatisticsMixin
+from app.adapters.gui.main_window_evaluation_symbols import MainWindowEvaluationSymbolsMixin
+from app.adapters.gui.main_window_evaluation_task import MainWindowEvaluationTaskMixin
 from app.adapters.gui.main_window_batch_export import MainWindowBatchExportMixin
 from app.adapters.gui.main_window_reading_canvas import MainWindowReadingCanvasMixin
 from app.adapters.gui.main_window_reading import MainWindowReadingMixin
@@ -104,8 +109,13 @@ class MainWindow(
     MainWindowImportSplitOrderMixin,
     MainWindowGradingScaleMixin,
     MainWindowTaskCategoriesMixin,
-    MainWindowStudentResultMixin,
-    MainWindowStudentResultPdfExportMixin,
+    MainWindowEvaluationMixin,
+    MainWindowEvaluationOverviewMixin,
+    MainWindowEvaluationOverviewActionsMixin,
+    MainWindowEvaluationPersonMixin,
+    MainWindowEvaluationTaskMixin,
+    MainWindowEvaluationStatisticsMixin,
+    MainWindowEvaluationSymbolsMixin,
     MainWindowBatchExportMixin,
     MainWindowReadingCanvasMixin,
     MainWindowReadingMixin,

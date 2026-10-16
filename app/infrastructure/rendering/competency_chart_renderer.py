@@ -7,7 +7,7 @@ import matplotlib
 
 matplotlib.use("Agg")  # noqa: E402 - must run before any other matplotlib import/use in this process;
 # korrektor never embeds a live matplotlib canvas in Tkinter (a rendered
-# PNG is shown instead, see main_window_student_result.py), so a
+# PNG is shown instead, see main_window_evaluation_person.py), so a
 # non-interactive backend is always correct here and avoids pulling in a
 # GUI-toolkit-specific matplotlib backend as an accidental extra dependency.
 
@@ -66,6 +66,28 @@ def draw_bar(axes: Axes, values: list[tuple[str, float]], *, title: str = "") ->
     for label in axes.get_xticklabels():
         label.set_rotation(30)
         label.set_ha("right")
+
+
+def render_count_bar_chart(values: list[tuple[str, int]], *, title: str = "", xlabel: str = "", ylabel: str = "Anzahl") -> Figure:
+    """Bar chart of counts (e.g. how many persons reached which points) - integer y axis, not percent.
+
+    Counterpart of ``render_bar_chart`` for frequencies; the counts come finished from the
+    domain (``exam_evaluation.points_histogram``).
+    """
+    fig = Figure(figsize=(6.0, 3.2))
+    axes = fig.add_subplot(111)
+    if not values:
+        axes.text(0.5, 0.5, "Keine Daten", ha="center", va="center", transform=axes.transAxes)
+    else:
+        axes.bar([label for label, _count in values], [count for _label, count in values], color="#1d4ed8")
+        axes.yaxis.get_major_locator().set_params(integer=True)
+        axes.set_ylabel(ylabel)
+        if xlabel:
+            axes.set_xlabel(xlabel)
+    if title:
+        axes.set_title(title)
+    fig.tight_layout()
+    return fig
 
 
 def render_radar_chart(values: list[tuple[str, float]], *, title: str = "") -> Figure:

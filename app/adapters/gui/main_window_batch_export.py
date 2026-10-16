@@ -35,7 +35,9 @@ class MainWindowBatchExportMixin:
     fuer die Controller-Pruefung.
     """
 
-    def _open_batch_export_popup(self) -> None:
+    def _open_batch_export_popup(self, preselected_ids: list[str] | None = None) -> None:
+        """Open the batch export; ``preselected_ids`` (e.g. from the evaluation overview) narrows the
+        initial selection, default is everybody."""
         if self._controller is None or self._current_exam is None:
             return
         if not self._current_exam.students:
@@ -46,7 +48,11 @@ class MainWindowBatchExportMixin:
         self._batch_export_list.delete(0, ui.END)
         for student in self._current_exam.students:
             self._batch_export_list.insert(ui.END, student.display_name)
-        listbox_selection.set(self._batch_export_list, range(self._batch_export_list.size()))
+        indices = [
+            index for index, student in enumerate(self._current_exam.students)
+            if preselected_ids is None or student.student_id in preselected_ids
+        ]
+        listbox_selection.set(self._batch_export_list, indices)
         self._update_batch_export_preview()
 
     def _build_batch_export_popup(self) -> None:

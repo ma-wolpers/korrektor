@@ -220,6 +220,9 @@ class MainWindowOverviewMixin:
         self._refresh_region_tree()
         self._refresh_scan_workshop_after_reload()
         self._refresh_grading_scale_assignment_choices()
+        # The evaluation window shows feedback-page status and scores: reload it too
+        # (undo/redo of a feedback page or a score must never leave it stale).
+        self._refresh_evaluation_if_open()
 
         if self._correction_mode_active:
             self._refresh_correction_nav_dropdowns()

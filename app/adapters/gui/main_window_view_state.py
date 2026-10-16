@@ -88,7 +88,7 @@ class MainWindowViewStateMixin:
             detail_actions,
             text="Auswertung",
             style="SecondaryAction.TButton",
-            command=self._open_student_result_popup,
+            command=self._open_evaluation_popup,
         )
         student_result_button.pack(side=ui.RIGHT, padx=(0, 8))
         self._attach_hover_help(student_result_button, label="Ergebnisse pro Schüler:in ansehen")

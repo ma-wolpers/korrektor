@@ -99,11 +99,15 @@ class MainWindowBase(BwBaseWindow):
         self._task_category_tasks_frame: widgets.Frame | None = None
         self._task_category_categories_frame: widgets.Frame | None = None
         self._task_category_drag_drop = None
-        self._student_result_popup: ScrollablePopupWindow | None = None
-        self._student_result_cursor = 0
-        self._student_result_scores: dict[str, dict[str, float]] | None = None
-        self._student_result_current_result = None
-        self._student_result_chart_photo: ui.PhotoImage | None = None
+        # "Auswertung" window (main_window_evaluation*.py): one popup, four views.
+        self._evaluation_popup: ScrollablePopupWindow | None = None
+        self._evaluation_view = ""
+        self._evaluation_views: dict = {}
+        self._evaluation_scores: dict[str, dict[str, float]] | None = None
+        self._evaluation_data = None  # ExamEvaluation of the last refresh
+        self._evaluation_person_cursor = 0
+        self._evaluation_task_cursor = 0
+        self._evaluation_photos: dict[str, ui.PhotoImage] = {}
         self._batch_export_popup: ScrollablePopupWindow | None = None
         self._batch_export_scores: dict[str, dict[str, float]] | None = None
         self._batch_export_list: ui.Listbox | None = None
