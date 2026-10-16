@@ -151,3 +151,18 @@ def test_render_student_result_report_all_sections_constant_matches_default() ->
     fig_explicit = render_student_result_report(_result(), sections=ALL_REPORT_SECTIONS)
 
     assert len(fig_default.axes) == len(fig_explicit.axes) == 4
+
+
+def test_report_marks_bonus_tasks_in_the_points_column() -> None:
+    result = compute_student_result(
+        student_id="alice",
+        display_name="Alice",
+        scores_by_task={"1A": 5.0, "2C": 1.0},
+        all_tasks=[TaskDefinition("1A", "1A", 5.0), TaskDefinition("2C", "2C", 2.0, is_bonus=True)],
+        categories=[],
+        category_assignments={},
+        grading_scale_snapshot=None,
+    )
+    table = render_student_result_report(result).axes[1].tables[0]
+    points = {table[row, 0].get_text().get_text(): table[row, 2].get_text().get_text() for row in range(1, 3)}
+    assert points == {"1A": "5 / 5", "2C": "1 / 2 (Bonus)"}

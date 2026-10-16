@@ -12,10 +12,10 @@ from app.infrastructure.rendering.competency_chart_renderer import draw_bar, dra
 ALL_REPORT_SECTIONS: frozenset[str] = frozenset({"summary", "tasks", "categories", "chart"})
 
 
-def _format_points(achieved: float | None, max_points: float) -> str:
-    if achieved is None:
-        return f"- / {max_points:g}"
-    return f"{achieved:g} / {max_points:g}"
+def _format_points(achieved: float | None, max_points: float, is_bonus: bool = False) -> str:
+    """"1 / 2", "- / 2" while unscored; a bonus task gets " (Bonus)" (its maximum is not in the total)."""
+    text = f"- / {max_points:g}" if achieved is None else f"{achieved:g} / {max_points:g}"
+    return text + (" (Bonus)" if is_bonus else "")
 
 
 def render_student_result_report(
@@ -89,7 +89,7 @@ def render_student_result_report(
             if result.task_results:
                 task_axes.table(
                     cellText=[
-                        [task.task_code, task.category_name, _format_points(task.achieved_points, task.max_points)]
+                        [task.task_code, task.category_name, _format_points(task.achieved_points, task.max_points, task.is_bonus)]
                         for task in result.task_results
                     ],
                     colLabels=["Aufgabe", "Kategorie", "Punkte"],

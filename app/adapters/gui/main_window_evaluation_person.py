@@ -87,7 +87,7 @@ class MainWindowEvaluationPersonMixin:
         tasks_tree = self._evaluation_person_tasks_tree
         tasks_tree.delete(*tasks_tree.get_children())
         for task in result.task_results:
-            tasks_tree.insert("", ui.END, text=task.task_code, values=(task.category_name, fmt.points(task.achieved_points, task.max_points)))
+            tasks_tree.insert("", ui.END, text=task.task_code, values=(task.category_name, fmt.task_points(task.achieved_points, task.max_points, task.is_bonus)))
         categories_tree = self._evaluation_person_categories_tree
         categories_tree.delete(*categories_tree.get_children())
         for category in result.category_results:

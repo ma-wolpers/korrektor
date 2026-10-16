@@ -40,7 +40,8 @@ class MainWindowEvaluationOverviewMixin:
         widgets.Label(
             parent, style="Muted.TLabel", justify=ui.LEFT,
             text="Klick auf einen Namen: Auswertung der Person · Klick auf eine Aufgabe: Auswertung der Aufgabe\n"
-                 "Strg- bzw. Umschalt-Klick wählt mehrere Personen für Feedbackseite und Export aus.",
+                 "Strg- bzw. Umschalt-Klick wählt mehrere Personen für Feedbackseite und Export aus.\n"
+                 "„–“ = noch nicht bewertet · „+“ vor dem Maximum = Bonusaufgabe (zählt nicht zur möglichen Gesamtpunktzahl).",
         ).pack(anchor=ui.W)
         table = widgets.Frame(parent)
         table.pack(fill=ui.X, pady=(6, 0))
@@ -68,7 +69,7 @@ class MainWindowEvaluationOverviewMixin:
         tree.heading("name", text="Name")
         tree.column("name", width=170, stretch=False)
         for index, task in enumerate(self._current_exam.tasks):
-            tree.heading(f"t{index}", text=f"{task.code} ({task.max_points:g})")
+            tree.heading(f"t{index}", text=fmt.task_label(task.code, task.max_points, task.is_bonus, compact=True))
             tree.column(f"t{index}", width=72, anchor=ui.CENTER, stretch=False)
         for column, text, width in (("sum", "Σ", 80), ("grade", "Note", 70), ("feedback", "Feedbackseite", 100)):
             tree.heading(column, text=text)

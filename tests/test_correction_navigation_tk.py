@@ -161,3 +161,18 @@ def test_top_or_middle_is_not_forced_to_the_bottom(correction):
     window._change_correction_student(1)
     settle(window, 20)
     assert canvas.yview()[0] == pytest.approx(0.0)
+
+
+def test_bonus_task_is_marked_in_the_dropdown_and_the_max_label(correction):
+    window = correction
+    window._current_exam.tasks[2].is_bonus = True
+    try:
+        window._refresh_correction_nav_dropdowns()
+        labels = tuple(window._correction_task_dropdown.widget.cget("values"))
+        assert labels == ("1A (2 P.)", "1B (1 P.)", "2A (3 P., Bonus)")
+        window._go_to_correction_task("2A")
+        assert window._correction_max_points_var.get() == "Max: 3 (Bonus)"
+        window._go_to_correction_task("1A")
+        assert window._correction_max_points_var.get() == "Max: 2"
+    finally:
+        window._current_exam.tasks[2].is_bonus = False

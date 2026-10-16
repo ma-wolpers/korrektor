@@ -173,3 +173,19 @@ def test_symbols_view_without_symbols_disables_the_export(evaluation):
     assert str(evaluation._evaluation_legend_button.cget("state")) == "disabled"
     assert evaluation._controller.export_symbol_legend_for_exam(exam=evaluation._current_exam, color_hex="#000000") is None
     assert any("noch keine Symbole" in text for text in evaluation.shown)
+
+
+def test_bonus_task_in_header_sum_grade_person_and_task_view(evaluation):
+    """1B (8 P.) as bonus: the maximum is 2, Anna has 10 / 2 (500 %) and the best grade."""
+    evaluation._current_exam.tasks[1].is_bonus = True
+    evaluation._refresh_evaluation()
+    tree = evaluation._evaluation_overview_tree
+    assert tree.heading("t0", "text") == "1A (2)" and tree.heading("t1", "text") == "1B (+8)"
+    assert tree.item("anna", "values")[3:5] == ("10 / 2", "1")
+    assert tree.item("ben", "values")[3] == "– / 2"  # unscored bonus: total stays open
+
+    evaluation._show_evaluation_person("anna")
+    tasks_tree = evaluation._evaluation_person_tasks_tree
+    assert [tasks_tree.item(item, "values")[1] for item in tasks_tree.get_children()] == ["2 / 2", "8 / 8 (Bonus)"]
+    evaluation._show_evaluation_task("1B")
+    assert evaluation._evaluation_task_stats_var.get().startswith("Bonusaufgabe · Max. 8 Punkte")

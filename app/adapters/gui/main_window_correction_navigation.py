@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Hashable
 
+from app.adapters.gui.evaluation_format import task_label
 from app.adapters.gui.nav_dropdown import NavDropdown
 from app.core.domain.models import StudentExam
 from app.core.domain.task_spec import main_task_of
@@ -45,7 +46,7 @@ class MainWindowCorrectionNavigationMixin:
         Called after every move and after an in-place reload, so a person renamed
         meanwhile shows the new name. Never triggers a pick.
         """
-        task_items = [(code, f"{code} ({max_points:g} P.)") for code, max_points in self._correction_task_items]
+        task_items = [(code, task_label(code, max_points, self._correction_task_is_bonus(code))) for code, max_points in self._correction_task_items]
         self._correction_task_dropdown.set_items(task_items, self._correction_task_code)
         student_items: list[tuple[Hashable, str]] = []
         if self._current_exam is not None:

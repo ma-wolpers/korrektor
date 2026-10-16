@@ -49,6 +49,7 @@ class TaskStatistics:
     average_percent: float | None
     minimum: float | None
     maximum: float | None
+    is_bonus: bool = False
 
 
 @dataclass(frozen=True)
@@ -122,6 +123,7 @@ def task_statistics(
                 average_percent=(average / task.max_points * 100.0) if average is not None and task.max_points > 0 else None,
                 minimum=min(values) if values else None,
                 maximum=max(values) if values else None,
+                is_bonus=task.is_bonus,
             )
         )
     return statistics

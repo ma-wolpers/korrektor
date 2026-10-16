@@ -21,6 +21,11 @@ def points(achieved: float | None, max_points: float) -> str:
     return f"{number(achieved)} / {max_points:g}"
 
 
+def task_points(achieved: float | None, max_points: float, is_bonus: bool) -> str:
+    """`points` of one task, marked "(Bonus)" for a bonus task: "1 / 2 (Bonus)"."""
+    return points(achieved, max_points) + (" (Bonus)" if is_bonus else "")
+
+
 def percent(value: float | None) -> str:
     """"75 %" (rounded), or "–"."""
     return UNSCORED if value is None else f"{value:.0f} %"

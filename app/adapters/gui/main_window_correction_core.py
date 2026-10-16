@@ -201,7 +201,7 @@ class MainWindowCorrectionCoreMixin:
             self._refresh_correction_completion_controls()
             return
 
-        self._correction_max_points_var.set(f"Max: {max_points:g}")
+        self._correction_max_points_var.set(f"Max: {max_points:g}" + (" (Bonus)" if self._correction_task_is_bonus(task_code) else ""))
         if not load_saved_points or self._controller is None or self._current_exam is None:
             return
         student = self._current_correction_student()

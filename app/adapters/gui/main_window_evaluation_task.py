@@ -75,7 +75,7 @@ class MainWindowEvaluationTaskMixin:
         span = fmt.UNSCORED if stat.minimum is None else f"{stat.minimum:g}–{stat.maximum:g}"
         average = fmt.number(None if stat.average is None else round(stat.average, 2))
         self._evaluation_task_stats_var.set(
-            f"Max. {stat.max_points:g} Punkte · Ø {average} ({fmt.percent(stat.average_percent)}) · Min–Max {span} · "
+            f"{'Bonusaufgabe · ' if stat.is_bonus else ''}Max. {stat.max_points:g} Punkte · Ø {average} ({fmt.percent(stat.average_percent)}) · Min–Max {span} · "
             f"bewertet {fmt.count_of(stat.scored_count, stat.total_count)} · fertig {fmt.count_of(stat.finished_count, stat.total_count)}"
         )
         rows = task_rows(self._evaluation_data.results, finished_pairs(self._current_exam.person_task_completions), stat.task_code)
