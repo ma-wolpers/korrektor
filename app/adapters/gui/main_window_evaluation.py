@@ -61,8 +61,6 @@ class MainWindowEvaluationMixin:
         for text, view in (("Übersicht", "overview"), ("Symbole", "symbols")):
             widgets.Button(header, text=text, style="SecondaryAction.TButton",
                            command=lambda view=view: self._show_evaluation_view(view)).pack(side=ui.LEFT, padx=(0, 8))
-        widgets.Button(header, text="Schließen", style="SecondaryAction.TButton",
-                       command=self._close_evaluation_popup).pack(side=ui.RIGHT)
         self._evaluation_title_var = ui.StringVar(value="")
         widgets.Label(header, textvariable=self._evaluation_title_var, style="Muted.TLabel").pack(side=ui.LEFT, padx=(8, 0))
 
