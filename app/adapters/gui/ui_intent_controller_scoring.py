@@ -5,6 +5,7 @@ from pathlib import Path
 
 from app.adapters.gui.dialog_services import filedialog, messagebox
 from app.core.domain.models import ExamProject
+from app.core.domain.score_rules import points_error
 
 
 class UiIntentControllerScoringMixin:
@@ -26,6 +27,14 @@ class UiIntentControllerScoringMixin:
             max_points = float(max_points_text.replace(",", ".")) if max_points_text.strip() else 0.0
         except ValueError:
             messagebox.showerror("Ungültige Eingabe", "Punkte und Max-Punkte müssen Zahlen sein.")
+            return False
+
+        # The task's own maximum is authoritative; the passed max only stands in for a
+        # code that is not (yet) a task of the exam (the free-form points form).
+        task = next((item for item in exam.tasks if item.code == task_code.strip().upper()), None)
+        problem = points_error(points, task.max_points if task is not None else max_points, task_code.strip().upper())
+        if problem is not None:
+            messagebox.showerror("Punkte nicht gespeichert", problem)
             return False
 
         score_file = Path(exam.folder_path) / "korrektor_scores.csv"
