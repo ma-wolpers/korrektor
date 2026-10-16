@@ -213,3 +213,14 @@ def test_saved_v2_has_no_extra_page_assignments_so_old_versions_reject_it() -> N
 
     assert "extra_page_assignments" not in payload and "person_area_completions" not in payload
     assert all("tasks" not in region for region in payload["regions"])
+
+
+def test_task_bonus_flag_defaults_to_false_and_round_trips() -> None:
+    raw = _base_raw_exam()
+    exam = _v2(raw)
+    assert all(task.is_bonus is False for task in exam.tasks)  # older files have no "is_bonus"
+
+    exam.tasks[0].is_bonus = True
+    saved = exam.to_dict()
+    assert saved["tasks"][0]["is_bonus"] is True
+    assert ExamProject.from_dict(saved).tasks[0].is_bonus is True

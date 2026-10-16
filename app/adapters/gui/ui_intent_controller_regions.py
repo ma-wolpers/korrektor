@@ -17,7 +17,8 @@ class UiIntentControllerRegionsMixin:
     Order of checks in `upsert_region_immediate` (binding): placement (rule
     A4) -> unknown codes -> point change of a scored task (rejected) -> code
     re-created with old CSV scores of a different maximum (rejected, A5) ->
-    confirm point changes -> pure edit on a copy (`region_edit`) -> confirm
+    confirm point and bonus changes (a bonus change alone is allowed even for
+    scored tasks, with a warning) -> pure edit on a copy (`region_edit`) -> confirm
     removed marks -> save -> one history action with full payload snapshots.
     Any "no"/error leaves the exam and the files unchanged.
     """
@@ -26,6 +27,11 @@ class UiIntentControllerRegionsMixin:
     def _existing_task_codes(exam: ExamProject) -> set[str]:
         """Codes of the exam's tasks (comments and scores may only reference these)."""
         return {task.code for task in exam.tasks}
+
+    def _scored_codes(self, *, exam: ExamProject, codes) -> list[str]:
+        """Those of ``codes`` (sorted) that already have a recorded score of any person."""
+        scores = self._deps.score_repository.load_scores(exam=exam)
+        return sorted(code for code in codes if any(code in student_scores for student_scores in scores.values()))
 
     def _reject_scored_point_changes(self, *, exam: ExamProject, plan: TaskChangePlan) -> bool:
         """Block changing ``max_points`` of a task that already has recorded scores; ``True`` = rejected.
@@ -37,10 +43,7 @@ class UiIntentControllerRegionsMixin:
         """
         if not plan.changed:
             return False
-        scores = self._deps.score_repository.load_scores(exam=exam)
-        already_scored = sorted(
-            code for code, _old, _new in plan.changed if any(code in student_scores for student_scores in scores.values())
-        )
+        already_scored = self._scored_codes(exam=exam, codes=[code for code, _old, _new in plan.changed])
         if not already_scored:
             return False
         messagebox.showerror(
@@ -49,6 +52,24 @@ class UiIntentControllerRegionsMixin:
             "geändert werden, damit bereits erfasste Punkte/Noten nicht rückwirkend verfälscht werden.",
         )
         return True
+
+    def _confirm_task_changes(self, *, exam: ExamProject, plan: TaskChangePlan) -> bool:
+        """Ask before changing points or the bonus flag of existing tasks; ``True`` = go ahead.
+
+        A bonus change alone keeps the points, so it is allowed even for scored tasks
+        (unlike a point change, `_reject_scored_point_changes`) - but totals, percentages
+        and grades of every person change, which the question says for scored tasks.
+        """
+        if not plan.changed and not plan.bonus_changed:
+            return True
+        lines = [f"{code}: {old:g} → {new:g} P." for code, old, new in plan.changed]
+        lines += [f"{code}: {'Bonus' if old else 'normal'} → {'Bonus' if new else 'normal'}" for code, old, new in plan.bonus_changed]
+        text = "\n".join(lines) + "\n\nDie Änderung gilt für alle Bereiche dieser Aufgaben."
+        scored = self._scored_codes(exam=exam, codes=[code for code, _old, _new in plan.bonus_changed])
+        if scored:
+            text += (f"\n\nBereits bewertet ({', '.join(scored)}): Gesamtpunktzahl, Prozent und Noten "
+                     "ändern sich für alle Personen.")
+        return messagebox.askyesno("Aufgaben ändern?", text + "\n\nÄndern?")
 
     def _check_recreated_tasks(self, *, exam: ExamProject, plan: TaskChangePlan) -> str | None:
         """Rule A5 for codes created (again) while old scores remain in the CSV.
@@ -86,17 +107,17 @@ class UiIntentControllerRegionsMixin:
     ) -> ExamProject | None:
         """Create or change a region (``student_pdf == ""`` = Superseiten, else Einzelseiten); see the class docstring.
 
-        ``task_specs`` are `TaskSpec`s or ``(code, points | None)`` tuples;
+        ``task_specs`` are `TaskSpec`s or ``(code, points | None[, bonus])`` tuples;
         ``points=None`` references an existing task. ``area_codes[0]`` is the
         preferred display label of a new region (the draft's label).
         """
         specs = [
-            spec if isinstance(spec, TaskSpec) else TaskSpec(str(spec[0]).strip().upper(), spec[1])
+            spec if isinstance(spec, TaskSpec) else TaskSpec(str(spec[0]).strip().upper(), spec[1], bool(spec[2]) if len(spec) > 2 else False)
             for spec in task_specs
             if (spec.code if isinstance(spec, TaskSpec) else str(spec[0])).strip()
         ]
         if not specs:
-            messagebox.showerror("Ungültige Eingabe", "Bitte mindestens eine Aufgabe angeben, z. B. 4a:2 oder 4a-c:1,2,1.")
+            messagebox.showerror("Ungültige Eingabe", "Bitte mindestens eine Aufgabe angeben, z. B. 4a:2 oder 4a-c:1,2,1 (Bonus: 2c:2?).")
             return None
         problem = region_placement_error(exam, student_pdf, page_number)
         if problem:
@@ -115,11 +136,7 @@ class UiIntentControllerRegionsMixin:
         note = self._check_recreated_tasks(exam=exam, plan=plan)
         if note is None:
             return None
-        if plan.changed and not messagebox.askyesno(
-            "Punkte ändern?",
-            "\n".join(f"{code}: {old:g} → {new:g} P." for code, old, new in plan.changed)
-            + "\n\nDie Punkte gelten für alle Bereiche dieser Aufgaben. Ändern?",
-        ):
+        if not self._confirm_task_changes(exam=exam, plan=plan):
             return None
         try:
             result = apply_region_upsert(

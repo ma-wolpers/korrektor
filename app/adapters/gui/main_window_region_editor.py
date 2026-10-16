@@ -29,7 +29,7 @@ class MainWindowRegionEditorMixin:
         self._mode_row = widgets.Frame(self._reading_view, style="Surface.TFrame")
         self._mode_row.pack(fill=ui.X, pady=(8, 0))
         widgets.Label(self._mode_row, text="Aufgaben-Eingabe:", style="Muted.TLabel").pack(side=ui.LEFT)
-        widgets.Radiobutton(self._mode_row, text="Schnell (z. B. 4a-c:1,2,1)", value="quick", variable=self._assignment_mode_var).pack(side=ui.LEFT, padx=(8, 0))
+        widgets.Radiobutton(self._mode_row, text="Schnell (z. B. 4a-c:1,2,1; Bonus 2c:2?)", value="quick", variable=self._assignment_mode_var).pack(side=ui.LEFT, padx=(8, 0))
         widgets.Radiobutton(self._mode_row, text="Formular", value="form", variable=self._assignment_mode_var).pack(side=ui.LEFT, padx=(8, 0))
         self._assignment_mode_var.trace_add("write", lambda *_args: self._refresh_task_input_mode())
 
@@ -158,7 +158,7 @@ class MainWindowRegionEditorMixin:
             if region.student_pdf != student_pdf or (step2 and region.page_number != page_number):
                 continue
             tasks = tasks_of_region(self._current_exam, region)
-            tasks_text = format_task_specs([(task.code, task.max_points) for task in tasks]) or "-"
+            tasks_text = format_task_specs([(task.code, task.max_points, task.is_bonus) for task in tasks]) or "-"
             row_id = self._regions_tree.insert("", ui.END, values=(self._format_area_label(region.assigned_area_codes), tasks_text, region.page_number))
             self._region_tree_rows[row_id] = ("region", region.region_id)
 

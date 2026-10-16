@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.adapters.gui.evaluation_format import task_label
 from app.core.domain.task_spec import TaskSpec, format_task_specs, parse_task_specs, task_sort_key
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
@@ -21,7 +22,7 @@ class MainWindowTaskChecklistMixin:
     fails, the text is left untouched, the tick rolls back and a hint is
     shown. Otherwise only the ticked code is added (without points) or
     removed - every other entry, including new codes with points such as
-    ``7A:2`` and points of existing codes, stays - and the text is rewritten
+    ``7A:2`` and points and bonus markers (``2C:2?``) of existing codes, stays - and the text is rewritten
     with `format_task_specs`. Nothing is saved: Enter, leaving the field or
     "Speichern" commits, exactly as in Schritt 1. The checkboxes are bw-gui
     `Checkbox`es (staged selection: their callback only changes local
@@ -55,7 +56,7 @@ class MainWindowTaskChecklistMixin:
             variable = ui.BooleanVar(value=False)
             box = Checkbox(
                 self._task_checklist_scroll.content,
-                text=f"{task.code} ({task.max_points:g} P.)",
+                text=task_label(task.code, task.max_points, task.is_bonus),
                 variable=variable,
                 on_select=lambda requested, code=task.code: self._on_task_checked(code, requested),
                 takefocus=False,

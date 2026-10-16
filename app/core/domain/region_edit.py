@@ -81,8 +81,9 @@ def apply_region_upsert(
             continue
         if spec.code in lookup:
             lookup[spec.code].max_points = float(spec.points)
+            lookup[spec.code].is_bonus = spec.bonus
         else:
-            task = TaskDefinition(code=spec.code, name=spec.code, max_points=float(spec.points))
+            task = TaskDefinition(code=spec.code, name=spec.code, max_points=float(spec.points), is_bonus=spec.bonus)
             result.tasks.append(task)
             lookup[spec.code] = task
     codes = [spec.code for spec in specs]

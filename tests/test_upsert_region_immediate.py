@@ -198,3 +198,65 @@ def test_removing_a_code_from_a_region_removes_only_marks_of_that_code(tmp_path,
 
     assert [mark.annotation_id for mark in updated.pdf_annotations] == ["m1", "m3"]
     assert [task.code for task in updated.tasks] == ["1A"]
+
+
+def _score_1a(controller, exam) -> None:
+    controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=3.0, max_points=5.0)
+
+
+def test_new_bonus_task_is_created_with_its_flag(tmp_path, dialogs) -> None:
+    controller, exam = _setup(tmp_path)
+
+    updated = _upsert(controller, exam, [("2C", 2.0, True)], box=(0, 100, 50, 150))
+
+    assert updated is not None
+    assert {task.code: task.is_bonus for task in updated.tasks} == {"1A": False, "2C": True}
+    assert _reload(controller).tasks[1].is_bonus is True and not dialogs["asked"]
+
+
+def test_bonus_switch_of_an_unscored_task_asks_and_keeps_the_points(tmp_path, dialogs) -> None:
+    controller, exam = _setup(tmp_path)
+
+    updated = _upsert(controller, exam, [("1A", 5.0, True)], region_id="r-a", box=(0, 0, 100, 100))
+
+    assert updated is not None and updated.tasks == [TaskDefinition("1A", "1A", 5.0, True)]
+    assert "1A: normal → Bonus" in dialogs["asked"][0] and "Bereits bewertet" not in dialogs["asked"][0]
+
+
+def test_bonus_switch_of_a_scored_task_warns_and_applies_on_yes(tmp_path, dialogs) -> None:
+    controller, exam = _setup(tmp_path)
+    _score_1a(controller, exam)
+
+    updated = _upsert(controller, exam, [("1A", 5.0, True)], region_id="r-a", box=(0, 0, 100, 100))
+
+    assert updated is not None and not dialogs["errors"]
+    assert "Bereits bewertet (1A)" in dialogs["asked"][0] and "Noten" in dialogs["asked"][0]
+    assert _reload(controller).tasks[0].is_bonus is True and controller.can_undo()
+
+
+def test_declined_bonus_switch_of_a_scored_task_changes_nothing(tmp_path, dialogs) -> None:
+    controller, exam = _setup(tmp_path)
+    _score_1a(controller, exam)
+    dialogs["yes"] = False
+
+    assert _upsert(controller, exam, [("1A", 5.0, True)], region_id="r-a") is None
+    assert _reload(controller).tasks[0].is_bonus is False and not controller.can_undo()
+
+
+def test_point_change_of_a_scored_task_stays_rejected_even_with_a_bonus_switch(tmp_path, dialogs) -> None:
+    controller, exam = _setup(tmp_path)
+    _score_1a(controller, exam)
+
+    assert _upsert(controller, exam, [("1A", 8.0, True)], region_id="r-a") is None
+    assert "bereits bewerteten" in dialogs["errors"][0] and not dialogs["asked"]
+    assert _reload(controller).tasks[0] == TaskDefinition("1A", "1A", 5.0, False)
+
+
+def test_reference_without_points_keeps_the_bonus_flag(tmp_path, dialogs) -> None:
+    controller, exam = _setup(tmp_path)
+    exam = _upsert(controller, exam, [("1A", 5.0, True)], region_id="r-a", box=(0, 0, 100, 100))
+    dialogs["asked"].clear()
+
+    updated = _upsert(controller, exam, [("1A", None)], box=(0, 100, 50, 150))
+
+    assert updated is not None and updated.tasks[0].is_bonus is True and not dialogs["asked"]

@@ -69,6 +69,11 @@ class MainWindowCorrectionNavigationMixin:
                 return code, max_points
         return None, 0.0
 
+    def _correction_task_is_bonus(self, code: str | None) -> bool:
+        """True if ``code`` is a bonus task of the current exam (shorthand ``2c:2?``)."""
+        exam = self._current_exam
+        return exam is not None and any(task.code == code and task.is_bonus for task in exam.tasks)
+
     def _go_to_correction_task(self, code: str) -> None:
         """Switch to task ``code``: save the current task's entries, then show all regions of ``code``.
 

@@ -113,27 +113,33 @@ class TaskChangePlan:
 
     ``new``: codes to create with points; ``changed``: ``(code, old, new)``
     points of existing tasks; ``unknown``: codes without points that do not
-    exist yet (an error - points are needed to create a task).
+    exist yet (an error - points are needed to create a task);
+    ``bonus_changed``: ``(code, old, new)`` bonus flag of existing tasks given with
+    points (a reference without points never changes the flag).
     """
 
     new: tuple[tuple[str, float], ...]
     changed: tuple[tuple[str, float, float], ...]
     unknown: tuple[str, ...]
+    bonus_changed: tuple[tuple[str, bool, bool], ...] = ()
 
 
 def plan_task_changes(exam: ExamProject, specs: list[TaskSpec]) -> TaskChangePlan:
     """Compare a parsed task input against the exam's tasks (nothing is changed)."""
     lookup = task_by_code(exam)
-    new, changed, unknown = [], [], []
+    new, changed, unknown, bonus_changed = [], [], [], []
     for spec in specs:
         existing = lookup.get(spec.code)
         if existing is None and spec.points is None:
             unknown.append(spec.code)
         elif existing is None:
             new.append((spec.code, float(spec.points)))
-        elif spec.points is not None and abs(existing.max_points - spec.points) > 1e-9:
-            changed.append((spec.code, existing.max_points, float(spec.points)))
-    return TaskChangePlan(tuple(new), tuple(changed), tuple(unknown))
+        elif spec.points is not None:
+            if abs(existing.max_points - spec.points) > 1e-9:
+                changed.append((spec.code, existing.max_points, float(spec.points)))
+            if existing.is_bonus != spec.bonus:
+                bonus_changed.append((spec.code, existing.is_bonus, spec.bonus))
+    return TaskChangePlan(tuple(new), tuple(changed), tuple(unknown), tuple(bonus_changed))
 
 
 def cleanup_after_region_change(exam: ExamProject) -> list[str]:

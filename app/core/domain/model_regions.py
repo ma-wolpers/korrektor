@@ -8,15 +8,25 @@ from typing import Any
 
 @dataclass(slots=True)
 class TaskDefinition:
+    """One (sub)task of the exam.
+
+    ``is_bonus``: a bonus task (shorthand ``2c:2?``) - its ``max_points`` do not count
+    into the exam's (or a category's) maximum, the achieved points do count into a
+    person's total (``student_result._summarize``). Optional in JSON (missing = normal
+    task), so older files load unchanged; older Korrektor versions ignore it.
+    """
+
     code: str
     name: str
     max_points: float
+    is_bonus: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "code": self.code,
             "name": self.name,
             "max_points": self.max_points,
+            "is_bonus": self.is_bonus,
         }
 
     @classmethod
@@ -25,6 +35,7 @@ class TaskDefinition:
             code=str(raw.get("code", "")).strip(),
             name=str(raw.get("name", "")).strip(),
             max_points=float(raw.get("max_points", 0.0)),
+            is_bonus=bool(raw.get("is_bonus", False)),
         )
 
 

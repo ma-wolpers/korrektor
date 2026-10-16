@@ -29,7 +29,7 @@ def step2_window(korrektor_window, tmp_path):
             RegionAssignment(region_id="r2", student_pdf="", page_number=2, box=RegionBox(0, 0, 100, 100), task_codes=["1A"], assigned_area_codes=["A"]),
             RegionAssignment(region_id="x-ben", student_pdf="Ben.pdf", page_number=1, box=RegionBox(0, 0, 50, 50), task_codes=["1A"], assigned_area_codes=["B"]),
         ],
-        tasks=[TaskDefinition(code="1A", name="1A", max_points=2.0), TaskDefinition(code="1B", name="1B", max_points=1.0)],
+        tasks=[TaskDefinition(code="1A", name="1A", max_points=2.0), TaskDefinition(code="1B", name="1B", max_points=1.0, is_bonus=True)],
     )
     exam.regions[0].task_codes = ["1A", "1B"]
     exam_file = window.deps.exam_repository.save_exam(exam)
@@ -113,6 +113,12 @@ def test_checklist_never_loses_typed_input(step2_window):
     assert _editor(window) == "1A:2; 1B; 7A:2"
     window._task_check_boxes["1A"].invoke()  # untick 1A
     assert "7A:2" in _editor(window) and "1A" not in _editor(window)
+
+    window._quick_tasks_var.set("1B:1?; 7A:2")
+    window._task_check_boxes["1A"].invoke()  # a typed bonus marker stays
+    assert _editor(window) == "1A; 1B:1?; 7A:2"
+    assert window._task_check_boxes["1B"].cget("text") == "1B (1 P., Bonus)"
+    assert window._task_check_boxes["1A"].cget("text") == "1A (2 P.)"
 
     window._quick_tasks_var.set("4a-")  # invalid: ticking is rejected, text untouched
     before = window._task_check_vars["1A"].get()

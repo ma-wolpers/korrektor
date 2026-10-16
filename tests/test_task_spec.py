@@ -86,3 +86,48 @@ def test_natural_order_and_main_task():
     codes = ["10A", "4B", "2", "4A", "2.10", "2.1"]
     assert sorted(codes, key=task_sort_key) == ["2", "2.1", "2.10", "4A", "4B", "10A"]
     assert main_task_of("4b") == "4" and main_task_of("2.1B") == "2.1" and main_task_of("A") == "A" and main_task_of("12") == "12"
+
+
+def _triples(text, **kwargs):
+    result = parse_task_specs(text, **kwargs)
+    assert result.error is None, result.error
+    return [(item.code, item.points, item.bonus) for item in result.items]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("2c:2?", [("2C", 2, True)]),
+        ("5a:1,5?", [("5A", 1.5, True)]),  # decimal comma, marker after the value
+        ("4a-c:2?", [("4A", 2, True), ("4B", 2, True), ("4C", 2, True)]),  # shared value: all bonus
+        ("4a-c:1,2?,3", [("4A", 1, False), ("4B", 2, True), ("4C", 3, False)]),  # only the marked value
+        ("4a-c:1, 2? ,3", [("4A", 1, False), ("4B", 2, True), ("4C", 3, False)]),
+        ("1a:2;2c:2?", [("1A", 2, False), ("2C", 2, True)]),
+    ],
+)
+def test_bonus_marker_belongs_to_the_value_before_it(text, expected):
+    assert _triples(text) == expected
+
+
+def test_a_reference_without_points_is_never_bonus():
+    assert _triples("4c;5a:2?", require_points=False) == [("4C", None, False), ("5A", 2, True)]
+
+
+@pytest.mark.parametrize("text", ["2c?", "2c?:2", "2c:2??", "4a-c:1,?2,3", "2c:?", "2c:?2", "4a-c?:2"])
+def test_bonus_marker_anywhere_else_is_an_error(text):
+    result = parse_task_specs(text, require_points=False)
+    assert result.items == () and "? markiert eine Bonusaufgabe" in result.error
+
+
+@pytest.mark.parametrize("text", ["2c:2?", "5a:1,5?", "4a-c:2?", "4a-c:1,2?,3", "4a-c:2,2?,2", "1a:2;1b:3;2c:2?", "4c;5a:2?"])
+def test_format_round_trip_keeps_the_bonus_marker(text):
+    parsed = parse_task_specs(text, require_points=False).items
+    assert parse_task_specs(format_task_specs(parsed), require_points=False).items == parsed
+    assert parse_task_specs(format_task_specs(parsed, separator="\n"), require_points=False).items == parsed
+
+
+def test_format_writes_the_marker_per_value_or_once_for_a_shared_value():
+    assert format_task_specs([("4A", 2, True), ("4B", 2, True), ("4C", 2, True)]) == "4A-C:2?"
+    assert format_task_specs([("4A", 2), ("4B", 2, True), ("4C", 2)]) == "4A-C:2,2?,2"
+    assert format_task_specs([TaskSpec("5A", 1.5, True)]) == "5A:1,5?"
+    assert format_task_specs([("2C", 2, False)]) == "2C:2"

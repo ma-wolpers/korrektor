@@ -50,7 +50,7 @@ class MainWindowRegionFormMixin:
                 return
             self._selected_region_id = region_id
             self._active_region_var.set(region.assigned_area_codes[0] if region.assigned_area_codes else "-")
-            self._show_task_specs_in_editor([(task.code, task.max_points) for task in tasks_of_region(self._current_exam, region)])
+            self._show_task_specs_in_editor([(task.code, task.max_points, task.is_bonus) for task in tasks_of_region(self._current_exam, region)])
         self._sync_task_checklist_from_editor()
         self._rerender_active_page()
 

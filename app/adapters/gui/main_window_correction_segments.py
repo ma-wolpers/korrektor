@@ -49,7 +49,7 @@ class MainWindowCorrectionSegmentsMixin:
                 area_code=(region.assigned_area_codes[0].strip().upper() if region.assigned_area_codes else ""),
                 page_number=region.page_number,
                 box=(region.box.x0, region.box.y0, region.box.x1, region.box.y1),
-                tasks=[TaskDefinition(task.code, task.name, task.max_points) for task in tasks_of_region(exam, region)],
+                tasks=[TaskDefinition(task.code, task.name, task.max_points, task.is_bonus) for task in tasks_of_region(exam, region)],
             )
             for region in exam.regions
         }
@@ -76,7 +76,7 @@ class MainWindowCorrectionSegmentsMixin:
         code, max_points = self._selected_correction_task()
         if code is None:
             return None
-        return CorrectionTemplate(region_id="", area_code=code, page_number=0, box=(0.0, 0.0, 0.0, 0.0), tasks=[TaskDefinition(code, code, max_points)])
+        return CorrectionTemplate(region_id="", area_code=code, page_number=0, box=(0.0, 0.0, 0.0, 0.0), tasks=[TaskDefinition(code, code, max_points, self._correction_task_is_bonus(code))])
 
     # --- segments --------------------------------------------------------------------
 

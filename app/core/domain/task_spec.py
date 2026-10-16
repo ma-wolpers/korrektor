@@ -13,6 +13,11 @@ Grammar (binding, see ARCHITEKTUR "Aufgaben-Eingabe"):
 - No ``:`` means "no points" (``None``) - only allowed where the caller
   accepts references to existing tasks. ``4a:`` (empty value) is an error.
 - A code may occur only once per input.
+- **Bonus:** a ``?`` directly after a value marks a bonus task (its points do not
+  count into the exam's maximum): ``2c:2?``, ``5a:1,5?``. A shared value applies
+  with its marker to all codes (``4a-c:2?`` = three bonus tasks); in a list only
+  the marked value is bonus (``4a-c:1,2?,3`` = only 4B). ``?`` anywhere else - in a
+  code (``2c?``) or twice (``2??``) - is an error.
 
 `format_task_specs` is the inverse: it compresses consecutive codes back
 into runs, so ``parse(format(parse(x))) == parse(x)`` for every valid ``x``.
@@ -25,14 +30,17 @@ import re
 from dataclasses import dataclass
 
 _CODE_TAIL = re.compile(r"^(.*?)([A-Za-z]+|\d+)$")
+_BONUS = "?"
+_BONUS_HINT = "? markiert eine Bonusaufgabe und steht einmal direkt hinter den Punkten (z. B. 2c:2?)."
 
 
 @dataclass(frozen=True)
 class TaskSpec:
-    """One parsed task: canonical ``code`` and ``points`` (``None`` = reference to an existing task)."""
+    """One parsed task: canonical ``code``, ``points`` (``None`` = reference to an existing task), ``bonus``."""
 
     code: str
     points: float | None
+    bonus: bool = False
 
 
 @dataclass(frozen=True)
@@ -76,13 +84,15 @@ def _parse_entry(entry: str, require_points: bool) -> list[TaskSpec]:
             raise _SpecError(f"„{entry}“: Punkte fehlen (z. B. {codes[0]}:2).")
         return [TaskSpec(code, None) for code in codes]
     points = _parse_points(points_text.strip(), len(codes), entry)
-    return [TaskSpec(code, value) for code, value in zip(codes, points)]
+    return [TaskSpec(code, value, bonus) for code, (value, bonus) in zip(codes, points)]
 
 
 def _expand_codes(text: str, entry: str) -> list[str]:
     """``4a-d`` -> ``[4A, 4B, 4C, 4D]``; a single code -> ``[CODE]``."""
     if not text:
         raise _SpecError(f"„{entry}“: Aufgaben-Code fehlt.")
+    if _BONUS in text:
+        raise _SpecError(f"„{entry}“: {_BONUS_HINT}")
     if text.count("-") > 1:
         raise _SpecError(f"„{entry}“: nur ein Bindestrich pro Bereich erlaubt (z. B. 4a-d).")
     if "-" not in text:
@@ -112,22 +122,33 @@ def _expand_codes(text: str, entry: str) -> list[str]:
     return [f"{prefix}{value}".upper() for value in values]
 
 
-def _parse_points(text: str, count: int, entry: str) -> list[float]:
-    """Points for ``count`` codes: decimal comma for one code, list or shared value for several."""
+def _parse_points(text: str, count: int, entry: str) -> list[tuple[float, bool]]:
+    """``(points, bonus)`` for ``count`` codes: decimal comma for one code, list or shared value for several."""
     if not text:
         raise _SpecError(f"„{entry}“: Punktwert fehlt nach dem Doppelpunkt.")
     if count == 1:
         if text.count(",") > 1:
             raise _SpecError(f"„{entry}“: eine Aufgabe, aber mehrere Punktwerte.")
-        return [_number(text.replace(",", "."), entry)]
+        return [_value(text, entry, decimal_comma=True)]
     parts = [part.strip() for part in text.split(",")]
     if len(parts) == 1:
-        return [_number(parts[0], entry)] * count
+        return [_value(parts[0], entry)] * count
     if any(not part for part in parts):
         raise _SpecError(f"„{entry}“: ein Punktwert fehlt.")
     if len(parts) != count:
         raise _SpecError(f"„{entry}“: {count} Aufgaben, aber {len(parts)} Punktwerte.")
-    return [_number(part, entry) for part in parts]
+    return [_value(part, entry) for part in parts]
+
+
+def _value(text: str, entry: str, *, decimal_comma: bool = False) -> tuple[float, bool]:
+    """One value with an optional trailing bonus marker: ``"2?"`` -> ``(2.0, True)``."""
+    bonus = text.endswith(_BONUS)
+    number_text = text[: -len(_BONUS)].strip() if bonus else text
+    if _BONUS in number_text or not number_text:
+        raise _SpecError(f"„{entry}“: {_BONUS_HINT}")
+    if decimal_comma:
+        number_text = number_text.replace(",", ".")
+    return _number(number_text, entry), bonus
 
 
 def _number(text: str, entry: str) -> float:
@@ -144,11 +165,12 @@ def _number(text: str, entry: str) -> float:
 def format_task_specs(items, *, separator: str = "; ") -> str:
     """Inverse of `parse_task_specs`: consecutive codes with the same prefix become runs.
 
-    ``items`` may be `TaskSpec`s or ``(code, points)`` tuples. Runs are only
-    formed among entries that all have points or all have none; equal values
-    collapse to one shared value (``4A-D:2``).
+    ``items`` may be `TaskSpec`s or ``(code, points[, bonus])`` tuples. Runs are
+    only formed among entries that all have points or all have none; equal values
+    with equal bonus markers collapse to one shared value (``4A-D:2``, ``4A-C:2?``),
+    otherwise every value carries its own marker (``4A-C:2,2?,2``).
     """
-    specs = [item if isinstance(item, TaskSpec) else TaskSpec(item[0], item[1]) for item in items]
+    specs = [item if isinstance(item, TaskSpec) else TaskSpec(*item) for item in items]
     groups: list[list[TaskSpec]] = []
     for spec in specs:
         if groups and _continues_run(groups[-1][-1], spec):
@@ -178,15 +200,17 @@ def _format_group(group: list[TaskSpec]) -> str:
     """Format one run: a single code, ``4A-D`` without points, or with one shared or n individual values."""
     if len(group) == 1:
         spec = group[0]
-        return spec.code if spec.points is None else f"{spec.code}:{_format_number(spec.points, decimal=',')}"
+        if spec.points is None:
+            return spec.code
+        return f"{spec.code}:{_format_number(spec.points, decimal=',')}{_BONUS if spec.bonus else ''}"
     match = _CODE_TAIL.match(group[-1].code)
     codes = f"{group[0].code}-{match.group(2)}"
     if group[0].points is None:
         return codes
-    values = [spec.points for spec in group]
-    if all(value == values[0] for value in values):
-        return f"{codes}:{_format_number(values[0], decimal='.')}"
-    return f"{codes}:" + ",".join(_format_number(value, decimal=".") for value in values)
+    first = group[0]
+    if all(spec.points == first.points and spec.bonus == first.bonus for spec in group):
+        return f"{codes}:{_format_number(first.points, decimal='.')}{_BONUS if first.bonus else ''}"
+    return f"{codes}:" + ",".join(f"{_format_number(spec.points, decimal='.')}{_BONUS if spec.bonus else ''}" for spec in group)
 
 
 def _format_number(value: float, *, decimal: str) -> str:
