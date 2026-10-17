@@ -11,7 +11,7 @@ from bw_gui.runtime import topmost_window, ui, widgets
 
 
 class MainWindowDispatchMixin:
-    def _on_escape(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_escape(self, _event: object) -> None:
         """Resolve one Escape press via the HSM contract: close popup, leave an inline
         editor/active mode (reading, extra, naming, correction), or pop back to the overview."""
         widget = self.root.focus_get()
@@ -77,27 +77,27 @@ class MainWindowDispatchMixin:
         self._close_extra_popup()
         self._return_to_overview()
 
-    def _on_points_focus_out(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_points_focus_out(self, _event: object) -> None:
         self._commit_points_if_possible()
 
-    def _on_points_commit(self, _event: ui.Event[ui.Misc]) -> None:
-        self._commit_points_if_possible()
-        self.root.focus_set()
-
-    def _on_points_escape(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_points_commit(self, _event: object) -> None:
         self._commit_points_if_possible()
         self.root.focus_set()
 
-    def _on_reading_fields_focus_out(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_points_escape(self, _event: object) -> None:
+        self._commit_points_if_possible()
+        self.root.focus_set()
+
+    def _on_reading_fields_focus_out(self, _event: object) -> None:
         """Commit the Aufgaben/Punkte editor when it loses focus."""
         self._commit_reading_fields_if_possible()
 
-    def _on_reading_fields_commit(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_reading_fields_commit(self, _event: object) -> None:
         """Commit the Aufgaben/Punkte editor on <Return> and leave the field."""
         self._commit_reading_fields_if_possible()
         self.root.focus_set()
 
-    def _on_reading_fields_escape(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_reading_fields_escape(self, _event: object) -> None:
         """Leave the Aufgaben/Punkte editor on <Escape> without a direct commit.
 
         No commit call here: leaving the field triggers <FocusOut>, which is
@@ -105,7 +105,7 @@ class MainWindowDispatchMixin:
         """
         self.root.focus_set()
 
-    def _on_left_key(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_left_key(self, _event: object) -> None:
         """Dispatch Left to the active mode's "previous" action (student/page)."""
         if self._arrow_keys_stay_in_field():
             return
@@ -123,7 +123,7 @@ class MainWindowDispatchMixin:
             return
         self._move_student(-1)
 
-    def _on_right_key(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_right_key(self, _event: object) -> None:
         """Dispatch Right to the active mode's "next" action (student/page)."""
         if self._arrow_keys_stay_in_field():
             return
@@ -141,7 +141,7 @@ class MainWindowDispatchMixin:
             return
         self._move_student(1)
 
-    def _on_up_key(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_up_key(self, _event: object) -> None:
         if self._arrow_keys_stay_in_field():
             return
         if self._active_view == "correction" and self._correction_mode_active:
@@ -149,7 +149,7 @@ class MainWindowDispatchMixin:
         elif self._active_view == "scan_workshop":
             self._scan_go_page(-1)
 
-    def _on_down_key(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_down_key(self, _event: object) -> None:
         if self._arrow_keys_stay_in_field():
             return
         if self._active_view == "correction" and self._correction_mode_active:
@@ -157,7 +157,7 @@ class MainWindowDispatchMixin:
         elif self._active_view == "scan_workshop":
             self._scan_go_page(1)
 
-    def _on_ctrl_up_key(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_ctrl_up_key(self, _event: object) -> None:
         if self._arrow_keys_stay_in_field():
             return
         if self._active_view == "correction" and self._correction_mode_active:
@@ -165,7 +165,7 @@ class MainWindowDispatchMixin:
         elif self._active_view == "scan_workshop":
             self._scan_move_page(-1)
 
-    def _on_ctrl_down_key(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_ctrl_down_key(self, _event: object) -> None:
         if self._arrow_keys_stay_in_field():
             return
         if self._active_view == "correction" and self._correction_mode_active:
@@ -173,41 +173,41 @@ class MainWindowDispatchMixin:
         elif self._active_view == "scan_workshop":
             self._scan_move_page(1)
 
-    def _on_ctrl_e_key(self, _event: ui.Event[ui.Misc]):
+    def _on_ctrl_e_key(self, _event: object):
         self._menu_export_scores()
         return EventResult.HANDLED
 
-    def _on_ctrl_plus_key(self, _event: ui.Event[ui.Misc]):
+    def _on_ctrl_plus_key(self, _event: object):
         if self._active_view != "correction" or not self._correction_mode_active:
             return None
         self._change_correction_zoom(10)
         return EventResult.HANDLED
 
-    def _on_ctrl_minus_key(self, _event: ui.Event[ui.Misc]):
+    def _on_ctrl_minus_key(self, _event: object):
         if self._active_view != "correction" or not self._correction_mode_active:
             return None
         self._change_correction_zoom(-10)
         return EventResult.HANDLED
 
-    def _on_ctrl_zero_key(self, _event: ui.Event[ui.Misc]):
+    def _on_ctrl_zero_key(self, _event: object):
         if self._active_view != "correction" or not self._correction_mode_active:
             return None
         self._reset_correction_zoom()
         return EventResult.HANDLED
 
-    def _on_ctrl_c_key(self, _event: ui.Event[ui.Misc]):
+    def _on_ctrl_c_key(self, _event: object):
         if self._active_view != "correction" or not self._correction_mode_active:
             return None
         self._copy_selected_correction_annotation()
         return EventResult.HANDLED
 
-    def _on_ctrl_x_key(self, _event: ui.Event[ui.Misc]):
+    def _on_ctrl_x_key(self, _event: object):
         if self._active_view != "correction" or not self._correction_mode_active:
             return None
         self._cut_selected_correction_annotation()
         return EventResult.HANDLED
 
-    def _on_ctrl_v_key(self, _event: ui.Event[ui.Misc]):
+    def _on_ctrl_v_key(self, _event: object):
         if self._active_view != "correction" or not self._correction_mode_active:
             return None
         self._paste_correction_annotation()

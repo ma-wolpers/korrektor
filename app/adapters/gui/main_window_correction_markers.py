@@ -57,7 +57,7 @@ class MainWindowCorrectionMarkersMixin:
             on_cancel=lambda _reason: self._on_correction_canvas_release(None),
         )
 
-    def _on_correction_marker_color_changed(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_correction_marker_color_changed(self, _event: object) -> None:
         color_name = self._correction_marker_color_name_var.get()
         if color_name not in CORRECTION_MARKER_COLORS:
             color_name = CORRECTION_DEFAULT_COLOR_NAME

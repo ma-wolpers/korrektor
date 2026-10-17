@@ -101,24 +101,24 @@ class MainWindowCorrectionFormMixin:
         self._apply_detail_labels(updated)
         return True
 
-    def _on_correction_points_focus_out(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_correction_points_focus_out(self, _event: object) -> None:
         self._save_current_correction_score()
 
-    def _on_correction_points_commit(self, _event: ui.Event[ui.Misc]) -> None:
-        self._save_current_correction_score()
-        self.root.focus_set()
-
-    def _on_correction_points_escape(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_correction_points_commit(self, _event: object) -> None:
         self._save_current_correction_score()
         self.root.focus_set()
 
-    def _on_correction_comment_focus_out(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_correction_points_escape(self, _event: object) -> None:
+        self._save_current_correction_score()
+        self.root.focus_set()
+
+    def _on_correction_comment_focus_out(self, _event: object) -> None:
         self._save_current_correction_comment()
 
-    def _on_correction_comment_commit(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_correction_comment_commit(self, _event: object) -> None:
         self._save_current_correction_comment()
         self.root.focus_set()
 
-    def _on_correction_comment_escape(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_correction_comment_escape(self, _event: object) -> None:
         self._save_current_correction_comment()
         self.root.focus_set()

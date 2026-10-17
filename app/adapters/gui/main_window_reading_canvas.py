@@ -111,7 +111,7 @@ class MainWindowReadingCanvasMixin:
                 tags=("region", f"draft:{draft.draft_id}"),
             )
 
-    def _on_canvas_region_click(self, event: ui.Event[ui.Misc]) -> None:
+    def _on_canvas_region_click(self, event: object) -> None:
         """Click on a drawn region or draft: select it in the list (grey Superseiten-Bereiche in Schritt 2 are not clickable)."""
         current = self._reading_canvas.find_withtag("current")
         if not current:
@@ -127,7 +127,7 @@ class MainWindowReadingCanvasMixin:
         self._select_region_by_id(region_id)
         self._rerender_active_page()
 
-    def _on_canvas_press(self, event: ui.Event[ui.Misc]) -> None:
+    def _on_canvas_press(self, event: object) -> None:
         if not self._reading_active and not self._extra_mode_active:
             return
         x = float(self._reading_canvas.canvasx(event.x))
@@ -144,7 +144,7 @@ class MainWindowReadingCanvasMixin:
             width=2,
         )
 
-    def _on_canvas_drag(self, event: ui.Event[ui.Misc]) -> None:
+    def _on_canvas_drag(self, event: object) -> None:
         if self._drag_start is None or self._drag_rect_id is None:
             return
         x0, y0 = self._drag_start
@@ -159,7 +159,7 @@ class MainWindowReadingCanvasMixin:
             self._drag_rect_id = None
         self._drag_start = None
 
-    def _on_canvas_release(self, event: ui.Event[ui.Misc]) -> None:
+    def _on_canvas_release(self, event: object) -> None:
         """Finish a canvas drag: commit a pending redraw, or create a new draft region.
 
         After creating a new draft (both steps), focus moves straight

@@ -119,7 +119,7 @@ class MainWindowRegionFormMixin:
         self._refresh_task_checklist()
         self._rerender_active_page()
 
-    def _on_delete_region_key(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_delete_region_key(self, _event: object) -> None:
         """Entf: Scan-Werkstatt page, correction mark, "ohne Bewertung" (Schritt 2 without selection) or region."""
         if self._active_view == "scan_workshop":
             if not self._is_editable_widget(self.root.focus_get()):

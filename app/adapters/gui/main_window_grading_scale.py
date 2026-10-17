@@ -200,7 +200,7 @@ class MainWindowGradingScaleMixin(MainWindowGradingScaleActionsMixin):
                 values=(scale.subject, scale.year, scale.school, status_label),
             )
 
-    def _on_grading_scale_selected(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_grading_scale_selected(self, _event: object) -> None:
         if self._grading_scale_tree is None or self._controller is None:
             return
         selection = self._grading_scale_tree.selection()

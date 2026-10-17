@@ -174,7 +174,7 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
             self._supersymbol_scope_var.set(values[0])
         self._prefill_supersymbol_value_for_scope(template)
 
-    def _on_supersymbol_scope_changed(self, _event: ui.Event[ui.Misc]) -> None:
+    def _on_supersymbol_scope_changed(self, _event: object) -> None:
         """Re-prefill the Punkte field whenever the "Aufgabe(n)"-Auswahl changes by hand."""
         self._prefill_supersymbol_value_for_scope(self._current_correction_template())
 
