@@ -127,16 +127,33 @@ def test_reexport_replaces_old_marks_including_legacy_freetext():
     document.close()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Bestehender Fehler (auch beim alten FreeText-Export): Rechteck in Koordinaten der sichtbaren Seite, "
-    "PyMuPDF erwartet ungedrehte Koordinaten - separat auf der Wunschliste gemeldet.",
-)
-def test_stamp_on_rotated_page_lands_at_visible_position():
-    document, page = _page(rotation=90)
+@pytest.mark.parametrize("rotation", [90, 180, 270])
+def test_stamp_on_rotated_page_lands_at_visible_position(rotation):
+    document, page = _page(rotation=rotation)
     add_mark_stamp(page, _annotation("✓"))
     box = _ink_box(_raster(page))
     document.close()
     assert box is not None
     assert abs((box[0] + box[2]) / 2 / ZOOM - 150.0) <= 1.5
     assert abs((box[1] + box[3]) / 2 / ZOOM - 120.0) <= 1.5
+
+
+def _ink_crop(page: fitz.Page) -> numpy.ndarray:
+    """The red ink of ``page``, cropped to its bounding box."""
+    image = _raster(page)
+    left, top, right, bottom = _ink_box(image)
+    return _red(image)[top:bottom, left:right]
+
+
+@pytest.mark.parametrize("rotation", [90, 180, 270])
+def test_stamp_on_rotated_page_looks_exactly_as_on_an_unrotated_page(rotation):
+    """Orientation, not only position: an asymmetric mark (text "Bsp") is not turned with the page."""
+    crops = []
+    for page_rotation in (0, rotation):
+        document, page = _page(rotation=page_rotation)
+        add_mark_stamp(page, _annotation("Bsp", kind="text"))
+        crops.append(_ink_crop(page))
+        document.close()
+    upright, rotated = crops
+    assert rotated.shape == upright.shape
+    assert (rotated == upright).mean() >= 0.98

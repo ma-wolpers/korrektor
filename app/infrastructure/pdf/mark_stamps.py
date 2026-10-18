@@ -10,16 +10,21 @@ Each stamp carries ``subject = "KORREKTOR_MARKER:<annotation_id>"``; re-exportin
 first removes every annotation with that prefix, so "Alle PDFs überschreiben" replaces
 the marks instead of piling them up (also the FreeText marks of older versions).
 
-KNOWN LIMIT (pre-existing, reported separately on the wish list): the rectangle is
-passed in the coordinates of the *visible* page, as the former FreeText export did.
-PyMuPDF reads annotation rectangles in unrotated page coordinates, so on a page with
-a ``/Rotate`` entry the mark lands elsewhere. Pages rewritten by the Scan-Werkstatt
-have ``/Rotate 0`` and are not affected.
+Pages with a ``/Rotate`` entry: the mark's anchor is in coordinates of the *visible*
+page (what the preview shows), but PyMuPDF reads annotation rectangles in unrotated
+page coordinates and draws the image unrotated. So the rectangle is converted with
+``page.derotation_matrix`` and the image is turned by ``page.rotation`` beforehand
+(`_upright_on_page`) - the mark then looks exactly as on an unrotated page
+(``test_stamp_on_rotated_page_*``). Pages rewritten by the Scan-Werkstatt have
+``/Rotate 0`` and take the plain path.
 """
 
 from __future__ import annotations
 
+import io
+
 import fitz
+from PIL import Image
 
 from app.core.domain.mark_symbols import SYMBOL_BY_CONTENT
 from app.core.domain.models import PdfAnnotation
@@ -49,6 +54,18 @@ def stamp_rect(annotation: PdfAnnotation, width_pt: float, height_pt: float) -> 
     )
 
 
+def _upright_on_page(png: bytes, page_rotation: int) -> bytes:
+    """Turn the stamp image so it looks upright on a page shown rotated by ``page_rotation`` degrees.
+
+    PIL rotates counter-clockwise, the viewer turns the page clockwise - the two cancel
+    (checked pixel for pixel against an unrotated page for 90°, 180° and 270°).
+    """
+    image = Image.open(io.BytesIO(png)).rotate(page_rotation, expand=True)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
 def add_mark_stamp(page: fitz.Page, annotation: PdfAnnotation) -> fitz.Annot:
     """Add ``annotation`` to ``page`` as an image stamp (see module docstring).
 
@@ -56,7 +73,12 @@ def add_mark_stamp(page: fitz.Page, annotation: PdfAnnotation) -> fitz.Annot:
     so PDF viewers listing annotations show something readable.
     """
     rendered = render_mark(MarkStyle.of(annotation), EXPORT_PX_PER_PT)
-    annot = page.add_stamp_annot(stamp_rect(annotation, rendered.width_pt, rendered.height_pt), stamp=rendered.png)
+    rect = stamp_rect(annotation, rendered.width_pt, rendered.height_pt)
+    png = rendered.png
+    if page.rotation:
+        rect = rect * page.derotation_matrix
+        png = _upright_on_page(png, page.rotation)
+    annot = page.add_stamp_annot(rect, stamp=png)
     symbol = SYMBOL_BY_CONTENT.get(annotation.content) if annotation.annotation_type == "symbol" else None
     annot.set_info(
         title="Korrektor",

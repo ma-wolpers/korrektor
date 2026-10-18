@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Behoben: Markierungen auf gedrehten PDF-Seiten.** Bei PDFs mit gespeicherter Seitendrehung (`/Rotate`, z. B. Querformat-Scans, die nicht durch die Scan-Werkstatt gelaufen sind) landeten Markierungen beim „Alle PDFs überschreiben“ an der falschen Stelle. Sie stehen jetzt dort und so aufrecht, wie die Vorschau sie zeigt.
 - **Behoben: Leeres Punktefeld zählte als 0 Punkte.** Beim Wechsel von Aufgabe oder Person wurde ein leeres Punktefeld als 0 gespeichert – schon bloßes Durchblättern machte Aufgaben zu „bewertet mit 0“. Jetzt bleibt eine Aufgabe ohne Eingabe unbewertet („–“), und wer ein Punktefeld leert, macht die Aufgabe wieder unbewertet (Strg+Z holt den Wert zurück). Hinweis: Nullen, die frühere Versionen so gespeichert haben, lassen sich nicht von echten 0 Punkten unterscheiden und bleiben stehen.
 - **Schlanke Scrollbars:** Alle Scrollbars sind jetzt die schlanke native Scrollbar statt der mit Pfeilknöpfen; unter Windows werden sie im dunklen Theme dunkel. Das Mausrad über der Scrollbar eines scrollbaren Bereichs (z. B. im Einstellungsdialog) scrollt jetzt genau dreimal so weit wie über dem Inhalt (bisher unbeabsichtigt fünfmal).
 - Typannotationen der GUI-Handler an die bw-gui-Ereignistypen angeglichen (reine Wartung, keine Nutzer-sichtbare Änderung).
