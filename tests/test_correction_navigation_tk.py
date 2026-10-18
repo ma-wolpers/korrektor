@@ -176,3 +176,12 @@ def test_bonus_task_is_marked_in_the_dropdown_and_the_max_label(correction):
         assert window._correction_max_points_var.get() == "Max: 2"
     finally:
         window._current_exam.tasks[2].is_bonus = False
+
+
+def test_leaving_an_untouched_task_does_not_score_it_as_zero(correction):
+    """Regression: every switch saved an empty points field as 0, so merely paging through scored tasks."""
+    window = correction
+    window._cycle_correction_task(1)
+    window._cycle_correction_task(1)
+    window._cycle_correction_task(-1)
+    assert window._controller.load_scores_for_exam(exam=window._current_exam).get("anna", {}) == {}

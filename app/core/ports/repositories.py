@@ -44,6 +44,10 @@ class ScoreRepository(Protocol):
     ) -> None:
         ...
 
+    def delete_score(self, *, exam: ExamProject, student_id: str, task_code: str) -> None:
+        """Remove the stored points of one person and task (it is unscored again); no-op if none is stored."""
+        ...
+
     def load_scores(self, *, exam: ExamProject) -> dict[str, dict[str, float]]:
         ...
 

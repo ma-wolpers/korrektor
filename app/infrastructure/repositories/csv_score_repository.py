@@ -59,6 +59,22 @@ class CsvScoreRepository(ScoreRepository):
 
         self._atomic_write(csv_path, rows, task_columns)
 
+    def delete_score(self, *, exam: ExamProject, student_id: str, task_code: str) -> None:
+        """Empty the points and max cell of one person and task; the file is not touched if nothing is stored.
+
+        The columns stay (other persons may have values); an empty cell is "unscored",
+        exactly what `load_scores` already reads it as.
+        """
+        csv_path = Path(exam.folder_path) / SCORES_FILENAME
+        rows, task_columns = self._read_rows(csv_path)
+        points_col = f"{task_code}_points"
+        row = next((item for item in rows if item.get("student_id") == student_id), None)
+        if row is None or not str(row.get(points_col, "") or "").strip():
+            return
+        row[points_col] = ""
+        row[f"{task_code}_max"] = ""
+        self._atomic_write(csv_path, rows, task_columns)
+
     def load_scores(self, *, exam: ExamProject) -> dict[str, dict[str, float]]:
         """Read every stored points value, keyed by student_id then task_code.
 

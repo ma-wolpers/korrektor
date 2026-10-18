@@ -18,24 +18,32 @@ class UiIntentControllerScoringMixin:
         points_text: str,
         max_points_text: str,
     ) -> bool:
+        """The one write path for points: validate, write the CSV, one undo step if it changed.
+
+        An **empty** points field means "unscored": a stored value is deleted (undoable),
+        and if none is stored nothing happens - it is never saved as 0 (rule "unscored is
+        never a silent 0"; this runs on every task/person switch of the correction).
+        Otherwise the points must lie between 0 and the task's maximum (`points_error`).
+        """
         if not task_code.strip():
             messagebox.showinfo("Hinweis", "Bitte zuerst einen Aufgaben-Code eintragen, z. B. A1.")
             return False
 
         try:
-            points = float(points_text.replace(",", ".")) if points_text.strip() else 0.0
+            points = float(points_text.replace(",", ".")) if points_text.strip() else None
             max_points = float(max_points_text.replace(",", ".")) if max_points_text.strip() else 0.0
         except ValueError:
             messagebox.showerror("Ungültige Eingabe", "Punkte und Max-Punkte müssen Zahlen sein.")
             return False
 
-        # The task's own maximum is authoritative; the passed max only stands in for a
-        # code that is not (yet) a task of the exam (the free-form points form).
-        task = next((item for item in exam.tasks if item.code == task_code.strip().upper()), None)
-        problem = points_error(points, task.max_points if task is not None else max_points, task_code.strip().upper())
-        if problem is not None:
-            messagebox.showerror("Punkte nicht gespeichert", problem)
-            return False
+        if points is not None:
+            # The task's own maximum is authoritative; the passed max only stands in for a
+            # code that is not (yet) a task of the exam (the free-form points form).
+            task = next((item for item in exam.tasks if item.code == task_code.strip().upper()), None)
+            problem = points_error(points, task.max_points if task is not None else max_points, task_code.strip().upper())
+            if problem is not None:
+                messagebox.showerror("Punkte nicht gespeichert", problem)
+                return False
 
         score_file = Path(exam.folder_path) / "korrektor_scores.csv"
         before_csv = self._read_text_or_none(score_file)
@@ -50,11 +58,14 @@ class UiIntentControllerScoringMixin:
         after_csv = self._read_text_or_none(score_file)
         if before_csv != after_csv:
             self._record_history_action(
-                description=f"Punkte gesetzt: {task_code.strip()}",
+                description=f"Punkte {'gesetzt' if points is not None else 'entfernt'}: {task_code.strip()}",
                 undo=lambda: self._restore_text(score_file, before_csv),
                 redo=lambda: self._restore_text(score_file, after_csv),
             )
-        self._app.set_status("Punkte sofort gespeichert")
+        if points is not None:
+            self._app.set_status("Punkte sofort gespeichert")
+        elif before_csv != after_csv:
+            self._app.set_status(f"Punkte entfernt: {task_code.strip()} ist wieder unbewertet")
         return True
 
     def load_saved_points(self, *, exam: ExamProject, student_id: str, task_code: str) -> str | None:

@@ -20,6 +20,12 @@ class _FakeApp:
     def refresh_exam_content_in_place(self) -> None:
         pass
 
+    def render_overview_rows(self, rows) -> None:
+        pass
+
+    def sync_current_exam_from_repository(self) -> None:
+        pass
+
 
 @pytest.fixture
 def errors(monkeypatch: pytest.MonkeyPatch) -> list[str]:
@@ -76,3 +82,26 @@ def test_unknown_code_falls_back_to_the_passed_maximum(tmp_path, errors):
     assert _save(controller, exam, "3", max_text="3", code="X1")
     assert not _save(controller, exam, "3,5", max_text="3", code="X1")
     assert "von Aufgabe X1" in errors[-1]
+
+
+def test_empty_field_without_a_stored_value_writes_nothing(tmp_path, errors):
+    controller, exam = _setup(tmp_path)
+    assert _save(controller, exam, "  ")
+    assert not (Path(exam.folder_path) / "korrektor_scores.csv").exists()
+    assert controller._deps.undo_history.peek_undo() is None and not errors
+
+
+def test_emptied_field_makes_the_task_unscored_again_with_undo_and_redo(tmp_path, errors):
+    controller, exam = _setup(tmp_path)
+    exam.tasks.append(TaskDefinition("2B", "2B", 3.0))
+    assert _save(controller, exam, "3") and _save(controller, exam, "1", code="2B")
+
+    assert _save(controller, exam, "")
+    assert controller._deps.score_repository.load_scores(exam=exam) == {"anna": {"2B": 1.0}}  # never a silent 0
+    assert controller.load_saved_points(exam=exam, student_id="anna", task_code="2A") is None
+    assert controller._app.status == "Punkte entfernt: 2A ist wieder unbewertet"
+
+    assert controller.undo() is True
+    assert controller._deps.score_repository.load_scores(exam=exam)["anna"]["2A"] == 3.0
+    assert controller.redo() is True
+    assert "2A" not in controller._deps.score_repository.load_scores(exam=exam)["anna"]
