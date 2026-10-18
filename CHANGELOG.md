@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Schlanke Scrollbars:** Alle Scrollbars sind jetzt die schlanke native Scrollbar statt der mit Pfeilknöpfen; unter Windows werden sie im dunklen Theme dunkel.
 - Typannotationen der GUI-Handler an die bw-gui-Ereignistypen angeglichen (reine Wartung, keine Nutzer-sichtbare Änderung).
 - Ein Architektur-Test verhindert rohe Tk-Ereignisbindungen und Auswahl-Mutationen in der App (reine Wartung, keine Nutzer-sichtbare Änderung).
 - **Exporthinweis mit Details und Löschen:** Liegen beim „Alle PDFs überschreiben“ Markierungen außerhalb ihres Bereichs, nennt der Hinweis jetzt für jede Person, Seite, Teilaufgabe und Symbol (z. B. „Anna, S. 2, Aufgabe 2C: Richtig“; Texte als „Text „…““) statt Dateiname und interner Kennung – und fragt, ob sie gelöscht werden sollen. „Ja“ löscht genau diese Markierungen (Strg+Z holt sie zurück), „Nein“ behält sie.
