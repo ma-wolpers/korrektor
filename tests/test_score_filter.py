@@ -3,6 +3,7 @@ import pytest
 from app.core.domain.score_filter import (
     compute_student_value,
     filter_matching_student_ids,
+    main_task_sums,
     matches_condition,
 )
 
@@ -61,3 +62,17 @@ def test_filter_matching_student_ids_excludes_none_values() -> None:
 def test_filter_matching_student_ids_returns_empty_list_for_no_matches() -> None:
     values = {"alice": 5.0, "bob": 6.0}
     assert filter_matching_student_ids(values, "<", 1.0) == []
+
+
+def test_main_task_sums_cover_all_subtasks_of_the_exam_not_only_the_bereich() -> None:
+    exam_codes = ["1A", "2A", "2B", "2C", "3", "4.1A", "4.1B", "4.2"]
+    assert main_task_sums(["2B"], exam_codes) == [("2", ["2A", "2B", "2C"])]
+    assert main_task_sums(["2A", "2B", "4.1A"], exam_codes) == [
+        ("2", ["2A", "2B", "2C"]),
+        ("4", ["4.1A", "4.1B", "4.2"]),
+        ("4.1", ["4.1A", "4.1B"]),
+    ]
+
+
+def test_main_task_sums_skip_tasks_without_or_with_a_single_subtask() -> None:
+    assert main_task_sums(["1A", "3"], ["1A", "2A", "2B", "3"]) == []

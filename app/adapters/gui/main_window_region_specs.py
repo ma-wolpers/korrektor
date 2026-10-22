@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.adapters.gui.dialog_services import messagebox
-from app.core.domain.task_spec import TaskSpec, format_task_specs, parse_task_specs
+from app.core.domain.task_spec import TaskSpec, TaskSpecParseResult, expand_main_task_references, format_task_specs, parse_task_specs
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
@@ -30,7 +30,10 @@ class MainWindowRegionSpecsMixin:
             self._form_tasks_text.pack_forget()
             self._quick_tasks_entry.pack_forget()
             self._quick_tasks_entry.pack(fill=ui.X)
-            self._task_input_example_var.set("Beispiel: 4a-d:1,4,2,3; 5a:2 (4a-d = 4a bis 4d); Bonusaufgabe mit ?: 2c:2?; vorhandene Aufgaben auch ohne Punkte: 6c")
+            self._task_input_example_var.set(
+                "Beispiel: 4a-d:1,4,2,3; 5a:2 (4a-d = 4a bis 4d); Bonusaufgabe mit ?: 2c:2?; "
+                "vorhandene Aufgaben auch ohne Punkte: 6c, ganze Aufgaben: 2 oder 1-4 (= alle ihre Teilaufgaben)"
+            )
 
         self._task_input_example_label.pack_forget()
         self._task_input_example_label.pack(fill=ui.X, pady=(4, 0))
@@ -39,9 +42,10 @@ class MainWindowRegionSpecsMixin:
         """Parse the task editor (quick or form mode) with the shorthand grammar.
 
         Points are optional: a code without points references an existing
-        task (``6c``); whether it exists is checked when saving. Returns the
-        specs, ``[]`` for an empty editor, or ``None`` after showing the
-        parser's German error message.
+        task (``6c``) or a whole task (``2``, ``1-4``, see
+        `_parse_task_editor_text`); whether it exists is checked when saving.
+        Returns the specs, ``[]`` for an empty editor, or ``None`` after
+        showing the parser's German error message.
         """
         if self._assignment_mode_var.get() == "form":
             raw = self._form_tasks_text.get("1.0", ui.END).strip()
@@ -49,11 +53,26 @@ class MainWindowRegionSpecsMixin:
             raw = self._quick_tasks_var.get().strip()
         if not raw:
             return []
-        result = parse_task_specs(raw, require_points=False)
+        result = self._parse_task_editor_text(raw)
         if result.error is not None:
             messagebox.showerror("Ungültige Aufgabeneingabe", result.error)
             return None
         return list(result.items)
+
+    def _parse_task_editor_text(self, raw: str) -> TaskSpecParseResult:
+        """Parse task editor text and replace whole-task references by their existing subtasks.
+
+        Single parse path of the Zuschnitt task editor (saving and the
+        checklist, `MainWindowTaskChecklistMixin`), so both see the same codes:
+        ``2`` becomes ``2A; 2B`` when the exam has these subtasks but no task
+        ``2`` (`expand_main_task_references`); ``1-4`` is first a run of four
+        references, each replaced the same way.
+        """
+        result = parse_task_specs(raw, require_points=False)
+        if result.error is not None or self._current_exam is None:
+            return result
+        existing = [task.code for task in self._current_exam.tasks]
+        return TaskSpecParseResult(items=tuple(expand_main_task_references(result.items, existing)))
 
     def _show_task_specs_in_editor(self, task_specs: list) -> None:
         """Fill both editor modes with ``task_specs`` in shorthand (runs compressed, see `format_task_specs`)."""

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.adapters.gui.evaluation_format import task_label
-from app.core.domain.task_spec import TaskSpec, format_task_specs, parse_task_specs, task_sort_key
+from app.core.domain.task_spec import TaskSpec, format_task_specs, task_sort_key
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
@@ -23,7 +23,9 @@ class MainWindowTaskChecklistMixin:
     shown. Otherwise only the ticked code is added (without points) or
     removed - every other entry, including new codes with points such as
     ``7A:2`` and points and bonus markers (``2C:2?``) of existing codes, stays - and the text is rewritten
-    with `format_task_specs`. Nothing is saved: Enter, leaving the field or
+    with `format_task_specs`; a whole-task reference (``2``, ``1-4``) is
+    parsed as its subtasks (`_parse_task_editor_text`), so it ticks them and
+    a tick rewrites it as those subtasks. Nothing is saved: Enter, leaving the field or
     "Speichern" commits, exactly as in Schritt 1. The checkboxes are bw-gui
     `Checkbox`es (staged selection: their callback only changes local
     presentation state).
@@ -78,7 +80,7 @@ class MainWindowTaskChecklistMixin:
         """Tick exactly the codes named in the editor text (invalid text: leave the ticks, show the problem)."""
         if not self._task_check_vars:
             return
-        result = parse_task_specs(self._task_editor_text(), require_points=False)
+        result = self._parse_task_editor_text(self._task_editor_text())
         if result.error is not None:
             self._task_checklist_hint_var.set(f"Eingabe prüfen: {result.error}")
             return
@@ -92,7 +94,7 @@ class MainWindowTaskChecklistMixin:
         if self._selected_region_id is None:
             self._task_checklist_hint_var.set("Erst einen Bereich ziehen oder auswählen.")
             raise TaskChecklistRejected(code)
-        result = parse_task_specs(self._task_editor_text(), require_points=False)
+        result = self._parse_task_editor_text(self._task_editor_text())
         if result.error is not None:
             self._task_checklist_hint_var.set(f"Eingabe erst korrigieren: {result.error}")
             raise TaskChecklistRejected(code)

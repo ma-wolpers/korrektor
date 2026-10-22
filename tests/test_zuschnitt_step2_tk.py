@@ -128,6 +128,31 @@ def test_checklist_never_loses_typed_input(step2_window):
     assert "korrigieren" in window._task_checklist_hint_var.get()
 
 
+def test_a_whole_task_ticks_its_subtasks_and_is_saved_as_them(step2_window):
+    """``1`` (no task 1, but 1A and 1B) stands for both subtasks - in the checklist and when saving."""
+    window = step2_window
+    window._toggle_zuschnitt_step()
+    settle(window, 150)
+    window._draft_regions.clear()
+    canvas = window._reading_canvas
+    canvas.event_generate("<ButtonPress-1>", x=20, y=20)
+    canvas.event_generate("<B1-Motion>", x=120, y=90)
+    canvas.event_generate("<ButtonRelease-1>", x=120, y=90)
+    settle(window)
+
+    window._quick_tasks_var.set("1")
+    window._sync_task_checklist_from_editor()
+    assert window._task_check_vars["1A"].get() is True and window._task_check_vars["1B"].get() is True
+    window._task_check_boxes["1B"].invoke()  # unticking a subtask rewrites the whole task as the rest
+    assert _editor(window) == "1A"
+
+    window._quick_tasks_var.set("1")
+    window._commit_reading_fields_if_possible()
+    settle(window)
+    regions = [r for r in window._current_exam.regions if r.student_pdf == "Anna.pdf"]
+    assert len(regions) == 1 and regions[0].task_codes == ["1A", "1B"]
+
+
 def test_all_pages_switch_walks_superseiten_pages_and_shows_them_grey(step2_window):
     window = step2_window
     window._toggle_zuschnitt_step()

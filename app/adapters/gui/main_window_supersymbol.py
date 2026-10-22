@@ -8,9 +8,7 @@ from app.adapters.gui.dialog_services import messagebox
 from app.adapters.gui.main_window_constants import (
     SUPERSYMBOL_OPERATOR_BY_LABEL,
     SUPERSYMBOL_OPERATOR_LABELS,
-    SUPERSYMBOL_SUM_SCOPE_LABEL,
 )
-from app.adapters.gui.main_window_types import CorrectionTemplate
 from app.core.domain.models import StudentExam
 from app.core.domain.score_filter import compute_student_value, filter_matching_student_ids
 
@@ -20,9 +18,10 @@ ensure_bw_gui_on_path()
 from bw_gui.runtime import on_combobox_select, ui, widgets
 from bw_gui.widgets import Checkbox
 from app.adapters.gui.main_window_superposition import MainWindowSuperpositionMixin
+from app.adapters.gui.main_window_supersymbol_scope import MainWindowSupersymbolScopeMixin
 
 
-class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
+class MainWindowSupersymbolMixin(MainWindowSupersymbolScopeMixin, MainWindowSuperpositionMixin):
     def _build_correction_view_form_supersymbol(self) -> None:
         supersymbol_controls = widgets.Frame(self._correction_form_panel.content, style="Surface.TFrame")
         supersymbol_controls.pack(fill=ui.X, pady=(10, 0))
@@ -36,11 +35,15 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
             supersymbol_row1,
             textvariable=self._supersymbol_scope_var,
             state="readonly",
-            width=16,
+            width=26,
             values=(),
         )
         self._supersymbol_scope_combo.pack(side=ui.LEFT, padx=(8, 0))
         on_combobox_select(self._supersymbol_scope_combo, self._on_supersymbol_scope_changed)
+        self._attach_hover_help(
+            self._supersymbol_scope_combo,
+            label="Punkte der aktuellen Teilaufgabe oder der ganzen Aufgabe (Summe aller ihrer Teilaufgaben in der Klausur)",
+        )
 
         supersymbol_row2 = widgets.Frame(supersymbol_controls, style="Surface.TFrame")
         supersymbol_row2.pack(fill=ui.X, pady=(4, 0))
@@ -155,62 +158,6 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
             style="Muted.TLabel",
         ).pack(anchor=ui.W, pady=(4, 0))
 
-    def _refresh_supersymbol_scope_choices(self, template: CorrectionTemplate | None) -> None:
-        """Populate the Supersymbol "Aufgabe(n)" scope combobox for the current Bereich.
-
-        Offers each individual task code, plus "Summe aller Aufgaben" only
-        when the Bereich actually has more than one task (a sum over a
-        single task would just duplicate that task's own value).
-        """
-        if template is None or not template.tasks:
-            self._supersymbol_scope_combo["values"] = ()
-            self._supersymbol_scope_var.set("")
-            return
-        values = tuple(task.code for task in template.tasks)
-        if len(template.tasks) > 1:
-            values = values + (SUPERSYMBOL_SUM_SCOPE_LABEL,)
-        self._supersymbol_scope_combo["values"] = values
-        if self._supersymbol_scope_var.get() not in values:
-            self._supersymbol_scope_var.set(values[0])
-        self._prefill_supersymbol_value_for_scope(template)
-
-    def _on_supersymbol_scope_changed(self, _event: object) -> None:
-        """Re-prefill the Punkte field whenever the "Aufgabe(n)"-Auswahl changes by hand."""
-        self._prefill_supersymbol_value_for_scope(self._current_correction_template())
-
-    def _prefill_supersymbol_value_for_scope(self, template: CorrectionTemplate | None) -> None:
-        """Set the Supersymbol-Punktwert to the current scope's Maximalpunktwert-Summe.
-
-        Runs both on Bereich-Wechsel (`_refresh_supersymbol_scope_choices`)
-        and on manual Aufgabe(n)-Auswahl (`_on_supersymbol_scope_changed`),
-        so the field always starts at a sensible default (the maximum
-        achievable value for the current scope) instead of empty - the
-        teacher can still overwrite it before starting the filter, this only
-        saves typing the common case (Filter: "hat volle Punktzahl").
-        """
-        if template is None:
-            return
-        task_codes = self._resolve_supersymbol_task_codes(template)
-        if not task_codes:
-            return
-        max_points_by_code = {task.code: task.max_points for task in template.tasks}
-        total_max_points = sum(max_points_by_code.get(code, 0.0) for code in task_codes)
-        self._supersymbol_value_var.set(f"{total_max_points:g}")
-
-    def _resolve_supersymbol_task_codes(self, template: CorrectionTemplate) -> list[str]:
-        """Resolve the Supersymbol scope selection to a concrete task_code list.
-
-        Fixed once, at filter-start time (Invariant: the bulk apply is a
-        one-time action, not a live filter that would need to react to the
-        Bereich's tasks changing later).
-        """
-        scope = self._supersymbol_scope_var.get()
-        if not scope:
-            return []
-        if scope == SUPERSYMBOL_SUM_SCOPE_LABEL:
-            return [task.code for task in template.tasks]
-        return [scope]
-
     def _start_supersymbol_filter(self) -> None:
         """Validate the Supersymbol filter and show the matched-students Superseite.
 
@@ -284,7 +231,6 @@ class MainWindowSupersymbolMixin(MainWindowSuperpositionMixin):
         self._superposition_page_nav_frame.pack_forget()
         self._supersymbol_info_var.set("")
         self._render_correction_preview()
-
 
     def _render_supersymbol_filtered_page(
         self, *, students: Sequence[StudentExam], page_number: int, clip: fitz.Rect | None = None

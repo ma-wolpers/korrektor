@@ -2,7 +2,16 @@
 
 import pytest
 
-from app.core.domain.task_spec import TaskSpec, format_task_specs, main_task_of, parse_task_specs, task_sort_key
+from app.core.domain.task_spec import (
+    TaskSpec,
+    expand_main_task_references,
+    format_task_specs,
+    main_task_of,
+    parent_task_codes,
+    parse_task_specs,
+    subtask_codes,
+    task_sort_key,
+)
 
 
 def _pairs(text, **kwargs):
@@ -131,3 +140,41 @@ def test_format_writes_the_marker_per_value_or_once_for_a_shared_value():
     assert format_task_specs([("4A", 2), ("4B", 2, True), ("4C", 2)]) == "4A-C:2,2?,2"
     assert format_task_specs([TaskSpec("5A", 1.5, True)]) == "5A:1,5?"
     assert format_task_specs([("2C", 2, False)]) == "2C:2"
+
+
+def test_subtasks_continue_the_code_at_a_boundary():
+    existing = ["2A", "2B", "2.1", "2.1A", "21", "20A", "4AB", "4A", "3"]
+    assert subtask_codes("2", existing) == ["2.1", "2.1A", "2A", "2B"]  # natural order (task_sort_key)
+    assert subtask_codes("2.1", existing) == ["2.1A"]
+    assert subtask_codes("4a", existing) == [] and subtask_codes("3", existing) == [] and subtask_codes("", existing) == []
+
+
+def test_parents_are_the_prefixes_at_a_boundary():
+    assert parent_task_codes("2.1A") == ["2", "2.1"]
+    assert parent_task_codes("4a") == ["4"]
+    assert parent_task_codes("12") == [] and parent_task_codes("A") == []
+
+
+def _expanded(text, existing):
+    return format_task_specs(expand_main_task_references(parse_task_specs(text, require_points=False).items, existing))
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("2", "2A-C"),  # whole task -> all its subtasks
+        ("1-4", "1; 2A-C; 3; 4A-B"),  # a run of whole tasks, existing tasks without subtasks stay
+        ("2; 5a:1", "2A-C; 5A:1"),
+        ("2b:3; 2", "2B:3; 2A; 2C"),  # an explicitly named subtask wins (keeps its points)
+        ("2; 2.9", "2A-C; 2.9"),  # unknown code without subtasks stays (reported when saving)
+        ("2:4", "2:4"),  # with points it is a new task, never replaced
+        ("1", "1"),  # existing task stays itself
+    ],
+)
+def test_whole_task_references_become_their_existing_subtasks(text, expected):
+    existing = ["1", "2A", "2B", "2C", "3", "4A", "4B"]
+    assert _expanded(text, existing) == expected
+
+
+def test_subtasks_reached_twice_appear_once():
+    assert _expanded("2; 2.1", ["2.1A", "2.1B", "2.2"]) == "2.1A-B; 2.2"

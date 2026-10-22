@@ -21,12 +21,18 @@ Grammar (binding, see ARCHITEKTUR "Aufgaben-Eingabe"):
 
 `format_task_specs` is the inverse: it compresses consecutive codes back
 into runs, so ``parse(format(parse(x))) == parse(x)`` for every valid ``x``.
+
+`expand_main_task_references` runs *after* parsing, where the caller knows the
+exam's tasks: a reference without points to a main task that does not exist
+itself (``2``, also from a run ``1-4``) becomes its existing subtasks
+(``2A; 2B``); see `subtask_codes` for what counts as a subtask.
 """
 
 from __future__ import annotations
 
 import math
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 _CODE_TAIL = re.compile(r"^(.*?)([A-Za-z]+|\d+)$")
@@ -227,3 +233,70 @@ def main_task_of(code: str) -> str:
     """Main task of a (sub)task: the code without its trailing letter run (``4A`` -> ``4``, ``2.1B`` -> ``2.1``)."""
     stripped = re.sub(r"[A-Za-z]+$", "", code.strip().upper())
     return stripped or code.strip().upper()
+
+
+def _same_kind(before: str, after: str) -> bool:
+    """True if both characters are digits or both are letters (no boundary between them)."""
+    return (before.isdigit() and after.isdigit()) or (before.isalpha() and after.isalpha())
+
+
+def subtask_codes(code: str, existing_codes: Iterable[str]) -> list[str]:
+    """Those of ``existing_codes`` that lie below ``code``, in natural order.
+
+    A code lies below ``code`` if it starts with it and continues at a token
+    boundary: ``2`` -> ``2A``, ``2B``, ``2.1``, ``2.1A``, but never ``21``
+    (digit after digit) - and ``4A`` is not above ``4AB`` (letter after letter).
+    ``code`` itself is never its own subtask.
+    """
+    main = code.strip().upper()
+    if not main:
+        return []
+    found = {
+        candidate
+        for candidate in existing_codes
+        if len(candidate) > len(main) and candidate.startswith(main) and not _same_kind(main[-1], candidate[len(main)])
+    }
+    return sorted(found, key=task_sort_key)
+
+
+def parent_task_codes(code: str) -> list[str]:
+    """The main tasks above ``code``, outermost first: ``2.1A`` -> ``[2, 2.1]``, ``4A`` -> ``[4]``, ``4`` -> ``[]``.
+
+    Inverse of `subtask_codes`: every prefix that ends at a token boundary and
+    with a digit or letter (``2.`` is skipped) is a parent.
+    """
+    code = code.strip().upper()
+    return [
+        code[:index]
+        for index in range(1, len(code))
+        if code[index - 1].isalnum() and not _same_kind(code[index - 1], code[index])
+    ]
+
+
+def expand_main_task_references(items: Iterable[TaskSpec], existing_codes: Iterable[str]) -> list[TaskSpec]:
+    """Replace references to main tasks by their existing subtasks: ``2`` -> ``2A; 2B`` (input order kept).
+
+    Only a reference without points whose code is **not** a task itself and
+    that has subtasks (`subtask_codes`) is replaced; a code with points (a new
+    task), an existing code and an unknown code without subtasks stay as they
+    are (the latter is reported as unknown when saving). A subtask named
+    explicitly anywhere in the input wins over the expansion (it keeps its
+    points and bonus marker), and subtasks reached twice (``2`` and ``2.1``)
+    appear once.
+    """
+    items = list(items)
+    existing = set(existing_codes)
+    explicit = {item.code for item in items}
+    result: list[TaskSpec] = []
+    seen: set[str] = set()
+    for item in items:
+        replacement = [item]
+        if item.points is None and item.code not in existing:
+            subtasks = subtask_codes(item.code, existing)
+            if subtasks:
+                replacement = [TaskSpec(code, None) for code in subtasks if code not in explicit]
+        for spec in replacement:
+            if spec.code not in seen:
+                seen.add(spec.code)
+                result.append(spec)
+    return result

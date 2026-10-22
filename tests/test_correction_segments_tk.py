@@ -250,3 +250,22 @@ def test_keys_switch_subtask_and_main_task(correction):
     canvas.event_generate("<Control-Down>")
     settle(window)
     assert window._selected_correction_task()[0] == "2A"
+
+
+def test_supersymbol_offers_the_subtask_and_the_whole_task(correction):
+    window = correction
+    assert tuple(window._supersymbol_scope_combo["values"]) == ("1A", "Aufgabe 1 gesamt (1A-B)")
+    template = window._current_correction_template()
+
+    window._supersymbol_scope_var.set("Aufgabe 1 gesamt (1A-B)")
+    window._on_supersymbol_scope_changed(None)
+    assert window._resolve_supersymbol_task_codes(template) == ["1A", "1B"]
+    assert window._supersymbol_value_var.get() == "3"  # 2 + 1 P.
+
+    window._supersymbol_scope_var.set("1A")
+    window._on_supersymbol_scope_changed(None)
+    assert window._resolve_supersymbol_task_codes(template) == ["1A"] and window._supersymbol_value_var.get() == "2"
+
+    window._cycle_correction_task(1)  # 1B: same whole task offered again, selection falls back to the subtask
+    settle(window)
+    assert tuple(window._supersymbol_scope_combo["values"]) == ("1B", "Aufgabe 1 gesamt (1A-B)")
