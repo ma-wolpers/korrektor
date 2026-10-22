@@ -269,3 +269,18 @@ def test_supersymbol_offers_the_subtask_and_the_whole_task(correction):
     window._cycle_correction_task(1)  # 1B: same whole task offered again, selection falls back to the subtask
     settle(window)
     assert tuple(window._supersymbol_scope_combo["values"]) == ("1B", "Aufgabe 1 gesamt (1A-B)")
+
+
+def test_superposition_value_offers_subtask_whole_task_and_whole_exam(correction):
+    window = correction
+    assert tuple(window._superposition_value_combo["values"]) == ("1A", "Aufgabe 1 gesamt (1A-B)", "Gesamte Klausur")
+    assert window._superposition_value_var.get() == "1A"
+    window._superposition_value_var.set("Gesamte Klausur")
+    window._cycle_correction_task(1)  # still offered for 1B: the choice stays
+    settle(window)
+    assert window._superposition_value_var.get() == "Gesamte Klausur"
+    window._superposition_value_var.set("Aufgabe 1 gesamt (1A-B)")
+    window._cycle_correction_main_task(1)  # 2A: task 1 is gone, back to the subtask
+    settle(window)
+    assert tuple(window._superposition_value_combo["values"]) == ("2A", "Gesamte Klausur")
+    assert window._superposition_value_var.get() == "2A"

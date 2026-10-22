@@ -34,6 +34,39 @@ class PersonTaskCompletion:
         )
 
 
+LIVE_POINTS = "points"
+LIVE_PERCENT = "percent"
+LIVE_GRADE = "grade"
+_LIVE_KINDS = (LIVE_POINTS, LIVE_PERCENT, LIVE_GRADE)
+
+
+@dataclass(frozen=True, slots=True)
+class LiveValue:
+    """Where the text of a Punkte-/Prozent-/Noten-Superposition mark comes from.
+
+    The mark's ``content`` is only the last computed text; preview and "Alle
+    PDFs überschreiben" recompute it from this source and the current points
+    (`app/core/domain/live_text.py`). ``task_codes`` empty = the whole exam;
+    a grade always uses the whole exam. ``show_max`` = points as "7/10".
+    """
+
+    kind: str
+    task_codes: tuple[str, ...] = ()
+    show_max: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON form inside ``PdfAnnotation.live_value``."""
+        return {"kind": self.kind, "task_codes": list(self.task_codes), "show_max": self.show_max}
+
+    @classmethod
+    def from_dict(cls, raw: Any) -> "LiveValue | None":
+        """Parse the JSON form; ``None`` for a missing or unknown source (the mark then stays plain text)."""
+        if not isinstance(raw, dict) or raw.get("kind") not in _LIVE_KINDS:
+            return None
+        codes = tuple(str(code).strip().upper() for code in raw.get("task_codes", []) if str(code).strip())
+        return cls(kind=str(raw["kind"]), task_codes=codes, show_max=bool(raw.get("show_max", False)))
+
+
 @dataclass(slots=True)
 class PdfAnnotation:
     """One placed correction mark/comment on a student's PDF page.
@@ -49,6 +82,10 @@ class PdfAnnotation:
     the mark is drawn mirrored horizontally first (if ``mirrored``), then rotated
     (see ``app/core/domain/mark_transform.py``). ``mirrored`` is optional in JSON
     (missing = ``False``), so older exam files load unchanged.
+
+    ``live_value`` (optional in JSON, missing = ``None``) marks a
+    Superposition text whose ``content`` is recomputed from the current
+    points (`LiveValue`); ``None`` = fixed content.
     """
 
     annotation_id: str
@@ -66,6 +103,7 @@ class PdfAnnotation:
     sync_group_id: str = ""
     position_detached: bool = False
     mirrored: bool = False
+    live_value: LiveValue | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -84,6 +122,7 @@ class PdfAnnotation:
             "sync_group_id": self.sync_group_id,
             "position_detached": self.position_detached,
             "mirrored": self.mirrored,
+            "live_value": self.live_value.to_dict() if self.live_value is not None else None,
         }
 
     @classmethod
@@ -104,6 +143,7 @@ class PdfAnnotation:
             sync_group_id=str(raw.get("sync_group_id", "")).strip(),
             position_detached=bool(raw.get("position_detached", False)),
             mirrored=bool(raw.get("mirrored", False)),
+            live_value=LiveValue.from_dict(raw.get("live_value")),
         )
 
 

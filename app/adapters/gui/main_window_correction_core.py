@@ -186,6 +186,7 @@ class MainWindowCorrectionCoreMixin:
         self._correction_selected_annotation_id = None
         self._cancel_supersymbol_filter()
         self._refresh_supersymbol_scope_choices(self._current_correction_template())
+        self._refresh_superposition_value_choices()
         self._refresh_correction_task_meta(load_saved_points=True)
         self._render_correction_preview()
         self._refresh_correction_completion_controls()

@@ -16,6 +16,7 @@ SUPERSYMBOL_OPERATOR_BY_LABEL: dict[str, FilterOperator] = {
 SUPERSYMBOL_OPERATOR_LABELS: tuple[str, ...] = tuple(SUPERSYMBOL_OPERATOR_BY_LABEL.keys())
 SUPERSYMBOL_SUM_SCOPE_LABEL = "Summe aller Aufgaben"
 SUPERSYMBOL_MAIN_TASK_SCOPE_LABEL = "Aufgabe {main} gesamt ({members})"
+SUPERPOSITION_WHOLE_EXAM_LABEL = "Gesamte Klausur"
 
 CORRECTION_MARKER_COLORS: dict[str, str] = {
     "Rot": "#d62828",

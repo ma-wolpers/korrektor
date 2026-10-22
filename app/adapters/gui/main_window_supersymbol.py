@@ -16,7 +16,6 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import on_combobox_select, ui, widgets
-from bw_gui.widgets import Checkbox
 from app.adapters.gui.main_window_superposition import MainWindowSuperpositionMixin
 from app.adapters.gui.main_window_supersymbol_scope import MainWindowSupersymbolScopeMixin
 
@@ -83,73 +82,7 @@ class MainWindowSupersymbolMixin(MainWindowSupersymbolScopeMixin, MainWindowSupe
         self._supersymbol_cancel_button.pack(side=ui.LEFT, padx=(8, 0))
         self._supersymbol_cancel_button.pack_forget()
 
-        superposition_row = widgets.Frame(supersymbol_controls, style="Surface.TFrame")
-        superposition_row.pack(fill=ui.X, pady=(6, 0))
-        widgets.Label(superposition_row, text="Superposition (alle Personen, erster Superseiten-Bereich der Aufgabe)", style="Muted.TLabel").pack(
-            anchor=ui.W
-        )
-        superposition_buttons = widgets.Frame(superposition_row, style="Surface.TFrame")
-        superposition_buttons.pack(fill=ui.X, pady=(4, 0))
-        self._superposition_points_button = widgets.Button(
-            superposition_buttons,
-            text="Punkte einfügen",
-            style="SecondaryAction.TButton",
-            command=self._start_scored_superposition,
-        )
-        self._superposition_points_button.pack(side=ui.LEFT)
-        self._attach_hover_help(
-            self._superposition_points_button,
-            label="Fügt an einer gemeinsamen Position die jeweils erreichte Punktzahl jeder Person ein",
-        )
-        self._superposition_grade_button = widgets.Button(
-            superposition_buttons,
-            text="Note einfügen",
-            style="SecondaryAction.TButton",
-            command=self._start_grade_superposition,
-        )
-        self._superposition_grade_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(
-            self._superposition_grade_button,
-            label="Fügt an einer gemeinsamen Position die jeweilige Note jeder Person ein (Notenschlüssel nötig)",
-        )
-
-        show_max_points_check = Checkbox(
-            superposition_row,
-            text="Gesamtpunktzahl anzeigen",
-            variable=self._superposition_show_max_points_var,
-        )
-        show_max_points_check.pack(anchor=ui.W, pady=(4, 0))
-        self._attach_hover_help(
-            show_max_points_check,
-            label="Punkte-Superposition zeigt z. B. '7/10' statt nur '7'",
-        )
-
-        superposition_page_nav = widgets.Frame(superposition_row, style="Surface.TFrame")
-        self._superposition_page_nav_frame = superposition_page_nav
-        self._superposition_page_prev_button = widgets.Button(
-            superposition_page_nav,
-            text="◀ Seite",
-            style="SecondaryAction.TButton",
-            command=lambda: self._change_superposition_page(-1),
-        )
-        self._superposition_page_prev_button.pack(side=ui.LEFT)
-        self._superposition_page_next_button = widgets.Button(
-            superposition_page_nav,
-            text="Seite ▶",
-            style="SecondaryAction.TButton",
-            command=lambda: self._change_superposition_page(1),
-        )
-        self._superposition_page_next_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(
-            self._superposition_page_prev_button,
-            label="Noten-Superposition: eine Seite zurück (unabhängig von der Aufgabe)",
-        )
-        self._attach_hover_help(
-            self._superposition_page_next_button,
-            label="Noten-Superposition: eine Seite vor (unabhängig von der Aufgabe)",
-        )
-        superposition_page_nav.pack(anchor=ui.W, pady=(4, 0))
-        superposition_page_nav.pack_forget()
+        self._build_superposition_controls(supersymbol_controls)
 
         self._supersymbol_info_var = ui.StringVar(value="")
         widgets.Label(
@@ -225,7 +158,6 @@ class MainWindowSupersymbolMixin(MainWindowSupersymbolScopeMixin, MainWindowSupe
         self._superposition_mode = None
         self._superposition_task_codes = []
         self._superposition_page_number = None
-        self._superposition_max_points = 0.0
         self._supersymbol_preview_button.configure(state="normal")
         self._supersymbol_cancel_button.pack_forget()
         self._superposition_page_nav_frame.pack_forget()

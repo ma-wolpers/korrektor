@@ -13,23 +13,32 @@ from app.core.domain.task_spec import TaskSpec, format_task_specs
 
 
 class MainWindowSupersymbolScopeMixin:
+    def _task_scope_options(self, codes: list[str]) -> dict[str, list[str]]:
+        """``{Anzeigetext: task_codes}``: each of ``codes`` alone, then "Aufgabe N gesamt (…)" for every main task above them.
+
+        A whole task means all its subtasks in the exam, also those in other
+        Bereichen (`main_task_sums`). Shared by the Supersymbol filter and the
+        Punkte-/Prozent-Superposition ("Wert von").
+        """
+        options = {code: [code] for code in codes}
+        exam_codes = [task.code for task in self._current_exam.tasks] if self._current_exam is not None else codes
+        for main, members in main_task_sums(codes, exam_codes):
+            listed = format_task_specs([TaskSpec(code, None) for code in members], separator=", ")
+            options[SUPERSYMBOL_MAIN_TASK_SCOPE_LABEL.format(main=main, members=listed)] = members
+        return options
+
     def _supersymbol_scope_options(self, template: CorrectionTemplate) -> dict[str, list[str]]:
         """``{Anzeigetext: task_codes}`` of every Supersymbol scope for ``template``, in display order.
 
-        Each task of the template alone, then "Aufgabe N gesamt (…)" for every
-        main task above them (all its subtasks in the exam, also those in
-        other Bereichen - see `main_task_sums`), then "Summe aller Aufgaben"
-        when the template has more than one task (a sum over a single task
-        would just duplicate that task's own value). In the task-centric
-        Korrekturmodus `_current_correction_template` holds only the current
-        (sub)task, so the choice is in practice "2B" or "Aufgabe 2 gesamt".
+        `_task_scope_options` of the template's tasks, then "Summe aller
+        Aufgaben" when the template has more than one task (a sum over a
+        single task would just duplicate that task's own value). In the
+        task-centric Korrekturmodus `_current_correction_template` holds only
+        the current (sub)task, so the choice is in practice "2B" or
+        "Aufgabe 2 gesamt".
         """
         region_codes = [task.code for task in template.tasks]
-        options = {code: [code] for code in region_codes}
-        exam_codes = [task.code for task in self._current_exam.tasks] if self._current_exam is not None else region_codes
-        for main, members in main_task_sums(region_codes, exam_codes):
-            listed = format_task_specs([TaskSpec(code, None) for code in members], separator=", ")
-            options[SUPERSYMBOL_MAIN_TASK_SCOPE_LABEL.format(main=main, members=listed)] = members
+        options = self._task_scope_options(region_codes)
         if len(region_codes) > 1:
             options[SUPERSYMBOL_SUM_SCOPE_LABEL] = region_codes
         return options

@@ -1,8 +1,8 @@
-"""Punkte-/Noten-Superposition im Korrekturmodus (Mixin).
+"""Punkte-/Prozent-/Noten-Superposition im Korrekturmodus (Mixin).
 
-Start der Punkte- bzw. Noten-Superposition, Vorschau mit Seitenblaettern und Einfuegen an
-der angeklickten Position. Aus main_window_supersymbol.py ausgelagert (Dateigroessen-Regel);
-Methodenruempfe unveraendert."""
+Bedienelemente (inkl. Auswahl "Wert von"), Start der Superposition, Vorschau mit
+Seitenblaettern und Einfuegen an der angeklickten Position. Aus
+main_window_supersymbol.py ausgelagert (Dateigroessen-Regel)."""
 
 from __future__ import annotations
 
@@ -10,18 +10,98 @@ from __future__ import annotations
 import fitz
 
 from app.adapters.gui.dialog_services import messagebox
+from app.adapters.gui.main_window_constants import SUPERPOSITION_WHOLE_EXAM_LABEL
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui
+from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Checkbox
+
+_MODE_LABELS = {"scored": "Punkte", "percent": "Prozent", "grade": "Note"}
 
 
 class MainWindowSuperpositionMixin:
-    """Punkte-/Noten-Superposition im Korrekturmodus (Mixin)."""
+    """Punkte-/Prozent-/Noten-Superposition im Korrekturmodus (Mixin)."""
 
-    def _start_scored_superposition(self) -> None:
-        self._start_superposition_preview(mode="scored")
+    def _build_superposition_controls(self, parent) -> None:
+        """Superposition section below the Supersymbol filter: "Wert von", the three insert buttons, options, page nav."""
+        superposition_row = widgets.Frame(parent, style="Surface.TFrame")
+        superposition_row.pack(fill=ui.X, pady=(6, 0))
+        widgets.Label(superposition_row, text="Superposition (alle Personen, erster Superseiten-Bereich der Aufgabe)", style="Muted.TLabel").pack(
+            anchor=ui.W
+        )
+        value_row = widgets.Frame(superposition_row, style="Surface.TFrame")
+        value_row.pack(fill=ui.X, pady=(4, 0))
+        widgets.Label(value_row, text="Wert von", style="Muted.TLabel").pack(side=ui.LEFT)
+        self._superposition_value_var = ui.StringVar(value="")
+        self._superposition_value_combo = widgets.Combobox(
+            value_row, textvariable=self._superposition_value_var, state="readonly", width=26, values=()
+        )
+        self._superposition_value_combo.pack(side=ui.LEFT, padx=(8, 0))
+        self._attach_hover_help(
+            self._superposition_value_combo,
+            label="Wofür Punkte bzw. Prozent eingefügt werden: aktuelle Teilaufgabe, ganze Aufgabe (alle Teilaufgaben) oder gesamte Klausur",
+        )
+
+        superposition_buttons = widgets.Frame(superposition_row, style="Surface.TFrame")
+        superposition_buttons.pack(fill=ui.X, pady=(4, 0))
+        buttons = (
+            ("Punkte einfügen", "scored", "Fügt an einer gemeinsamen Position die jeweils erreichte Punktzahl jeder Person ein"),
+            ("Prozent einfügen", "percent", "Fügt an einer gemeinsamen Position den jeweils erreichten Prozentsatz jeder Person ein"),
+            ("Note einfügen", "grade", "Fügt an einer gemeinsamen Position die jeweilige Note jeder Person ein (Notenschlüssel nötig)"),
+        )
+        for index, (text, mode, help_text) in enumerate(buttons):
+            button = widgets.Button(
+                superposition_buttons,
+                text=text,
+                style="SecondaryAction.TButton",
+                command=self._start_grade_superposition if mode == "grade" else (lambda mode=mode: self._start_superposition_preview(mode=mode)),
+            )
+            button.pack(side=ui.LEFT, padx=(0 if index == 0 else 8, 0))
+            self._attach_hover_help(button, label=help_text + " - beim Überschreiben der PDFs immer mit dem aktuellen Stand")
+
+        show_max_points_check = Checkbox(
+            superposition_row,
+            text="Gesamtpunktzahl anzeigen",
+            variable=self._superposition_show_max_points_var,
+        )
+        show_max_points_check.pack(anchor=ui.W, pady=(4, 0))
+        self._attach_hover_help(
+            show_max_points_check,
+            label="Punkte-Superposition zeigt z. B. '7/10' statt nur '7'",
+        )
+
+        superposition_page_nav = widgets.Frame(superposition_row, style="Surface.TFrame")
+        self._superposition_page_nav_frame = superposition_page_nav
+        for index, (text, delta) in enumerate((("◀ Seite", -1), ("Seite ▶", 1))):
+            button = widgets.Button(
+                superposition_page_nav,
+                text=text,
+                style="SecondaryAction.TButton",
+                command=lambda delta=delta: self._change_superposition_page(delta),
+            )
+            button.pack(side=ui.LEFT, padx=(0 if index == 0 else 8, 0))
+            self._attach_hover_help(
+                button,
+                label=f"Noten-Superposition: eine Seite {'zurück' if delta < 0 else 'vor'} (unabhängig von der Aufgabe)",
+            )
+        superposition_page_nav.pack(anchor=ui.W, pady=(4, 0))
+        superposition_page_nav.pack_forget()
+
+    def _superposition_value_options(self) -> dict[str, list[str]]:
+        """``{Anzeigetext: task_codes}`` for "Wert von": the current subtask, its whole task(s), the whole exam (``[]``)."""
+        code, _max_points = self._selected_correction_task()
+        options = self._task_scope_options([code]) if code is not None else {}
+        options[SUPERPOSITION_WHOLE_EXAM_LABEL] = []
+        return options
+
+    def _refresh_superposition_value_choices(self) -> None:
+        """Offer the "Wert von" choices for the current task; keep a still offered selection, else the subtask."""
+        values = tuple(self._superposition_value_options())
+        self._superposition_value_combo["values"] = values
+        if self._superposition_value_var.get() not in values:
+            self._superposition_value_var.set(values[0])
 
     def _start_grade_superposition(self) -> None:
         if self._current_exam is not None and self._current_exam.grading_scale_snapshot is None:
@@ -37,21 +117,17 @@ class MainWindowSuperpositionMixin:
         "Durchdruecken" uses) - unlike Supersymbol, a Superposition has no
         filter condition to narrow it down.
 
-        The two modes intentionally source their task/page/clip data
-        differently, per the Korrektor-Wunschliste:
-        - "scored" always uses the single task currently selected in the
-          Punkte-Formular (`_selected_correction_task()`), independent of
-          the Supersymbol-Filter's own "Aufgabe(n)"-Auswahl (that field is
-          for the filter's target population, not for what a Superposition
-          inserts - the previous shared use of it was an accidental
-          coupling). The preview is cropped to the current Bereich's box
-          (`clip`), and stays tied to the Bereich's page.
-        - "grade" is unchanged: `task_codes` no longer influences the
-          Notenwert at all (`apply_grade_superposition_immediate` computes
-          it exam-weit), the preview shows the whole page, and
-          `self._superposition_page_number` lets the teacher navigate to
-          any page of the exam via `_change_superposition_page`,
-          independent of the Bereich.
+        - "scored"/"percent" take their tasks from the own "Wert von"
+          selection (`_superposition_value_options`: current subtask, whole
+          task, whole exam = ``[]``), independent of the Supersymbol filter's
+          "Aufgabe(n)". The preview is cropped to the current Bereich's box
+          (`clip`) and stays on the Bereich's page.
+        - "grade" is always exam-wide (`apply_grade_superposition_immediate`),
+          shows the whole page, and `self._superposition_page_number` lets the
+          teacher navigate to any page via `_change_superposition_page`.
+
+        The inserted texts remember their source (`LiveValue`), so the
+        preview and "Alle PDFs überschreiben" always show current values.
         """
         if self._current_exam is None or self._controller is None:
             return
@@ -64,20 +140,16 @@ class MainWindowSuperpositionMixin:
             return
 
         clip: fitz.Rect | None = None
-        if mode == "scored":
-            task_code, max_points = self._selected_correction_task()
-            if task_code is None:
-                messagebox.showinfo("Hinweis", "Bitte zuerst eine Aufgabe im Punkte-Formular auswählen.")
+        if mode != "grade":
+            options = self._superposition_value_options()
+            if self._superposition_value_var.get() not in options:
+                messagebox.showinfo("Hinweis", "Bitte unter „Wert von“ wählen, wofür eingefügt wird.")
                 return
-            task_codes = [task_code]
-            self._superposition_max_points = max_points
+            task_codes = options[self._superposition_value_var.get()]
             clip = fitz.Rect(*template.box)
             page_number = template.page_number
         else:
-            task_codes = self._resolve_supersymbol_task_codes(template)
-            if not task_codes:
-                messagebox.showinfo("Hinweis", "Bitte eine Aufgabe oder 'Summe aller Aufgaben' wählen.")
-                return
+            task_codes = []
             self._superposition_page_number = template.page_number
             page_number = self._superposition_page_number
 
@@ -88,7 +160,7 @@ class MainWindowSuperpositionMixin:
         if mode == "grade":
             self._superposition_page_nav_frame.pack(anchor=ui.W, pady=(4, 0))
         self._render_supersymbol_filtered_page(students=target_students, page_number=page_number, clip=clip)
-        label = "Punkte" if mode == "scored" else "Note"
+        label = _MODE_LABELS[mode]
         self._supersymbol_info_var.set(
             f"{label}-Superposition-Vorschau ({len(target_students)} Personen) - Klick platziert die Werte."
         )
@@ -136,13 +208,13 @@ class MainWindowSuperpositionMixin:
             else template.page_number
         )
         student_ids = [self._current_exam.students[index].student_id for index in self._correction_student_indices]
-        apply_method = (
-            self._controller.apply_scored_superposition_immediate
-            if self._superposition_mode == "scored"
-            else self._controller.apply_grade_superposition_immediate
-        )
+        apply_method = {
+            "scored": self._controller.apply_scored_superposition_immediate,
+            "percent": self._controller.apply_percent_superposition_immediate,
+            "grade": self._controller.apply_grade_superposition_immediate,
+        }[self._superposition_mode]
         extra_kwargs = (
-            {"max_points": self._superposition_max_points, "show_max_points": self._superposition_show_max_points_var.get()}
+            {"show_max_points": self._superposition_show_max_points_var.get()}
             if self._superposition_mode == "scored"
             else {}
         )

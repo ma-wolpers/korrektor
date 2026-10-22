@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import base64
+from dataclasses import replace
 from uuid import uuid4
 
 from app.adapters.gui.dialog_services import messagebox
 from app.adapters.gui.main_window_types import CorrectionTemplate
+from app.core.domain.live_text import current_live_texts
 from app.core.domain.models import PdfAnnotation
 from app.infrastructure.rendering.mark_renderer import MarkStyle, render_mark
 
@@ -69,6 +71,7 @@ class MainWindowCorrectionMarkersClipboardMixin:
             "font_size": self._normalize_marker_font_size(annotation.font_size),
             "rotation_deg": self._normalize_rotation_deg(annotation.rotation_deg),
             "mirrored": bool(annotation.mirrored),
+            "live_value": annotation.live_value,
             "task_code": annotation.task_code,
             "rel_x": rel_x,
             "rel_y": rel_y,
@@ -122,6 +125,7 @@ class MainWindowCorrectionMarkersClipboardMixin:
             font_size=self._normalize_marker_font_size(self._annotation_clipboard.get("font_size", 14.0)),
             rotation_deg=self._normalize_rotation_deg(float(self._annotation_clipboard.get("rotation_deg", 0.0))),
             mirrored=bool(self._annotation_clipboard.get("mirrored", False)),
+            live_value=self._annotation_clipboard.get("live_value"),
             sync_group_id="",
             position_detached=False,
         )
@@ -169,6 +173,18 @@ class MainWindowCorrectionMarkersClipboardMixin:
                 return template.box
         return None
 
+    def _live_preview_texts(self, annotations: list[PdfAnnotation]) -> dict[str, str]:
+        """Current texts of the shown Superposition marks (``{annotation_id: text}``), so the preview matches the export.
+
+        Only reads the points file when a shown mark has a `LiveValue`; a mark
+        whose value is missing now keeps its stored (last known) text, exactly
+        like "Alle PDFs überschreiben". Nothing is changed or saved here.
+        """
+        if self._controller is None or self._current_exam is None or not any(item.live_value for item in annotations):
+            return {}
+        texts = current_live_texts(self._current_exam, self._controller.load_scores_for_exam(exam=self._current_exam))
+        return {annotation_id: result.text for annotation_id, result in texts.items() if result.text is not None}
+
     def _render_correction_annotations(self) -> None:
         """Draw the person's marks of all shown segments, each converted through its own segment."""
         if self._correction_canvas is None:
@@ -184,6 +200,7 @@ class MainWindowCorrectionMarkersClipboardMixin:
             self._refresh_correction_sync_info()
             return
 
+        live_texts = self._live_preview_texts(annotations)
         for annotation in annotations:
             segment = self._segment_for_annotation(annotation)
             canvas_pos = self._pdf_to_canvas_coords(annotation.x, annotation.y, segment)
@@ -191,7 +208,10 @@ class MainWindowCorrectionMarkersClipboardMixin:
                 continue
             canvas_x, canvas_y = canvas_pos
             # Same pixels as the PDF stamp (mark_renderer); the image centre is the anchor point.
-            rendered = render_mark(MarkStyle.of(annotation), segment.scale)
+            shown = annotation
+            if annotation.annotation_id in live_texts:
+                shown = replace(annotation, content=live_texts[annotation.annotation_id])
+            rendered = render_mark(MarkStyle.of(shown), segment.scale)
             photo = ui.PhotoImage(data=base64.b64encode(rendered.png).decode("ascii"), format="png")
             self._correction_annotation_photos.append(photo)
             item_id = self._correction_canvas.create_image(

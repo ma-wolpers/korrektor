@@ -13,7 +13,7 @@ from app.core.domain.model_regions import (  # noqa: F401 - re-exported, stable 
     TaskDefinition,
     UnscoredPage,
 )
-from app.core.domain.model_students import PdfAnnotation, PersonTaskCompletion, StudentExam  # noqa: F401
+from app.core.domain.model_students import LiveValue, PdfAnnotation, PersonTaskCompletion, StudentExam  # noqa: F401
 
 # Exam data schema written by this version; v1 (tasks inside regions, extra-page
 # assignments, completions per region) is migrated by `schema_migration.migrate_v1_tasks`.

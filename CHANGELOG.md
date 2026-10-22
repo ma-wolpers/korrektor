@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- **Superposition: ganze Aufgabe, gesamte Klausur und Prozent.** Unter „Wert von“ wählst du, ob „Punkte einfügen“ die aktuelle Teilaufgabe, die ganze Aufgabe (z. B. „Aufgabe 2 gesamt (2A-C)“, auch über mehrere Bereiche) oder die gesamte Klausur einträgt. Neu ist „Prozent einfügen“ für dieselbe Auswahl (gesamte Klausur = Wert der Auswertung).
+- **Eingefügte Punkte, Prozent und Noten bleiben aktuell.** Ändern sich Punkte nach dem Einfügen, zeigen Vorschau und „Alle PDFs überschreiben“ den neuen Wert; ein gerade getippter Punktwert wird vorher übernommen. Fehlt ein Wert inzwischen (Punktefeld geleert), bleibt der zuletzt bekannte stehen und ein Hinweis nennt die Stelle. Gilt für ab jetzt eingefügte Werte; ältere Einträge bitte einmal neu einfügen.
 - **Supersymbol: ganze Aufgabe als Filter.** Unter „Aufgabe(n)“ lässt sich neben der aktuellen Teilaufgabe jetzt auch „Aufgabe 2 gesamt (2A-C)“ wählen – gefiltert wird dann nach der Summe aller Teilaufgaben dieser Aufgabe in der ganzen Klausur, der Punktwert ist mit deren Höchstpunktzahl vorbelegt.
 - **Zuschnitt: ganze Aufgaben eingeben.** Im Aufgabenfeld genügt jetzt „2“, um alle vorhandenen Teilaufgaben von Aufgabe 2 (z. B. 2A, 2B, 2C) zuzuordnen, und „1-4“ für mehrere Aufgaben auf einmal – jeweils ersetzt durch die vorhandenen Aufgaben bzw. deren Teilaufgaben. Die Ankreuzliste hakt sie sofort an.
 - **Behoben: Markierungen auf gedrehten PDF-Seiten.** Bei PDFs mit gespeicherter Seitendrehung (`/Rotate`, z. B. Querformat-Scans, die nicht durch die Scan-Werkstatt gelaufen sind) landeten Markierungen beim „Alle PDFs überschreiben“ an der falschen Stelle. Sie stehen jetzt dort und so aufrecht, wie die Vorschau sie zeigt.

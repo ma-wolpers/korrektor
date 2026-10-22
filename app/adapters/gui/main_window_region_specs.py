@@ -25,7 +25,10 @@ class MainWindowRegionSpecsMixin:
             self._quick_tasks_entry.pack_forget()
             self._form_tasks_text.pack_forget()
             self._form_tasks_text.pack(fill=ui.X, pady=(4, 0))
-            self._task_input_example_var.set("Beispiel (Formular):\n4a-d:1,4,2,3\n5a:2\n2c:2? (Bonusaufgabe)\n6c (vorhandene Aufgabe, ohne Punkte)")
+            self._task_input_example_var.set(
+                "Beispiel (Formular):\n4a-d:1,4,2,3\n5a:2\n2c:2? (Bonusaufgabe)\n6c (vorhandene Aufgabe, ohne Punkte)\n"
+                "2 oder 1-4 (ganze Aufgaben = alle ihre Teilaufgaben)"
+            )
         else:
             self._form_tasks_text.pack_forget()
             self._quick_tasks_entry.pack_forget()

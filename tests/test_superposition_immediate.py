@@ -315,7 +315,7 @@ def test_apply_scored_superposition_shows_achieved_over_max_when_requested(tmp_p
     updated = controller.apply_scored_superposition_immediate(
         exam=exam, region_id="r-a", page_number=1, task_codes=["1A"], student_ids=["alice"],
         annotation_type="text", color_hex="#d62828", font_size=14.0, x=10.0, y=10.0,
-        max_points=10.0, show_max_points=True,
+        show_max_points=True,
     )
 
     assert updated is not None
@@ -358,3 +358,75 @@ def test_apply_grade_superposition_places_when_page_exists_for_all(tmp_path: Pat
 
     assert updated is not None
     assert len(updated.pdf_annotations) == 2
+
+
+def _whole_task_exam(controller: UiIntentController, exam: ExamProject) -> ExamProject:
+    """Task 1 = 1A (10 P.) + 1B (4 P., Bonus) + 1C (6 P.); 1A in Bereich r-a, 1B and 1C in r-b."""
+    exam.tasks += [TaskDefinition(code="1B", name="1B", max_points=4.0, is_bonus=True), TaskDefinition(code="1C", name="1C", max_points=6.0)]
+    exam.regions.append(RegionAssignment(region_id="r-b", student_pdf="", page_number=1, box=RegionBox(0, 100, 100, 200), task_codes=["1B", "1C"], assigned_area_codes=["B"]))
+    controller._deps.exam_repository.save_exam(exam)
+    exam = _reload(controller)
+    for code, points in (("1A", 8.0), ("1B", 2.0), ("1C", 5.0)):
+        controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code=code, points=points, max_points=10.0)
+    return exam
+
+
+def _place(controller, exam, method, task_codes, **extra):
+    return getattr(controller, method)(
+        exam=exam, region_id="r-a", page_number=1, task_codes=task_codes, student_ids=["alice"],
+        annotation_type="text", color_hex="#d62828", font_size=14.0, x=10.0, y=10.0, **extra,
+    )
+
+
+def test_scored_superposition_of_a_whole_task_sums_all_subtasks_and_their_maximum(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
+    exam = _whole_task_exam(controller, exam)
+
+    updated = _place(controller, exam, "apply_scored_superposition_immediate", ["1A", "1B", "1C"], show_max_points=True)
+
+    placed = next(a for a in updated.pdf_annotations if a.student_pdf == "Alice.pdf")
+    assert placed.content == "15/16"  # bonus 1B counts to the points, not to the maximum
+    assert placed.live_value.kind == "points" and placed.live_value.task_codes == ("1A", "1B", "1C")
+
+
+def test_percent_superposition_of_a_task_and_of_the_whole_exam(tmp_path: Path) -> None:
+    controller, exam = _setup(tmp_path)
+    exam = _whole_task_exam(controller, exam)
+
+    task = _place(controller, exam, "apply_percent_superposition_immediate", ["1C"])
+    whole = _place(controller, task, "apply_percent_superposition_immediate", [])
+
+    contents = [a.content for a in whole.pdf_annotations]
+    assert contents == ["83 %", "94 %"]  # 5/6; (8+2+5)/16 = 93.75 %
+
+
+def test_refresh_brings_every_live_text_to_the_current_points_and_keeps_the_rest(tmp_path: Path) -> None:
+    """Points changed after placing: "Alle PDFs überschreiben" must write the new value, a missing one keeps the old."""
+    controller, exam = _setup(tmp_path)
+    _assign_scale(controller, exam)
+    exam = _reload(controller)
+    controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=9.0, max_points=10.0)
+    controller._deps.score_repository.save_score(exam=exam, student_id="bob", task_code="1A", points=9.0, max_points=10.0)
+    exam = _place(controller, exam, "apply_scored_superposition_immediate", ["1A"])
+    exam = controller.apply_grade_superposition_immediate(
+        exam=exam, region_id="r-a", page_number=1, task_codes=["1A"], student_ids=["alice", "bob"],
+        annotation_type="text", color_hex="#d62828", font_size=14.0, x=20.0, y=20.0,
+    )
+    controller._deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=6.0, max_points=10.0)
+    controller._deps.score_repository.delete_score(exam=exam, student_id="bob", task_code="1A")
+
+    refreshed, problems = controller.refresh_live_contents(exam=exam)
+
+    alice = sorted(a.content for a in refreshed.pdf_annotations if a.student_pdf == "Alice.pdf")
+    assert alice == ["2", "6"]  # points 9 -> 6, grade 1 -> 2
+    assert [(a.student_pdf, a.content) for a in _reload(controller).pdf_annotations if a.student_pdf == "Bob.pdf"] == [("Bob.pdf", "1")]
+    assert [(a.student_pdf, problem) for a, problem in problems] == [("Bob.pdf", "es fehlt die Bewertung von Aufgabe 1A")]
+    assert sorted(a.content for a in _reload(controller).pdf_annotations if a.student_pdf == "Alice.pdf") == ["2", "6"]
+
+
+def test_marks_without_a_live_source_load_from_old_files_unchanged(tmp_path: Path) -> None:
+    from app.core.domain.models import PdfAnnotation
+
+    raw = {"annotation_id": "a", "student_pdf": "Alice.pdf", "page_number": 1, "annotation_type": "text", "content": "7", "color_hex": "#000000", "x": 1, "y": 2}
+    annotation = PdfAnnotation.from_dict(raw)
+    assert annotation.live_value is None and PdfAnnotation.from_dict(annotation.to_dict()) == annotation

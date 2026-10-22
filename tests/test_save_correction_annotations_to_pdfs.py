@@ -186,3 +186,48 @@ def test_marks_outside_their_region_are_named_and_deleted_on_request(tmp_path: P
         assert window._controller.undo() is True
     else:
         assert remaining == ["inside", "outside"]
+
+
+def test_overwriting_pdfs_burns_in_the_current_points_of_a_superposition(tmp_path: Path, korrektor_window, monkeypatch) -> None:
+    """Points changed after "Punkte einfügen": the PDF gets the new value; a value missing now keeps the last one, with a hint."""
+    from app.adapters.gui import main_window_correction_markers_export as export_module
+    from app.core.domain.models import LiveValue
+
+    exam_folder = tmp_path / "exam"
+    exam_folder.mkdir()
+    _build_student_pdf(exam_folder / "Alice.pdf")
+    window = korrektor_window
+    deps = window.deps
+    now = utc_now_iso()
+    exam = ExamProject(
+        exam_id="exam-live",
+        exam_name="Mathe",
+        folder_path=str(exam_folder),
+        created_at=now,
+        updated_at=now,
+        standard_page_count=1,
+        students=[StudentExam(student_id="alice", display_name="Alice", pdf_filename="Alice.pdf", page_count=1)],
+        regions=[RegionAssignment("r-a", "", 1, RegionBox(0, 0, 100, 100), ["1A"], ["A"], is_read_complete=True)],
+        tasks=[TaskDefinition(code="1A", name="1A", max_points=10.0)],
+        pdf_annotations=[
+            PdfAnnotation("anno-live", "Alice.pdf", 1, "text", "8", "#d62828", 10.0, 10.0, region_id="r-a", live_value=LiveValue("points", ("1A",), True)),
+        ],
+    )
+    deps.exam_repository.save_exam(exam)
+    stamped: list[str] = []
+    warnings: list[str] = []
+    monkeypatch.setattr(export_module, "add_mark_stamp", lambda page, annotation: stamped.append(annotation.content))
+    monkeypatch.setattr(export_module.messagebox, "showwarning", lambda title, text: warnings.append(text))
+    window._current_exam = exam
+    try:
+        deps.score_repository.save_score(exam=exam, student_id="alice", task_code="1A", points=6.0, max_points=10.0)
+        window._save_correction_annotations_to_pdfs()
+        assert stamped == ["6/10"] and warnings == []
+
+        deps.score_repository.delete_score(exam=exam, student_id="alice", task_code="1A")
+        window._save_correction_annotations_to_pdfs()
+        assert stamped == ["6/10", "6/10"]  # last known value, not the one from placing ("8")
+        assert len(warnings) == 1 and "Alice, S. 1" in warnings[0] and "es fehlt die Bewertung von Aufgabe 1A" in warnings[0]
+    finally:
+        window._current_exam = None
+        window.invalidate_doc_cache(["Alice.pdf"])

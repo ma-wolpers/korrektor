@@ -79,6 +79,7 @@ def build_annotation_clones(
             font_size=base.font_size,
             rotation_deg=base.rotation_deg,
             mirrored=base.mirrored,
+            live_value=base.live_value,
             sync_group_id=sync_group_id,
             position_detached=False,
         )
@@ -124,6 +125,7 @@ def build_scored_annotation_clones(
             font_size=base.font_size,
             rotation_deg=base.rotation_deg,
             mirrored=base.mirrored,
+            live_value=base.live_value,
             sync_group_id=sync_group_id,
             position_detached=False,
         )

@@ -130,7 +130,6 @@ class MainWindowBase(BwBaseWindow):
         self._supersymbol_matched_student_ids: list[str] = []
         self._superposition_mode: str | None = None
         self._superposition_task_codes: list[str] = []
-        self._superposition_max_points = 0.0
         self._superposition_page_number: int | None = None
         settings = self.deps.runtime_settings
         self._default_annotation_color_hex = self._normalize_marker_color_hex(settings.default_annotation_color)

@@ -5,7 +5,7 @@ from pathlib import Path
 import fitz
 
 from app.adapters.gui.dialog_services import messagebox
-from app.core.domain.mark_labels import mark_location_line
+from app.core.domain.mark_labels import mark_label, mark_location_line
 from app.core.domain.models import PdfAnnotation
 from app.infrastructure.pdf.mark_stamps import add_mark_stamp, remove_marker_stamps
 from app.infrastructure.pdf.pdf_document_writer import rewrite_pdf_atomically
@@ -20,6 +20,11 @@ class MainWindowCorrectionMarkersExportMixin:
     their region are not burnt in; afterwards one question names each of them
     (person, page, sub-task, symbol - `mark_labels.mark_location_line`) and offers to
     delete them in one undo step.
+
+    Punkte-/Prozent-/Noten-Superpositionen are brought to the current points
+    first (`refresh_live_contents`, after saving the points field
+    still being typed in); one whose value is missing now keeps its last
+    text and is named afterwards (`_report_stale_live_marks`).
     """
 
     _OUTSIDE_PREVIEW_LINES = 12
@@ -28,7 +33,9 @@ class MainWindowCorrectionMarkersExportMixin:
         if self._current_exam is None or self._controller is None:
             return
 
+        self._save_current_correction_score()
         self._save_current_correction_comment()
+        self._current_exam, stale_live_marks = self._controller.refresh_live_contents(exam=self._current_exam)
 
         grouped: dict[str, list[PdfAnnotation]] = {}
         for annotation in self._current_exam.pdf_annotations:
@@ -83,8 +90,26 @@ class MainWindowCorrectionMarkersExportMixin:
         self._apply_detail_labels(self._current_exam)
         self._render_correction_preview()
         self._status_var.set("Original-PDF mit Markierungen überschrieben")
+        if stale_live_marks:
+            self._report_stale_live_marks(stale_live_marks)
         if skipped_annotations:
             self._offer_to_delete_outside_marks(skipped_annotations)
+
+    def _report_stale_live_marks(self, stale: list[tuple[PdfAnnotation, str]]) -> None:
+        """Name every Superposition mark that kept its last text because its value is missing now, and why."""
+        names = {student.pdf_filename: student.display_name for student in self._current_exam.students}
+        lines = [
+            f"• {names.get(item.student_pdf, item.student_pdf)}, S. {item.page_number}: {mark_label(item)} – {problem}"
+            for item, problem in stale
+        ]
+        shown = lines[: self._OUTSIDE_PREVIEW_LINES]
+        if len(lines) > len(shown):
+            shown.append(f"… und {len(lines) - len(shown)} weitere")
+        messagebox.showwarning(
+            "Exporthinweis",
+            "Diese eingefügten Werte ließen sich nicht neu berechnen und stehen mit dem zuletzt bekannten Wert in der PDF:\n\n"
+            + "\n".join(shown),
+        )
 
     def _offer_to_delete_outside_marks(self, annotations: list[PdfAnnotation]) -> None:
         """Name every mark that was not burnt in (person, page, sub-task, symbol) and ask to delete them.
