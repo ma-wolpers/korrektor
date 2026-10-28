@@ -17,7 +17,7 @@ from app.core.domain.exam_evaluation import (
     points_histogram,
     task_rows,
 )
-from app.core.domain.grading_scale import SCALE_TYPE_POINTS_1_15, SCALE_TYPE_SCHOOL_1_6, GradeThreshold, GradingScaleSnapshot
+from app.core.domain.grading_scale import SCALE_TYPE_POINTS_0_15, SCALE_TYPE_SCHOOL_1_6, GradeThreshold, GradingScaleSnapshot
 from app.core.domain.models import PersonTaskCompletion, TaskCategory, TaskDefinition
 from app.core.domain.student_result import compute_student_result
 
@@ -92,7 +92,7 @@ def test_without_scale_rows_are_empty_and_everybody_has_the_reason():
     ("labels", "scale_type", "expected", "note"),
     [
         ((("1", 80.0), ("2", 50.0), ("3", 0.0)), SCALE_TYPE_SCHOOL_1_6, 1.5, ""),
-        ((("15", 95.0), ("10", 50.0), ("0", 0.0)), SCALE_TYPE_POINTS_1_15, 12.5, ""),
+        ((("15", 95.0), ("10", 50.0), ("0", 0.0)), SCALE_TYPE_POINTS_0_15, 12.5, ""),
         ((("1,5", 80.0), ("2", 50.0), ("3", 0.0)), SCALE_TYPE_SCHOOL_1_6, 1.8, ""),
         ((("1+", 80.0), ("2", 50.0), ("3", 0.0)), SCALE_TYPE_SCHOOL_1_6, None, AVERAGE_NOT_NUMERIC),
         ((("sehr gut", 80.0), ("gut", 50.0), ("befriedigend", 0.0)), SCALE_TYPE_SCHOOL_1_6, None, AVERAGE_NOT_NUMERIC),

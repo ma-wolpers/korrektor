@@ -22,7 +22,7 @@ from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from app.core.domain.grading_scale import SCALE_TYPE_POINTS_1_15, SCALE_TYPE_SCHOOL_1_6, GradingScaleSnapshot
+from app.core.domain.grading_scale import SCALE_TYPE_POINTS_0_15, SCALE_TYPE_SCHOOL_1_6, GradingScaleSnapshot
 from app.core.domain.models import PersonTaskCompletion, TaskDefinition
 from app.core.domain.student_result import StudentResult, category_competency_percentages
 
@@ -33,7 +33,7 @@ REASON_BELOW_LOWEST = "unter der niedrigsten Stufe"
 AVERAGE_NOT_NUMERIC = "Notenlabels nicht rein numerisch"
 AVERAGE_NO_GRADES = "noch keine Noten"
 _NUMERIC_LABEL = re.compile(r"^\d+([.,]\d+)?$")
-_NUMERIC_SCALE_TYPES = frozenset({SCALE_TYPE_SCHOOL_1_6, SCALE_TYPE_POINTS_1_15})
+_NUMERIC_SCALE_TYPES = frozenset({SCALE_TYPE_SCHOOL_1_6, SCALE_TYPE_POINTS_0_15})
 
 
 @dataclass(frozen=True)
@@ -145,7 +145,7 @@ def grade_reason(result: StudentResult, snapshot: GradingScaleSnapshot | None) -
 def grade_distribution(results: Sequence[StudentResult], snapshot: GradingScaleSnapshot | None) -> GradeDistribution:
     """Grade counts, reasons for missing grades and - for numeric scales only - the average grade.
 
-    The average exists only if the scale type is "Schulnoten 1-6" or "Punktnoten 1-15"
+    The average exists only if the scale type is "Schulnoten 1-6" or "Punktnoten 0-15"
     **and** every threshold label is a plain number (``^\\d+([.,]\\d+)?$``, comma = point)
     **and** at least one person is graded. No further guessing (e.g. "2+" is not 2).
     """

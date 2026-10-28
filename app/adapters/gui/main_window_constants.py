@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.core.domain.grading_scale import SCALE_TYPE_POINTS_1_15, SCALE_TYPE_SCHOOL_1_6
+from app.core.domain.grading_scale import SCALE_TYPE_POINTS_0_15, SCALE_TYPE_SCHOOL_1_6
 from app.core.domain.score_filter import FilterOperator
 
 CORRECTION_ZOOM_MIN_PERCENT = 10
@@ -32,7 +32,7 @@ CORRECTION_DEFAULT_COLOR_NAME = "Rot"
 CORRECTION_DEFAULT_FONT_SIZE_PT = 14.0
 
 GRADING_SCALE_TYPE_BY_LABEL: dict[str, str] = {
-    "Punktnoten (1-15)": SCALE_TYPE_POINTS_1_15,
+    "Punktnoten (0-15)": SCALE_TYPE_POINTS_0_15,
     "Schulnoten (sehr gut 1 - ungenügend 6)": SCALE_TYPE_SCHOOL_1_6,
 }
 GRADING_SCALE_TYPE_LABELS: tuple[str, ...] = tuple(GRADING_SCALE_TYPE_BY_LABEL.keys())

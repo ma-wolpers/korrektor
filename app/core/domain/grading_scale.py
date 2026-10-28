@@ -3,11 +3,32 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-SCALE_TYPE_POINTS_1_15 = "punktnoten_1_15"
+# Scale-type IDs are shared verbatim with Kartograph (`app/core/domain/grade_scale.py`
+# there), so both tools name the same scale identically.
+SCALE_TYPE_POINTS_0_15 = "punktnoten_0_15"
 SCALE_TYPE_SCHOOL_1_6 = "schulnoten_1_6"
+
+# Former IDs still found in stored templates/exam snapshots -> current ID.
+# The points scale was mislabelled "1-15" although 0 points is a valid grade.
+_LEGACY_SCALE_TYPES = {"punktnoten_1_15": SCALE_TYPE_POINTS_0_15}
 
 STATUS_ACTIVE = "active"
 STATUS_ARCHIVED = "archived"
+
+
+def normalize_scale_type(raw: Any) -> str:
+    """Return the current scale-type ID for a stored value, migrating legacy IDs.
+
+    Single entry point for reading `scale_type` from disk - both
+    `GradingScale.from_dict` and `GradingScaleSnapshot.from_dict` use it, so
+    global templates, exam-embedded snapshots and imported transfer files are
+    all migrated on load without a separate migration pass over the files.
+    Unknown/custom values are passed through unchanged (stripped).
+
+    Example: ``normalize_scale_type("punktnoten_1_15") == "punktnoten_0_15"``.
+    """
+    clean = str(raw if raw is not None else "").strip()
+    return _LEGACY_SCALE_TYPES.get(clean, clean)
 
 
 @dataclass(slots=True)
@@ -79,7 +100,7 @@ class GradingScale:
             subject=str(raw.get("subject", "")).strip(),
             year=str(raw.get("year", "")).strip(),
             school=str(raw.get("school", "")).strip(),
-            scale_type=str(raw.get("scale_type", "")).strip(),
+            scale_type=normalize_scale_type(raw.get("scale_type", "")),
             thresholds=[GradeThreshold.from_dict(item) for item in raw.get("thresholds", [])],
             status=str(raw.get("status", STATUS_ACTIVE)).strip() or STATUS_ACTIVE,
         )
@@ -183,7 +204,7 @@ class GradingScaleSnapshot:
             subject=str(raw.get("subject", "")).strip(),
             year=str(raw.get("year", "")).strip(),
             school=str(raw.get("school", "")).strip(),
-            scale_type=str(raw.get("scale_type", "")).strip(),
+            scale_type=normalize_scale_type(raw.get("scale_type", "")),
             thresholds=[GradeThreshold.from_dict(item) for item in raw.get("thresholds", [])],
             assigned_at=str(raw.get("assigned_at", "")).strip(),
         )

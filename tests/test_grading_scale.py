@@ -1,9 +1,12 @@
 from app.core.domain.grading_scale import (
+    SCALE_TYPE_POINTS_0_15,
     SCALE_TYPE_SCHOOL_1_6,
     STATUS_ACTIVE,
     STATUS_ARCHIVED,
     GradeThreshold,
     GradingScale,
+    GradingScaleSnapshot,
+    normalize_scale_type,
 )
 
 
@@ -80,3 +83,21 @@ def test_grading_scale_snapshot_to_dict_from_dict_roundtrip() -> None:
     assert restored.source_scale_id == snapshot.source_scale_id
     assert restored.assigned_at == snapshot.assigned_at
     assert [t.to_dict() for t in restored.thresholds] == [t.to_dict() for t in snapshot.thresholds]
+
+
+def test_scale_type_ids_match_kartograph() -> None:
+    assert SCALE_TYPE_SCHOOL_1_6 == "schulnoten_1_6"
+    assert SCALE_TYPE_POINTS_0_15 == "punktnoten_0_15"
+
+
+def test_legacy_points_scale_type_is_migrated_on_load() -> None:
+    raw = _scale().to_dict() | {"scale_type": "punktnoten_1_15"}
+    assert GradingScale.from_dict(raw).scale_type == SCALE_TYPE_POINTS_0_15
+
+    snapshot_raw = _scale().to_snapshot(assigned_at="x").to_dict() | {"scale_type": " punktnoten_1_15 "}
+    assert GradingScaleSnapshot.from_dict(snapshot_raw).scale_type == SCALE_TYPE_POINTS_0_15
+
+
+def test_normalize_scale_type_passes_custom_values_through() -> None:
+    assert normalize_scale_type(" eigene_skala ") == "eigene_skala"
+    assert normalize_scale_type(None) == ""
