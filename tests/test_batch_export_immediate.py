@@ -135,23 +135,62 @@ def test_export_batch_succeeds_from_scratch(tmp_path: Path) -> None:
     assert _page_count(folder / "Alice.pdf") == 1
 
 
-def test_export_batch_rejects_empty_sections(tmp_path: Path) -> None:
-    controller, exam, _folder = _setup(tmp_path)
-    scores = _default_scores(controller, exam)
-
-    result = controller.export_students_batch(
+def _export_without_sections(controller, exam, scores, output_dir: Path, student_ids=("alice",)):
+    return controller.export_students_batch(
         exam=exam,
-        student_ids=["alice"],
+        student_ids=list(student_ids),
         scores=scores,
         sections=frozenset(),
         chart_type="Spinnennetz",
         chart_scope="Pro Aufgabe",
-        output_dir=tmp_path / "export",
+        output_dir=output_dir,
         per_student_folders=False,
-        filename_template="{Name}",
+        filename_template="{Name}_{Klasse}",
     )
 
-    assert result is None
+
+def test_export_batch_without_sections_copies_and_renames_only(tmp_path: Path) -> None:
+    controller, exam, folder = _setup(tmp_path)
+    scores = _default_scores(controller, exam)
+    output_dir = tmp_path / "export"
+
+    result = _export_without_sections(controller, exam, scores, output_dir, student_ids=("alice", "bob"))
+
+    assert result == (["Alice", "Bob"], [])
+    destination = output_dir / "Alice_10a.pdf"
+    assert _page_count(destination) == 1
+    assert pdf_writer_module.read_trailing_page_marker(destination) is None
+    assert (output_dir / "Bob_10a.pdf").exists()
+    assert _page_count(folder / "Alice.pdf") == 1
+
+
+def test_export_batch_without_sections_drops_existing_stats_page_in_copy_only(tmp_path: Path) -> None:
+    controller, exam, folder = _setup(tmp_path, student_names=("Alice",))
+    scores = _default_scores(controller, exam)
+    source_path = folder / "Alice.pdf"
+    pdf_writer_module.append_marked_stats_page(source_path, _one_page_pdf_bytes(), replace_existing=False)
+    exam.students[0].stats_report_appended = True
+    controller._deps.exam_repository.save_exam(exam)
+    output_dir = tmp_path / "export"
+
+    result = _export_without_sections(controller, exam, scores, output_dir)
+
+    assert result == (["Alice"], [])
+    destination = output_dir / "Alice_10a.pdf"
+    assert _page_count(destination) == 1
+    assert pdf_writer_module.read_trailing_page_marker(destination) is None
+    assert _page_count(source_path) == 2  # source keeps its Statistikseite
+
+
+def test_export_batch_without_sections_needs_no_evaluation(tmp_path: Path, monkeypatch) -> None:
+    controller, exam, _folder = _setup(tmp_path, student_names=("Alice",))
+    monkeypatch.setattr(controller, "compute_student_result_for_exam", lambda **_kwargs: None)
+    output_dir = tmp_path / "export"
+
+    result = _export_without_sections(controller, exam, {}, output_dir)
+
+    assert result == (["Alice"], [])
+    assert (output_dir / "Alice_10a.pdf").exists()
 
 
 def test_export_batch_sanitizes_unsafe_display_name_into_folder_name(tmp_path: Path) -> None:

@@ -29,10 +29,9 @@ class MainWindowBatchExportMixin:
     (`ui_intent_controller_batch_export.py`) - trifft selbst keine
     fachliche Entscheidung (welche Sektions-/Ordner-/Namensschema-
     Kombination gueltig ist, welche Kollisionen erlaubt sind), das bleibt
-    Sache des Controllers. Der Export-Button ist zusaetzlich zur
-    Controller-seitigen Ablehnung deaktiviert, solange keine einzige
-    Sektion angehakt ist - eine GUI-seitige Vorab-Absicherung, kein Ersatz
-    fuer die Controller-Pruefung.
+    Sache des Controllers. Ohne angehakte Sektion exportiert der Knopf
+    trotzdem: Die Dateien werden nur kopiert und umbenannt, ohne
+    Statistikseite.
     """
 
     def _open_batch_export_popup(self, preselected_ids: list[str] | None = None) -> None:
@@ -82,12 +81,7 @@ class MainWindowBatchExportMixin:
         for key, label in _SECTION_LABELS:
             var = ui.BooleanVar(value=True)
             self._batch_export_section_vars[key] = var
-            Checkbox(
-                sections_frame,
-                text=label,
-                variable=var,
-                on_select=lambda _selected: self._update_batch_export_export_button_state(),
-            ).pack(anchor=ui.W)
+            Checkbox(sections_frame, text=label, variable=var).pack(anchor=ui.W)
 
         chart_controls = widgets.Frame(body, style="Surface.TFrame")
         chart_controls.pack(fill=ui.X, pady=(8, 0))
@@ -141,16 +135,8 @@ class MainWindowBatchExportMixin:
 
         self._batch_export_popup = popup
 
-    def _update_batch_export_export_button_state(self) -> None:
-        """Disable "Exportieren..." while no section is checked - GUI-side pre-check, not a replacement for the controller's own rejection."""
-        if self._batch_export_export_button is None:
-            return
-        any_section_checked = any(var.get() for var in self._batch_export_section_vars.values())
-        self._batch_export_export_button.configure(state="normal" if any_section_checked else "disabled")
-
     def _update_batch_export_preview(self) -> None:
         """Show the resulting filename for the first selected person, using the live template/folder settings."""
-        self._update_batch_export_export_button_state()
         if self._current_exam is None or not hasattr(self, "_batch_export_preview_var"):
             return
         students = self._current_exam.students

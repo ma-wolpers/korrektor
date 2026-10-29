@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -9,6 +9,7 @@ import fitz
 from app.adapters.gui.dialog_services import messagebox
 from app.core.domain.models import ExamProject, StudentExam
 from app.infrastructure.pdf.pdf_document_writer import (
+    drop_trailing_page,
     read_trailing_page_marker,
     stamp_marked_stats_page,
     write_pdf_copy_atomically,
@@ -47,6 +48,13 @@ class UiIntentControllerBatchExportMixin:
     Schreiben; ab hier ist ein Fehlschlag bei einer einzelnen Person kein
     Grund, die uebrigen nicht zu exportieren (`(exported, failed)`,
     Rueckgabekonvention von `export_student_results`).
+
+    Leere `sections` sind erlaubt: Dann wird keine Statistikseite
+    angehaengt, eine vorhandene (per Markierung bestaetigte) faellt in der
+    Kopie weg, und die Auswertung wird gar nicht erst berechnet - der
+    Export dient dann nur dem Kopieren und Umbenennen. Die Konsistenzpruefung
+    Markierung vs. `stats_report_appended` gilt trotzdem, weil sie
+    entscheidet, ob die letzte Seite geloescht werden darf.
     """
 
     def export_students_batch(
@@ -66,11 +74,6 @@ class UiIntentControllerBatchExportMixin:
         if not target_ids:
             messagebox.showerror("Ungültige Eingabe", "Keine Personen ausgewählt.")
             return None
-        if not sections:
-            messagebox.showerror(
-                "Ungültige Eingabe", "Bitte mindestens einen Auswertungs-Baustein wählen oder keine Auswertung anfügen."
-            )
-            return None
 
         targets = self._resolve_batch_export_targets_or_none(
             exam=exam,
@@ -89,11 +92,6 @@ class UiIntentControllerBatchExportMixin:
         exported: list[str] = []
         failed: list[str] = []
         for target in targets:
-            result = self.compute_student_result_for_exam(exam=exam, student_id=target.student.student_id, scores=scores)
-            if result is None:
-                failed.append(f"{target.student.display_name}: Auswertung nicht verfügbar.")
-                continue
-
             has_existing_marker = read_trailing_page_marker(target.source_path) is not None
             if target.student.stats_report_appended and not has_existing_marker:
                 failed.append(
@@ -109,17 +107,30 @@ class UiIntentControllerBatchExportMixin:
                 )
                 continue
 
-            report_bytes = figure_to_pdf_bytes(
-                render_student_result_report(result, chart_type=chart_type, chart_scope=chart_scope, sections=sections)
-            )
+            mutate: Callable[[fitz.Document], None] | None
+            if sections:
+                result = self.compute_student_result_for_exam(
+                    exam=exam, student_id=target.student.student_id, scores=scores
+                )
+                if result is None:
+                    failed.append(f"{target.student.display_name}: Auswertung nicht verfügbar.")
+                    continue
+                report_bytes = figure_to_pdf_bytes(
+                    render_student_result_report(result, chart_type=chart_type, chart_scope=chart_scope, sections=sections)
+                )
 
-            def _mutate(
-                document: fitz.Document, _page_bytes: bytes = report_bytes, _replace: bool = has_existing_marker
-            ) -> None:
-                stamp_marked_stats_page(document, _page_bytes, replace_existing=_replace)
+                def _stamp(
+                    document: fitz.Document, _page_bytes: bytes = report_bytes, _replace: bool = has_existing_marker
+                ) -> None:
+                    stamp_marked_stats_page(document, _page_bytes, replace_existing=_replace)
+
+                mutate = _stamp
+            else:
+                # Ohne Baustein: nur kopieren/umbenennen, eine vorhandene Statistikseite faellt weg.
+                mutate = drop_trailing_page if has_existing_marker else None
 
             try:
-                write_pdf_copy_atomically(target.source_path, target.destination_path, mutate=_mutate)
+                write_pdf_copy_atomically(target.source_path, target.destination_path, mutate=mutate)
             except Exception as exc:
                 failed.append(f"{target.student.display_name}: {exc}")
                 continue

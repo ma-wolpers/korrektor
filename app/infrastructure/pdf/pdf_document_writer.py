@@ -150,6 +150,20 @@ def read_trailing_page_marker(pdf_path: Path) -> str | None:
         document.close()
 
 
+def drop_trailing_page(document: fitz.Document) -> None:
+    """Delete `document`'s last page if it has one, purely mechanically - no consistency check.
+
+    The one in-memory "remove the Statistikseite" step, shared by
+    `stamp_marked_stats_page` (replace), `remove_trailing_page` (rewrite of
+    the Klausur-PDF itself) and the zentraler Exportmodus without any
+    Auswertungs-Baustein (export copy without its old Statistikseite).
+    Whether the last page really is a Korrektor page is the caller's
+    decision (`read_trailing_page_marker`).
+    """
+    if document.page_count > 0:
+        document.delete_page(document.page_count - 1)
+
+
 def stamp_marked_stats_page(document: fitz.Document, page_pdf_bytes: bytes, *, replace_existing: bool) -> None:
     """Insert `page_pdf_bytes` as `document`'s new last page, stamped with the Korrektor marker.
 
@@ -165,8 +179,8 @@ def stamp_marked_stats_page(document: fitz.Document, page_pdf_bytes: bytes, *, r
     carries the exact same marker convention as a PDF the append/remove
     feature itself produced.
     """
-    if replace_existing and document.page_count > 0:
-        document.delete_page(document.page_count - 1)
+    if replace_existing:
+        drop_trailing_page(document)
     source = fitz.open(stream=page_pdf_bytes, filetype="pdf")
     try:
         document.insert_pdf(source, from_page=0, to_page=0, start_at=-1)
@@ -189,9 +203,4 @@ def append_marked_stats_page(pdf_path: Path, page_pdf_bytes: bytes, *, replace_e
 
 def remove_trailing_page(pdf_path: Path) -> None:
     """Delete the last page, purely mechanically - no consistency check (see module docstring)."""
-
-    def _mutate(document: fitz.Document) -> None:
-        if document.page_count > 0:
-            document.delete_page(document.page_count - 1)
-
-    rewrite_pdf_atomically(pdf_path, _mutate)
+    rewrite_pdf_atomically(pdf_path, drop_trailing_page)
