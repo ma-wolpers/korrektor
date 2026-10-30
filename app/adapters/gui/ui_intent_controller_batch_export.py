@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -46,8 +47,9 @@ class UiIntentControllerBatchExportMixin:
 
     Ablauf in zwei Phasen: zuerst ein vollstaendiger, alles-oder-nichts-
     Preflight ueber die **gesamte** Auswahl (unbekannte Person, fehlende
-    Arbeits-PDF, nicht sanitisierbarer Ordner-/Dateiname, Ziel-Kollision
-    mit einer bereits existierenden Datei, Ziel-Kollision zweier Personen
+    Arbeits-PDF, nicht sanitisierbarer Ordner-/Dateiname, Ziel ist eine
+    Arbeits-PDF der Klausur, Ziel-Kollision mit einer bereits
+    existierenden Datei, Ziel-Kollision zweier Personen
     innerhalb derselben Auswahl) - schlaegt irgendeine Pruefung fehl, wird
     **nichts** geschrieben und die Methode gibt `None` zurueck (Diagnose
     bereits per `messagebox` gezeigt). Erst danach beginnt das eigentliche
@@ -90,7 +92,9 @@ class UiIntentControllerBatchExportMixin:
         )
         if targets is None:
             return None
-        collision_diagnostic = self._check_batch_export_collisions_or_none(targets)
+        collision_diagnostic = self._check_batch_export_spares_working_pdfs_or_none(
+            exam, targets
+        ) or self._check_batch_export_collisions_or_none(targets)
         if collision_diagnostic is not None:
             messagebox.showerror("Export nicht möglich", collision_diagnostic)
             return None
@@ -210,6 +214,29 @@ class UiIntentControllerBatchExportMixin:
                 _BatchExportTarget(student=student, source_path=source_path, destination_path=destination_dir / f"{stem}.pdf")
             )
         return targets
+
+    @staticmethod
+    def _check_batch_export_spares_working_pdfs_or_none(
+        exam: ExamProject, targets: list[_BatchExportTarget]
+    ) -> str | None:
+        """Return a diagnostic if a destination is any working PDF of this exam, else `None`.
+
+        Covers the whole roster, not only the selected people. `samefile`
+        compares the files themselves, so differing upper/lower case, a
+        mapped drive or a link cannot hide a match. A destination that does
+        not exist yet cannot be a working PDF.
+        """
+        working_pdfs = [Path(exam.folder_path) / student.pdf_filename for student in exam.students]
+        existing_pdfs = [path for path in working_pdfs if path.exists()]
+        hits = [
+            str(target.destination_path)
+            for target in targets
+            if target.destination_path.exists()
+            and any(os.path.samefile(target.destination_path, path) for path in existing_pdfs)
+        ]
+        if hits:
+            return "Der Export darf keine Klausur-PDF überschreiben: " + ", ".join(hits)
+        return None
 
     @staticmethod
     def _check_batch_export_collisions_or_none(targets: list[_BatchExportTarget]) -> str | None:

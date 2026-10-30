@@ -200,10 +200,9 @@ def flatten_annotations(document: fitz.Document) -> None:
     for the Klausur-PDF, and baking it would print its note icon onto the
     Statistikseite. Links stay clickable (they are no visible content).
 
-    Never use this on a Klausur-PDF: its marks could no longer be replaced
-    by "Alle PDFs überschreiben". Read the result only after saving and
-    reopening - the document still in memory shows baked content twice,
-    the saved file does not (`test_flatten_*`).
+    Read the result only after saving and reopening - the document still
+    in memory shows baked content twice, the saved file does not
+    (`test_flatten_*`).
 
     GRENZE: Foreign comments (e.g. sticky notes from another PDF program)
     keep only their visible part; the note icon stays, its text is lost.

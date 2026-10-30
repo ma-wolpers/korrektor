@@ -313,6 +313,47 @@ def test_export_batch_aborts_entirely_on_existing_destination_file(tmp_path: Pat
     assert (output_dir / "Alice.pdf").read_bytes() == b"already here"
 
 
+@pytest.mark.parametrize(
+    "filename_template",
+    ["{Name}", "Bob"],
+    ids=["own_working_pdf", "working_pdf_of_unselected_person"],
+)
+def test_export_batch_refuses_to_overwrite_a_working_pdf(tmp_path: Path, monkeypatch, filename_template: str) -> None:
+    controller, exam, folder = _setup(tmp_path)
+    scores = _default_scores(controller, exam)
+    before = {name: (folder / name).read_bytes() for name in ("Alice.pdf", "Bob.pdf")}
+    errors: list[str] = []
+    monkeypatch.setattr(batch_export_module.messagebox, "showerror", lambda _title, text: errors.append(text))
+
+    result = controller.export_students_batch(
+        exam=exam,
+        student_ids=["alice"],
+        scores=scores,
+        sections=_ALL_SECTIONS,
+        chart_type="Spinnennetz",
+        chart_scope="Pro Aufgabe",
+        output_dir=folder,
+        per_student_folders=False,
+        filename_template=filename_template,
+    )
+
+    assert result is None
+    assert len(errors) == 1 and "keine Klausur-PDF" in errors[0]
+    assert {name: (folder / name).read_bytes() for name in before} == before
+
+
+def test_export_batch_into_exam_folder_under_a_new_name_is_allowed(tmp_path: Path) -> None:
+    controller, exam, folder = _setup(tmp_path, student_names=("Alice",))
+    scores = _default_scores(controller, exam)
+    before = (folder / "Alice.pdf").read_bytes()
+
+    result = _export_without_sections(controller, exam, scores, folder)
+
+    assert result == (["Alice"], [])
+    assert (folder / "Alice_10a.pdf").exists()
+    assert (folder / "Alice.pdf").read_bytes() == before
+
+
 def test_export_batch_aborts_entirely_on_within_batch_collision(tmp_path: Path) -> None:
     controller, exam, _folder = _setup(tmp_path)
     scores = _default_scores(controller, exam)
