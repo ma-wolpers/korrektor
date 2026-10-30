@@ -89,7 +89,7 @@ def write_pdf_copy_atomically(
     (`ui_intent_controller_batch_export.py`): the Klausur's working PDF is
     the source, a freshly chosen export path is the destination, and
     `mutate` (when given) applies the export-specific Statistikseite
-    replacement before the copy is written. Shares
+    replacement and `flatten_annotations` before the copy is written. Shares
     `_save_and_replace_atomically` with `rewrite_pdf_atomically` - no
     second, diverging write strategy. Creates `destination_path`'s parent
     directory (e.g. a per-student export subfolder) if it does not exist
@@ -175,9 +175,8 @@ def stamp_marked_stats_page(document: fitz.Document, page_pdf_bytes: bytes, *, r
     this. Shared between `append_marked_stats_page` (rewrites the
     Klausur-PDF itself) and the zentraler Exportmodus's export-copy
     mutation (`ui_intent_controller_batch_export.py`) - both need the
-    identical "replace-or-append, then stamp" mechanics so an export copy
-    carries the exact same marker convention as a PDF the append/remove
-    feature itself produced.
+    identical "replace-or-append, then stamp" mechanics. The export copy
+    loses the marker again in `flatten_annotations`.
     """
     if replace_existing:
         drop_trailing_page(document)
@@ -190,6 +189,31 @@ def stamp_marked_stats_page(document: fitz.Document, page_pdf_bytes: bytes, *, r
     annot = page.add_text_annot(fitz.Point(2, 2), "")
     annot.set_info(title="Korrektor", subject=KORREKTOR_STATS_PAGE_MARKER, content="")
     annot.update()
+
+
+def flatten_annotations(document: fitz.Document) -> None:
+    """Burn all annotations and form fields into the page content of `document`, for good.
+
+    Makes an export copy look the same in every viewer: there is nothing
+    left that a viewer could hide, restyle or let someone edit. Removes the
+    `KORREKTOR_STATS_PAGE_MARKER` annotations first - a marker is bookkeeping
+    for the Klausur-PDF, and baking it would print its note icon onto the
+    Statistikseite. Links stay clickable (they are no visible content).
+
+    Never use this on a Klausur-PDF: its marks could no longer be replaced
+    by "Alle PDFs überschreiben". Read the result only after saving and
+    reopening - the document still in memory shows baked content twice,
+    the saved file does not (`test_flatten_*`).
+
+    GRENZE: Foreign comments (e.g. sticky notes from another PDF program)
+    keep only their visible part; the note icon stays, its text is lost.
+    Annotations with the Hidden flag disappear.
+    """
+    for page in document:
+        for annot in list(page.annots() or []):
+            if str((annot.info or {}).get("subject", "")) == KORREKTOR_STATS_PAGE_MARKER:
+                page.delete_annot(annot)
+    document.bake()
 
 
 def append_marked_stats_page(pdf_path: Path, page_pdf_bytes: bytes, *, replace_existing: bool) -> None:

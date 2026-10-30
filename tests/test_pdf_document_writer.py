@@ -6,6 +6,7 @@ import pytest
 from app.infrastructure.pdf.pdf_document_writer import (
     KORREKTOR_STATS_PAGE_MARKER,
     append_marked_stats_page,
+    flatten_annotations,
     read_trailing_page_bytes,
     read_trailing_page_marker,
     remove_trailing_page,
@@ -30,6 +31,68 @@ def _one_page_pdf_bytes(text: str = "stats") -> bytes:
     data = document.tobytes()
     document.close()
     return data
+
+
+def _saved_and_reopened(document: fitz.Document, path: Path) -> fitz.Document:
+    """Flattened content is only reliable in the saved file (`flatten_annotations`)."""
+    document.save(path, garbage=4, deflate=True)
+    document.close()
+    return fitz.open(path)
+
+
+def test_flatten_turns_comments_and_fields_into_page_content_exactly_once(tmp_path: Path) -> None:
+    document = fitz.open()
+    page = document.new_page(width=300, height=240)
+    page.add_freetext_annot(fitz.Rect(50, 20, 250, 50), "Kommentar")
+    widget = fitz.Widget()
+    widget.rect = fitz.Rect(50, 140, 250, 170)
+    widget.field_name = "feld"
+    widget.field_type = fitz.PDF_WIDGET_TYPE_TEXT
+    widget.field_value = "Formularwert"
+    page.add_widget(widget)
+
+    flatten_annotations(document)
+
+    flattened = _saved_and_reopened(document, tmp_path / "flat.pdf")
+    page = flattened.load_page(0)
+    assert list(page.annots()) == []
+    assert list(page.widgets()) == []
+    assert not flattened.is_form_pdf
+    assert page.get_text().split() == ["Kommentar", "Formularwert"]
+    flattened.close()
+
+
+def test_flatten_removes_stats_marker_instead_of_printing_its_note_icon(tmp_path: Path) -> None:
+    blank = fitz.open()
+    blank.new_page(width=200, height=300)
+    document = fitz.open()
+    document.new_page(width=200, height=300)
+    stamp_marked_stats_page(document, blank.tobytes(), replace_existing=False)
+    blank.close()
+
+    flatten_annotations(document)
+
+    flattened = _saved_and_reopened(document, tmp_path / "flat.pdf")
+    samples = flattened.load_page(1).get_pixmap(alpha=False).samples
+    flattened.close()
+    assert set(samples) == {255}
+
+
+def test_flatten_keeps_links_clickable(tmp_path: Path) -> None:
+    source_path = tmp_path / "source.pdf"
+    document = fitz.open()
+    page = document.new_page(width=300, height=240)
+    page.insert_link({"kind": fitz.LINK_URI, "from": fitz.Rect(50, 180, 200, 200), "uri": "https://example.org"})
+    document.save(source_path)
+    document.close()
+
+    document = fitz.open(source_path)
+    flatten_annotations(document)
+
+    flattened = _saved_and_reopened(document, tmp_path / "flat.pdf")
+    links = flattened.load_page(0).get_links()
+    flattened.close()
+    assert [link["uri"] for link in links] == ["https://example.org"]
 
 
 def test_rewrite_pdf_atomically_applies_mutation(tmp_path: Path) -> None:

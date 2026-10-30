@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Sammelexport: Markierungen sind fester Teil der PDF.** Symbole und Kommentare werden in den exportierten PDFs jetzt eingebrannt statt als PDF-Kommentare mitgegeben. Sie sehen dadurch in jedem PDF-Programm gleich aus und lassen sich dort nicht mehr ausblenden. Auch die kleine Notiz-Markierung auf der Auswertungsseite entfällt in der Kopie. Deine Klausur-PDFs bleiben bearbeitbar, „Alle PDFs überschreiben“ funktioniert wie bisher.
 - **Sammelexport ohne Auswertungs-Bausteine.** Ist kein Baustein angehakt, exportiert der Sammelexport trotzdem: Die PDFs werden nur kopiert und nach dem Namensschema umbenannt, ohne Auswertungsseite. Eine bereits angehängte Auswertungsseite fehlt in der Kopie; deine Klausur-PDFs bleiben unverändert. Bisher war „Exportieren…“ dann gesperrt.
 - **Notenschlüssel: Skala heißt jetzt „Punktnoten (0-15)“.** Die Punkteskala umfasst auch 0 Punkte; bisher stand dort fälschlich „1-15“. Vorhandene Notenschlüssel und Klausuren werden beim Öffnen automatisch übernommen, du musst nichts tun.
 - **Superposition: ganze Aufgabe, gesamte Klausur und Prozent.** Unter „Wert von“ wählst du, ob „Punkte einfügen“ die aktuelle Teilaufgabe, die ganze Aufgabe (z. B. „Aufgabe 2 gesamt (2A-C)“, auch über mehrere Bereiche) oder die gesamte Klausur einträgt. Neu ist „Prozent einfügen“ für dieselbe Auswahl (gesamte Klausur = Wert der Auswertung).

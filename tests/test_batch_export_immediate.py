@@ -1,14 +1,24 @@
 from pathlib import Path
 
 import fitz
+import numpy
 import pytest
 
 from app.adapters.bootstrap.wiring import build_gui_dependencies
 from app.adapters.gui import ui_intent_controller as uic_module
 from app.adapters.gui import ui_intent_controller_batch_export as batch_export_module
 from app.adapters.gui.ui_intent_controller import UiIntentController
-from app.core.domain.models import ExamProject, RegionAssignment, RegionBox, StudentExam, TaskDefinition, utc_now_iso
+from app.core.domain.models import (
+    ExamProject,
+    PdfAnnotation,
+    RegionAssignment,
+    RegionBox,
+    StudentExam,
+    TaskDefinition,
+    utc_now_iso,
+)
 from app.infrastructure.pdf import pdf_document_writer as pdf_writer_module
+from app.infrastructure.pdf.mark_stamps import add_mark_stamp
 
 
 @pytest.fixture(autouse=True)
@@ -93,6 +103,23 @@ def _page_count(pdf_path: Path) -> int:
         document.close()
 
 
+def _annotation_count(pdf_path: Path) -> int:
+    document = fitz.open(pdf_path)
+    try:
+        return sum(len(list(page.annots() or [])) for page in document)
+    finally:
+        document.close()
+
+
+def _first_page_raster(pdf_path: Path) -> numpy.ndarray:
+    document = fitz.open(pdf_path)
+    try:
+        pix = document.load_page(0).get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
+        return numpy.frombuffer(pix.samples, dtype=numpy.uint8).reshape(pix.height, pix.width, 3).astype(int)
+    finally:
+        document.close()
+
+
 def _default_scores(controller: UiIntentController, exam: ExamProject) -> dict[str, dict[str, float]]:
     for student in exam.students:
         controller._deps.score_repository.save_score(
@@ -130,7 +157,7 @@ def test_export_batch_succeeds_from_scratch(tmp_path: Path) -> None:
     assert alice_path.exists()
     assert bob_path.exists()
     assert _page_count(alice_path) == 2
-    assert pdf_writer_module.read_trailing_page_marker(alice_path) == pdf_writer_module.KORREKTOR_STATS_PAGE_MARKER
+    assert _annotation_count(alice_path) == 0  # flattened, the stats marker is gone too
     # source PDFs must stay untouched by the export
     assert _page_count(folder / "Alice.pdf") == 1
 
@@ -162,6 +189,47 @@ def test_export_batch_without_sections_copies_and_renames_only(tmp_path: Path) -
     assert pdf_writer_module.read_trailing_page_marker(destination) is None
     assert (output_dir / "Bob_10a.pdf").exists()
     assert _page_count(folder / "Alice.pdf") == 1
+
+
+@pytest.mark.parametrize("sections", [frozenset(), _ALL_SECTIONS], ids=["copy_only", "with_stats_page"])
+@pytest.mark.parametrize("page_rotation", [0, 90])
+def test_export_batch_flattens_marks_into_the_copy_only(tmp_path: Path, sections, page_rotation) -> None:
+    """The mark looks the same in the copy but is page content there; the working PDF keeps its annotation."""
+    controller, exam, folder = _setup(tmp_path, student_names=("Alice",))
+    scores = _default_scores(controller, exam)
+    source_path = folder / "Alice.pdf"
+
+    def _add_mark(document: fitz.Document) -> None:
+        page = document.load_page(0)
+        page.set_rotation(page_rotation)
+        mark = PdfAnnotation(
+            annotation_id="m1", student_pdf="Alice.pdf", page_number=1, annotation_type="symbol", content="✓",
+            color_hex="#d62828", x=100.0, y=100.0, font_size=20.0,
+        )
+        add_mark_stamp(page, mark)
+
+    pdf_writer_module.rewrite_pdf_atomically(source_path, _add_mark)
+    output_dir = tmp_path / "export"
+
+    result = controller.export_students_batch(
+        exam=exam,
+        student_ids=["alice"],
+        scores=scores,
+        sections=sections,
+        chart_type="Spinnennetz",
+        chart_scope="Pro Aufgabe",
+        output_dir=output_dir,
+        per_student_folders=False,
+        filename_template="{Name}",
+    )
+
+    assert result == (["Alice"], [])
+    destination = output_dir / "Alice.pdf"
+    assert _annotation_count(destination) == 0
+    assert _annotation_count(source_path) == 1
+    source_raster = _first_page_raster(source_path)
+    assert (source_raster != 255).any()  # the comparison below really covers a visible mark
+    assert numpy.abs(source_raster - _first_page_raster(destination)).max() <= 8
 
 
 def test_export_batch_without_sections_drops_existing_stats_page_in_copy_only(tmp_path: Path) -> None:
@@ -333,7 +401,7 @@ def test_export_batch_replaces_existing_marked_stats_page_instead_of_duplicating
     assert failed == []
     destination = output_dir / "Alice.pdf"
     assert _page_count(destination) == 2  # replaced, not accumulated
-    assert pdf_writer_module.read_trailing_page_marker(destination) == pdf_writer_module.KORREKTOR_STATS_PAGE_MARKER
+    assert _annotation_count(destination) == 0
 
 
 def test_export_batch_flags_inconsistent_state_as_per_student_failure_not_whole_batch(tmp_path: Path) -> None:

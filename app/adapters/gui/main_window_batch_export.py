@@ -30,7 +30,7 @@ class MainWindowBatchExportMixin:
     fachliche Entscheidung (welche Sektions-/Ordner-/Namensschema-
     Kombination gueltig ist, welche Kollisionen erlaubt sind), das bleibt
     Sache des Controllers. Ohne angehakte Sektion exportiert der Knopf
-    trotzdem: Die Dateien werden nur kopiert und umbenannt, ohne
+    trotzdem: Die Dateien werden nur kopiert, geflattet und umbenannt, ohne
     Statistikseite.
     """
 

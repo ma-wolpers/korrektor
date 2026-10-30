@@ -10,6 +10,7 @@ from app.adapters.gui.dialog_services import messagebox
 from app.core.domain.models import ExamProject, StudentExam
 from app.infrastructure.pdf.pdf_document_writer import (
     drop_trailing_page,
+    flatten_annotations,
     read_trailing_page_marker,
     stamp_marked_stats_page,
     write_pdf_copy_atomically,
@@ -37,6 +38,11 @@ class UiIntentControllerBatchExportMixin:
     bleiben unangetastet, es entstehen ausschliesslich neue Dateien unter
     dem gewaehlten Zielordner. Quelle ist immer der zuletzt gespeicherte
     Stand der Arbeits-PDF - kein automatisches "Alle PDFs ueberschreiben".
+
+    Jede Kopie wird zum Schluss geflattet (`flatten_annotations`):
+    Markierungen und sonstige Kommentare sind dort fester Seiteninhalt und
+    sehen in jedem PDF-Programm gleich aus. Die Arbeits-PDF behaelt ihre
+    Annotationen, damit "Alle PDFs ueberschreiben" sie ersetzen kann.
 
     Ablauf in zwei Phasen: zuerst ein vollstaendiger, alles-oder-nichts-
     Preflight ueber die **gesamte** Auswahl (unbekannte Person, fehlende
@@ -107,7 +113,7 @@ class UiIntentControllerBatchExportMixin:
                 )
                 continue
 
-            mutate: Callable[[fitz.Document], None] | None
+            prepare: Callable[[fitz.Document], None] | None
             if sections:
                 result = self.compute_student_result_for_exam(
                     exam=exam, student_id=target.student.student_id, scores=scores
@@ -124,10 +130,17 @@ class UiIntentControllerBatchExportMixin:
                 ) -> None:
                     stamp_marked_stats_page(document, _page_bytes, replace_existing=_replace)
 
-                mutate = _stamp
+                prepare = _stamp
             else:
                 # Ohne Baustein: nur kopieren/umbenennen, eine vorhandene Statistikseite faellt weg.
-                mutate = drop_trailing_page if has_existing_marker else None
+                prepare = drop_trailing_page if has_existing_marker else None
+
+            def mutate(
+                document: fitz.Document, _prepare: Callable[[fitz.Document], None] | None = prepare
+            ) -> None:
+                if _prepare is not None:
+                    _prepare(document)
+                flatten_annotations(document)
 
             try:
                 write_pdf_copy_atomically(target.source_path, target.destination_path, mutate=mutate)
