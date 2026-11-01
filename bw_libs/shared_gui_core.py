@@ -2,8 +2,9 @@ r"""Bootstrap helper that adds the shared bw-gui library to Python's import path
 
 THIS FILE IS NOT THE LIBRARY. It is a bootstrap helper.
 
-bw-gui (the actual GUI library) lives at a fixed location on this machine:
-  c:\Users\7thpl\Desktop\Code\bw-gui
+bw-gui (the actual GUI library) is expected as a sibling repository of this
+program, i.e. <parent>/bw-gui next to <parent>/<this program>, wherever the
+repositories happen to be cloned (no machine-specific path).
 
 This file's only job is to find that directory and add its src/ folder to
 sys.path so that "import bw_gui" works regardless of how the program is launched
@@ -11,7 +12,7 @@ sys.path so that "import bw_gui" works regardless of how the program is launched
 
 HOW IT WORKS:
   1. It looks for bw-gui/src/ as a sibling of this program's root directory
-     (e.g. Desktop/Code/bw-gui/src — the expected and normal location).
+     (<parent>/bw-gui/src - the expected and normal location).
   2. If not found there, it tries one level higher (for nested repo layouts).
   3. As a last resort, it looks inside the program itself for a local copy
      (this is the stale-copy fallback; do not rely on it).

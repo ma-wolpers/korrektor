@@ -1,6 +1,6 @@
 """Schritt-0-Invariante: bw_gui stammt aus dem Geschwister-Checkout, nie aus einer verschachtelten Kopie.
 
-Siehe bw-gui ``docs/CONSUMER_SETUP.md``. Ohne diese Prüfung könnten Entwicklung
+Siehe bw-gui ``docs/QUICKSTART.md``. Ohne diese Prüfung könnten Entwicklung
 und Tests unbemerkt gegen unterschiedliche bw-gui-Stände laufen.
 """
 

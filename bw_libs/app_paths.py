@@ -25,7 +25,13 @@ class AppPaths:
         portable_markers: tuple[str, ...] = (".portable",),
         start_dir: Path | None = None,
     ) -> "AppPaths":
-        """Discover data directory using portable marker or platform defaults."""
+        """Discover data directory using portable marker or platform defaults.
+
+        Args:
+            app_name: Name of the application; used as the data directory name.
+            portable_markers: Marker filenames that indicate a portable install root.
+            start_dir: Directory to start the portable-root search from; defaults to cwd.
+        """
 
         if not app_name or not app_name.strip():
             raise ValueError("app_name must be a non-empty string")
@@ -42,7 +48,13 @@ class AppPaths:
 
 
 def atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
-    """Write text atomically by replacing the target with a temp file."""
+    """Write text atomically by replacing the target with a temp file.
+
+    Args:
+        path: Target file path.
+        text: Text content to write.
+        encoding: Text encoding to use.
+    """
 
     path.parent.mkdir(parents=True, exist_ok=True)
     suffix = f"{path.suffix}.tmp" if path.suffix else ".tmp"
@@ -65,7 +77,14 @@ def atomic_write_json(
     ensure_ascii: bool = False,
     indent: int = 2,
 ) -> None:
-    """Serialize and write JSON payload atomically."""
+    """Serialize and write JSON payload atomically.
+
+    Args:
+        path: Target file path.
+        payload: JSON-serializable payload to write.
+        ensure_ascii: Whether to escape non-ASCII characters in the output.
+        indent: Indentation width used for pretty-printing.
+    """
 
     content = json.dumps(payload, ensure_ascii=ensure_ascii, indent=indent)
     atomic_write_text(path, content, encoding="utf-8")
