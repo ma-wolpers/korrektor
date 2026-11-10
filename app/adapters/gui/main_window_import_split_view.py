@@ -6,7 +6,6 @@ from typing import Any
 import fitz
 
 from app.adapters.gui.import_split_session import ImportSplitSession
-from app.adapters.gui.main_window_import_split_input import MARK_KEY, PAGE_NEXT_KEY, PAGE_PREV_KEY, UNMARK_KEY
 from app.adapters.gui.import_split_texts import (
     KEY_HELP_TEXT,
     counter_text,
@@ -17,6 +16,8 @@ from app.adapters.gui.import_split_texts import (
     origin_text,
     section_status,
 )
+from app.adapters.gui.local_keys import PAGE_NEXT_KEY, PAGE_PREV_KEY
+from app.adapters.gui.main_window_import_split_input import MARK_KEY, UNMARK_KEY
 from app.core.domain.pdf_split_naming import SplitSection, find_other_sections_with_name, plan_split_files
 from app.infrastructure.repositories.file_utils import build_pdf_filename_from_name
 from bw_gui.runtime.screen_placement import work_area_for

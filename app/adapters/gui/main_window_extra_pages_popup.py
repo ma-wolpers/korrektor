@@ -5,6 +5,7 @@ from pathlib import Path
 import fitz
 
 from app.adapters.gui.dialog_services import messagebox
+from app.adapters.gui.local_keys import PAGE_NEXT_KEY, PAGE_PREV_KEY, bind_popup_table
 from app.adapters.gui.ui_intents import UiIntent
 from app.core.domain.page_coverage import single_pages_with_regions
 
@@ -80,7 +81,7 @@ class MainWindowExtraPagesPopupMixin:
                 command=lambda: self._change_extra_popup_page(-1),
             )
             popup_prev_button.pack(side=ui.LEFT)
-            self._attach_hover_help(popup_prev_button, label="Vorherige Einzelseite", intent=UiIntent.DETAIL_NAVIGATE_LEFT)
+            self._attach_hover_help(popup_prev_button, label="Vorherige Einzelseite", shortcut=PAGE_PREV_KEY)
 
             popup_next_button = widgets.Button(
                 nav,
@@ -89,7 +90,7 @@ class MainWindowExtraPagesPopupMixin:
                 command=lambda: self._change_extra_popup_page(1),
             )
             popup_next_button.pack(side=ui.LEFT, padx=(8, 0))
-            self._attach_hover_help(popup_next_button, label="Nächste Einzelseite", intent=UiIntent.DETAIL_NAVIGATE_RIGHT)
+            self._attach_hover_help(popup_next_button, label="Nächste Einzelseite", shortcut=PAGE_NEXT_KEY)
 
             popup_close_button = widgets.Button(
                 nav,
@@ -103,6 +104,7 @@ class MainWindowExtraPagesPopupMixin:
             self._extra_popup_preview = ScrollableImagePreview(popup, render=self._render_extra_popup_image)
             self._extra_popup_preview.pack(side=ui.TOP, fill=ui.BOTH, expand=True, padx=10, pady=(0, 10))
             theme_canvas(self._extra_popup_preview.canvas, self._tooltip_theme_key)
+            self._bind_extra_popup_keys(popup)
 
             popup.protocol("WM_DELETE_WINDOW", self._close_extra_popup)
             self._extra_popup = popup
@@ -116,6 +118,28 @@ class MainWindowExtraPagesPopupMixin:
             self._extra_popup_cursor = 0
         self._extra_popup_student_index = current_student_index
         self._render_extra_popup_page()
+
+    def _bind_extra_popup_keys(self, popup: ui.Toplevel) -> None:
+        """Left/Right turn the popup's pages (same keys as the ◀/▶ hover help).
+
+        The popup registers as a modal dialog, which blocks the main window's
+        shortcuts (its Left/Right only act in PREVIEW/EDITOR and on the main view).
+        So the popup binds its own table on its toplevel (``local_keys.bind_popup_table``),
+        which runs before the application router; Escape stays the global one.
+        """
+        table = (
+            (PAGE_PREV_KEY, "page_prev", UiIntent.EXTRA_POPUP_PAGE_PREV, lambda: self._change_extra_popup_page(-1)),
+            (PAGE_NEXT_KEY, "page_next", UiIntent.EXTRA_POPUP_PAGE_NEXT, lambda: self._change_extra_popup_page(1)),
+        )
+        bind_popup_table(
+            popup,
+            self._extra_popup_preview.canvas,
+            table,
+            id_prefix="extra_popup",
+            alive=lambda: self._extra_popup is not None and self._extra_popup.winfo_exists(),
+            hsm_contract=self._hsm_contract,
+            on_dispatch=self._record_laufkern_intent_dispatch,
+        )
 
     def _change_extra_popup_page(self, delta: int) -> None:
         if not self._current_exam or self._extra_popup_student_index is None:

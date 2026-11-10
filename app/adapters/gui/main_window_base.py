@@ -209,6 +209,8 @@ class MainWindowBase(BwBaseWindow):
                 UiIntent.IMPORT_SPLIT_ORDER_MOVE_UP,
                 UiIntent.IMPORT_SPLIT_ORDER_MOVE_DOWN,
                 UiIntent.IMPORT_SPLIT_ORDER_CONFIRM,
+                UiIntent.EXTRA_POPUP_PAGE_PREV,
+                UiIntent.EXTRA_POPUP_PAGE_NEXT,
             ]
         )
 

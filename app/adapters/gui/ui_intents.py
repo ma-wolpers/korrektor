@@ -51,3 +51,5 @@ class UiIntent:
     IMPORT_SPLIT_ORDER_MOVE_UP = "import_split.order_move_up"
     IMPORT_SPLIT_ORDER_MOVE_DOWN = "import_split.order_move_down"
     IMPORT_SPLIT_ORDER_CONFIRM = "import_split.order_confirm"
+    EXTRA_POPUP_PAGE_PREV = "extra_popup.page_prev"
+    EXTRA_POPUP_PAGE_NEXT = "extra_popup.page_next"

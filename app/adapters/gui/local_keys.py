@@ -40,6 +40,10 @@ from bw_gui.runtime import WidgetShortcutBinder, WindowShortcutBinder
 
 ENTER = KeySpec.parse("Enter (tolerate: Shift)")
 ESCAPE = KeySpec.parse("Escape (tolerate: Shift)")
+# Page keys of the popups that page through PDF pages (import wizard, Einzelseiten popup);
+# their binding tables and the hover help of their ◀/▶ buttons share these.
+PAGE_PREV_KEY = KeySpec.parse("Left (tolerate: Shift)")
+PAGE_NEXT_KEY = KeySpec.parse("Right (tolerate: Shift)")
 
 PopupKeyRow = tuple[KeySpec | list[KeySpec], str, str, Callable[[], object]]
 _POPUP_MODES = (UI_MODE_DIALOG, UI_MODE_EDITOR)

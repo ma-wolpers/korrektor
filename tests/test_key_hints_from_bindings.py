@@ -9,9 +9,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from app.adapters.gui.local_keys import ENTER
+from app.adapters.gui.local_keys import ENTER, PAGE_NEXT_KEY, PAGE_PREV_KEY
 from app.adapters.gui.main_window_correction_keys import CTRL_SPACE, SPACE
-from app.adapters.gui.main_window_import_split_input import MARK_KEY, PAGE_NEXT_KEY, PAGE_PREV_KEY, UNMARK_KEY
+from app.adapters.gui.main_window_import_split_input import MARK_KEY, UNMARK_KEY
 from app.adapters.gui.ui_intents import UiIntent
 from bw_gui.shortcuts import compose_hover_text, humanize_shortcut
 

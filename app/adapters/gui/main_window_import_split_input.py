@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.adapters.gui.local_keys import bind_popup_table
+from app.adapters.gui.local_keys import PAGE_NEXT_KEY, PAGE_PREV_KEY, bind_popup_table
 from app.adapters.gui.ui_intents import UiIntent
 from bw_gui.contracts.key_spec import KeySpec
 
@@ -11,9 +11,8 @@ from bw_gui.runtime import ui
 
 _k = KeySpec.parse
 
-# Wizard keys shared by the binding table and the hover help of the matching buttons.
-PAGE_PREV_KEY = _k("Left (tolerate: Shift)")
-PAGE_NEXT_KEY = _k("Right (tolerate: Shift)")
+# Wizard keys shared by the binding table and the hover help of the matching buttons
+# (page keys: ``local_keys.PAGE_PREV_KEY``/``PAGE_NEXT_KEY``).
 MARK_KEY = _k("Enter")
 UNMARK_KEY = _k("Shift+Enter")
 

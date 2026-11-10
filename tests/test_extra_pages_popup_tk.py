@@ -1,13 +1,14 @@
-"""Real-Tk test of the "Einzelseiten ansehen" popup layout (same "A4 page pushes the bar out" bug as the old import wizard)."""
+"""Real-Tk tests of the "Einzelseiten ansehen" popup: layout (same "A4 page pushes the bar out" bug as the old
+import wizard) and its own Left/Right page keys (synthetic PDFs, synthetic key presses)."""
 
 from __future__ import annotations
 
+from bw_gui.testing.keys import press_key
 from tk_test_support import build_pdf, settle
 
 
-def test_extra_pages_popup_keeps_navigation_visible_and_scrolls(korrektor_window, tmp_path):
-    """Navigation stays fully visible at small heights; the page scrolls and starts at the top on page change."""
-    window = korrektor_window
+def _open_popup(window, tmp_path) -> None:
+    """Open the popup for a synthetic exam: Anna with Einzelseiten-Bereichen on pages 2 and 3."""
     from app.core.domain.models import ExamProject, RegionAssignment, RegionBox, StudentExam, TaskDefinition, utc_now_iso
 
     folder = tmp_path / "exam"
@@ -31,8 +32,14 @@ def test_extra_pages_popup_keeps_navigation_visible_and_scrolls(korrektor_window
         is_reading_complete=False,
     )
     window._student_cursor = 0
+    window._open_extra_pages_popup_for_current(notify_if_missing=False)
+
+
+def test_extra_pages_popup_keeps_navigation_visible_and_scrolls(korrektor_window, tmp_path):
+    """Navigation stays fully visible at small heights; the page scrolls and starts at the top on page change."""
+    window = korrektor_window
     try:
-        window._open_extra_pages_popup_for_current(notify_if_missing=False)
+        _open_popup(window, tmp_path)
         popup = window._extra_popup
         preview = window._extra_popup_preview
         settle(window, 200)
@@ -50,6 +57,22 @@ def test_extra_pages_popup_keeps_navigation_visible_and_scrolls(korrektor_window
         window.update()
         assert "Einzelseite 2/2 | Seite 3 | Bereiche C: 1A" in window._extra_popup_info_var.get()
         assert preview.canvas.yview()[0] == 0
+    finally:
+        window._close_extra_popup()
+        window._current_exam = None
+
+
+def test_left_and_right_turn_the_popup_pages(korrektor_window, tmp_path):
+    """The keys the ◀/▶ tooltips promise work in the popup, from the preview and from a button."""
+    window = korrektor_window
+    try:
+        _open_popup(window, tmp_path)
+        preview_canvas = window._extra_popup_preview.canvas
+        close_button = window._extra_popup.winfo_children()[1].winfo_children()[-1]
+        assert press_key(preview_canvas, "Right") is True
+        assert "Einzelseite 2/2 | Seite 3" in window._extra_popup_info_var.get()
+        assert press_key(close_button, "Left") is True
+        assert "Einzelseite 1/2 | Seite 2" in window._extra_popup_info_var.get()
     finally:
         window._close_extra_popup()
         window._current_exam = None

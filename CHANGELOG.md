@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Behoben: „Einzelseiten ansehen“ blättert mit den Pfeiltasten.** Im Einzelseiten-Fenster wechseln ← und → jetzt wie versprochen zur vorherigen bzw. nächsten Einzelseite; bisher passierte beim Drücken nichts.
 - **Tastenhinweise in Menüs und Tooltips stimmen immer mit der Belegung überein.** Sie werden jetzt direkt aus den Tastenkürzeln gelesen, statt als Text danebenzustehen. Sichtbar ändert sich nur der Hinweis „Hier beginnt neue Abgabe“ im PDF-Import: „Enter oder Shift+Enter“ statt „Enter / Shift+Enter“.
 - **Sammelexport: Markierungen sind fester Teil der PDF.** Symbole und Kommentare werden in den exportierten PDFs jetzt eingebrannt statt als PDF-Kommentare mitgegeben. Sie sehen dadurch in jedem PDF-Programm gleich aus und lassen sich dort nicht mehr ausblenden. Auch die kleine Notiz-Markierung auf der Auswertungsseite entfällt in der Kopie. Deine Klausur-PDFs bleiben bearbeitbar, „Alle PDFs überschreiben“ funktioniert wie bisher.
 - **Sammelexport ohne Auswertungs-Bausteine.** Ist kein Baustein angehakt, exportiert der Sammelexport trotzdem: Die PDFs werden nur kopiert und nach dem Namensschema umbenannt, ohne Auswertungsseite. Eine bereits angehängte Auswertungsseite fehlt in der Kopie; deine Klausur-PDFs bleiben unverändert. Bisher war „Exportieren…“ dann gesperrt.
