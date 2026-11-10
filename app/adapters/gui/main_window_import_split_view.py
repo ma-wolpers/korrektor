@@ -6,6 +6,7 @@ from typing import Any
 import fitz
 
 from app.adapters.gui.import_split_session import ImportSplitSession
+from app.adapters.gui.main_window_import_split_input import MARK_KEY, PAGE_NEXT_KEY, PAGE_PREV_KEY, UNMARK_KEY
 from app.adapters.gui.import_split_texts import (
     KEY_HELP_TEXT,
     counter_text,
@@ -133,13 +134,13 @@ class MainWindowImportSplitViewMixin:
             command=lambda: self._step_import_split_page(-1),
         )
         prev_button.pack(side=ui.LEFT)
-        self._attach_hover_help(prev_button, label="Vorherige Seite", shortcut="Links")
+        self._attach_hover_help(prev_button, label="Vorherige Seite", shortcut=PAGE_PREV_KEY)
         next_button = widgets.Button(
             nav, text="▶", style="SecondaryAction.TButton", takefocus=False,
             command=lambda: self._step_import_split_page(1),
         )
         next_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(next_button, label="Nächste Seite", shortcut="Rechts")
+        self._attach_hover_help(next_button, label="Nächste Seite", shortcut=PAGE_NEXT_KEY)
         boundary_var = ui.BooleanVar(value=True)
         # Checkbox: staged selection only - boundaries take effect on "Aufteilen".
         boundary_check = Checkbox(
@@ -148,7 +149,7 @@ class MainWindowImportSplitViewMixin:
         )
         boundary_check.configure(takefocus=False)
         boundary_check.pack(side=ui.LEFT, padx=(16, 0))
-        self._attach_hover_help(boundary_check, label="Hier aufteilen / Aufteilung zurücknehmen", shortcut="Enter / Shift+Enter")
+        self._attach_hover_help(boundary_check, label="Hier aufteilen / Aufteilung zurücknehmen", shortcut=(MARK_KEY, UNMARK_KEY))
         count_var = ui.StringVar(value="")
         widgets.Label(nav, textvariable=count_var, style="Status.TLabel", anchor=ui.W).pack(
             side=ui.LEFT, fill=ui.X, expand=True, padx=(16, 0)

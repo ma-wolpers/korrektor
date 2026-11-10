@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.adapters.gui.ui_intents import UiIntent
 from bw_gui.contracts.keybinding import UI_MODE_DIALOG, UI_MODE_EDITOR, UI_MODE_GLOBAL, UI_MODE_OFFLINE, UI_MODE_PREVIEW
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
@@ -52,7 +53,7 @@ class MainWindowShortcutsDebugMixin:
             on_change=lambda _offline: self._refresh_shortcut_runtime_debug_dialog(),
         )
         offline_check.pack(side=ui.LEFT, padx=(12, 0))
-        self._attach_hover_help(offline_check, label="Offline-Simulation für Runtime-Resolver umschalten", shortcut="Ctrl+Shift+O")
+        self._attach_hover_help(offline_check, label="Offline-Simulation für Runtime-Resolver umschalten", intent=UiIntent.DEBUG_RUNTIME_OFFLINE)
 
         refresh_button = widgets.Button(
             toolbar,

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Sequence
 
 from app.adapters.gui.dialog_services import messagebox
+from app.adapters.gui.ui_intents import UiIntent
 from app.core.domain.models import StudentExam
 from app.core.domain.task_regions import next_free_label, shared_page_limit
 
@@ -28,7 +29,7 @@ class MainWindowReadingMixin:
             command=self._leave_reading_view,
         )
         back_to_detail_button.pack(side=ui.LEFT)
-        self._attach_hover_help(back_to_detail_button, label="Zur Klausurdetailansicht zurück", shortcut="Esc")
+        self._attach_hover_help(back_to_detail_button, label="Zur Klausurdetailansicht zurück", intent=UiIntent.GLOBAL_ESCAPE)
 
         self._finish_reading_button = widgets.Button(
             reading_nav,
@@ -59,7 +60,7 @@ class MainWindowReadingMixin:
             command=lambda: self._change_reading_page(-1),
         )
         prev_page_button.pack(side=ui.LEFT)
-        self._attach_hover_help(prev_page_button, label="Vorherige Seite", shortcut="Links")
+        self._attach_hover_help(prev_page_button, label="Vorherige Seite", intent=UiIntent.DETAIL_NAVIGATE_LEFT)
 
         next_page_button = widgets.Button(
             self._reading_toolbar,
@@ -68,7 +69,7 @@ class MainWindowReadingMixin:
             command=lambda: self._change_reading_page(1),
         )
         next_page_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(next_page_button, label="Nächste Seite", shortcut="Rechts")
+        self._attach_hover_help(next_page_button, label="Nächste Seite", intent=UiIntent.DETAIL_NAVIGATE_RIGHT)
 
         prev_reading_student_button = widgets.Button(
             self._reading_toolbar,

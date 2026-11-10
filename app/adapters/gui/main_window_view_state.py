@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.adapters.gui.local_keys import ENTER, ESCAPE, bind_widget_keys
+from app.adapters.gui.ui_intents import UiIntent
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
@@ -28,7 +29,7 @@ class MainWindowViewStateMixin:
             command=self._return_to_overview,
         )
         back_button.pack(side=ui.LEFT)
-        self._attach_hover_help(back_button, label="Zur Gesamtübersicht wechseln", shortcut="Esc")
+        self._attach_hover_help(back_button, label="Zur Gesamtübersicht wechseln", intent=UiIntent.GLOBAL_ESCAPE)
 
         scan_workshop_button = widgets.Button(
             detail_actions,
@@ -64,7 +65,7 @@ class MainWindowViewStateMixin:
             command=self._menu_export_scores,
         )
         export_detail_button.pack(side=ui.RIGHT)
-        self._attach_hover_help(export_detail_button, label="Punkte als CSV exportieren", shortcut="Strg+E")
+        self._attach_hover_help(export_detail_button, label="Punkte als CSV exportieren", intent=UiIntent.GLOBAL_EXPORT)
 
         grading_scale_manage_button = widgets.Button(
             detail_actions,
@@ -179,7 +180,7 @@ class MainWindowViewStateMixin:
             command=self._stop_correction_mode,
         )
         stop_correction_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(stop_correction_button, label="Aktiven Modus beenden", shortcut="Esc")
+        self._attach_hover_help(stop_correction_button, label="Aktiven Modus beenden", intent=UiIntent.GLOBAL_ESCAPE)
 
         show_extras_button = widgets.Button(
             correction_header,
@@ -227,7 +228,7 @@ class MainWindowViewStateMixin:
             command=lambda: self._move_student(-1),
         )
         prev_student_button.pack(side=ui.LEFT)
-        self._attach_hover_help(prev_student_button, label="Vorherige Person", shortcut="Links")
+        self._attach_hover_help(prev_student_button, label="Vorherige Person", intent=UiIntent.DETAIL_NAVIGATE_LEFT)
 
         next_student_button = widgets.Button(
             nav,
@@ -236,7 +237,7 @@ class MainWindowViewStateMixin:
             command=lambda: self._move_student(1),
         )
         next_student_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(next_student_button, label="Nächste Person", shortcut="Rechts")
+        self._attach_hover_help(next_student_button, label="Nächste Person", intent=UiIntent.DETAIL_NAVIGATE_RIGHT)
 
     def _focus_first_input_field(self) -> None:
         """Put the keyboard focus where typing continues after a navigation step.

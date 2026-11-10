@@ -5,6 +5,7 @@ from pathlib import Path
 import fitz
 
 from app.adapters.gui.dialog_services import messagebox
+from app.adapters.gui.ui_intents import UiIntent
 from app.core.domain.page_coverage import single_pages_with_regions
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
@@ -79,7 +80,7 @@ class MainWindowExtraPagesPopupMixin:
                 command=lambda: self._change_extra_popup_page(-1),
             )
             popup_prev_button.pack(side=ui.LEFT)
-            self._attach_hover_help(popup_prev_button, label="Vorherige Einzelseite", shortcut="Links")
+            self._attach_hover_help(popup_prev_button, label="Vorherige Einzelseite", intent=UiIntent.DETAIL_NAVIGATE_LEFT)
 
             popup_next_button = widgets.Button(
                 nav,
@@ -88,7 +89,7 @@ class MainWindowExtraPagesPopupMixin:
                 command=lambda: self._change_extra_popup_page(1),
             )
             popup_next_button.pack(side=ui.LEFT, padx=(8, 0))
-            self._attach_hover_help(popup_next_button, label="Nächste Einzelseite", shortcut="Rechts")
+            self._attach_hover_help(popup_next_button, label="Nächste Einzelseite", intent=UiIntent.DETAIL_NAVIGATE_RIGHT)
 
             popup_close_button = widgets.Button(
                 nav,
@@ -97,7 +98,7 @@ class MainWindowExtraPagesPopupMixin:
                 command=self._close_extra_popup,
             )
             popup_close_button.pack(side=ui.RIGHT)
-            self._attach_hover_help(popup_close_button, label="Einzelseiten-Ansicht schließen", shortcut="Esc")
+            self._attach_hover_help(popup_close_button, label="Einzelseiten-Ansicht schließen", intent=UiIntent.GLOBAL_ESCAPE)
 
             self._extra_popup_preview = ScrollableImagePreview(popup, render=self._render_extra_popup_image)
             self._extra_popup_preview.pack(side=ui.TOP, fill=ui.BOTH, expand=True, padx=10, pady=(0, 10))

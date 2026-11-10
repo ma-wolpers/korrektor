@@ -11,6 +11,12 @@ from bw_gui.runtime import ui
 
 _k = KeySpec.parse
 
+# Wizard keys shared by the binding table and the hover help of the matching buttons.
+PAGE_PREV_KEY = _k("Left (tolerate: Shift)")
+PAGE_NEXT_KEY = _k("Right (tolerate: Shift)")
+MARK_KEY = _k("Enter")
+UNMARK_KEY = _k("Shift+Enter")
+
 
 class MainWindowImportSplitInputMixin:
     """Keyboard, checkbox, section list and name field of the PDF import wizard.
@@ -35,10 +41,10 @@ class MainWindowImportSplitInputMixin:
     def _install_import_split_input(self, view) -> None:
         """Bind the wizard shortcuts and the name-field trace for ``view``."""
         table = (
-            (_k("Left (tolerate: Shift)"), "page_prev", UiIntent.IMPORT_SPLIT_PAGE_PREV, lambda: self._step_import_split_page(-1)),
-            (_k("Right (tolerate: Shift)"), "page_next", UiIntent.IMPORT_SPLIT_PAGE_NEXT, lambda: self._step_import_split_page(1)),
-            (_k("Enter"), "mark", UiIntent.IMPORT_SPLIT_MARK, self._mark_import_split_boundary),
-            (_k("Shift+Enter"), "unmark", UiIntent.IMPORT_SPLIT_UNMARK, self._unmark_import_split_boundary),
+            (PAGE_PREV_KEY, "page_prev", UiIntent.IMPORT_SPLIT_PAGE_PREV, lambda: self._step_import_split_page(-1)),
+            (PAGE_NEXT_KEY, "page_next", UiIntent.IMPORT_SPLIT_PAGE_NEXT, lambda: self._step_import_split_page(1)),
+            (MARK_KEY, "mark", UiIntent.IMPORT_SPLIT_MARK, self._mark_import_split_boundary),
+            (UNMARK_KEY, "unmark", UiIntent.IMPORT_SPLIT_UNMARK, self._unmark_import_split_boundary),
             (_k("Up (tolerate: Shift)"), "scroll_up", UiIntent.IMPORT_SPLIT_SCROLL_UP, lambda: view.preview.scroll(-1)),
             (_k("Down (tolerate: Shift)"), "scroll_down", UiIntent.IMPORT_SPLIT_SCROLL_DOWN, lambda: view.preview.scroll(1)),
             (_k("PageUp (tolerate: Shift)"), "scroll_page_up", UiIntent.IMPORT_SPLIT_SCROLL_UP, lambda: view.preview.scroll(-1, "pages")),

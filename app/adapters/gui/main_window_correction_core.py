@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.adapters.gui.dialog_services import messagebox
+from app.adapters.gui.ui_intents import UiIntent
 from app.core.domain.models import ExamProject
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
@@ -32,7 +33,7 @@ class MainWindowCorrectionCoreMixin:
             command=self._stop_correction_mode,
         )
         correction_back_button.pack(side=ui.LEFT)
-        self._attach_hover_help(correction_back_button, label="Korrekturansicht verlassen", shortcut="Esc")
+        self._attach_hover_help(correction_back_button, label="Korrekturansicht verlassen", intent=UiIntent.GLOBAL_ESCAPE)
 
         self._build_correction_nav_dropdowns(correction_actions)
 
@@ -49,7 +50,7 @@ class MainWindowCorrectionCoreMixin:
             command=self._reset_correction_zoom,
         )
         reset_correction_zoom_button.pack(side=ui.RIGHT)
-        self._attach_hover_help(reset_correction_zoom_button, label="Korrektur-Zoom auf 100% setzen", shortcut="Strg+0")
+        self._attach_hover_help(reset_correction_zoom_button, label="Korrektur-Zoom auf 100% setzen", intent=UiIntent.CORRECTION_ZOOM_RESET)
 
         zoom_in_correction_button = widgets.Button(
             correction_zoom_actions,
@@ -59,7 +60,7 @@ class MainWindowCorrectionCoreMixin:
             width=3,
         )
         zoom_in_correction_button.pack(side=ui.RIGHT, padx=(8, 0))
-        self._attach_hover_help(zoom_in_correction_button, label="Korrektur-Zoom vergrößern", shortcut="Strg++")
+        self._attach_hover_help(zoom_in_correction_button, label="Korrektur-Zoom vergrößern", intent=UiIntent.CORRECTION_ZOOM_IN)
 
         zoom_out_correction_button = widgets.Button(
             correction_zoom_actions,
@@ -69,7 +70,7 @@ class MainWindowCorrectionCoreMixin:
             width=3,
         )
         zoom_out_correction_button.pack(side=ui.RIGHT, padx=(8, 0))
-        self._attach_hover_help(zoom_out_correction_button, label="Korrektur-Zoom verkleinern", shortcut="Strg+-")
+        self._attach_hover_help(zoom_out_correction_button, label="Korrektur-Zoom verkleinern", intent=UiIntent.CORRECTION_ZOOM_OUT)
 
     def _build_correction_view_form_save_nav(self) -> None:
         correction_buttons = widgets.Frame(self._correction_form_panel.content, style="Surface.TFrame")
@@ -91,7 +92,7 @@ class MainWindowCorrectionCoreMixin:
             command=lambda: self._change_correction_student(-1),
         )
         prev_correction_student_button.pack(side=ui.RIGHT)
-        self._attach_hover_help(prev_correction_student_button, label="Vorherige Person in Korrektur", shortcut="Links")
+        self._attach_hover_help(prev_correction_student_button, label="Vorherige Person in Korrektur", intent=UiIntent.DETAIL_NAVIGATE_LEFT)
 
         next_correction_student_button = widgets.Button(
             correction_buttons,
@@ -100,7 +101,7 @@ class MainWindowCorrectionCoreMixin:
             command=lambda: self._change_correction_student(1),
         )
         next_correction_student_button.pack(side=ui.RIGHT, padx=(0, 8))
-        self._attach_hover_help(next_correction_student_button, label="Nächste Person in Korrektur", shortcut="Rechts")
+        self._attach_hover_help(next_correction_student_button, label="Nächste Person in Korrektur", intent=UiIntent.DETAIL_NAVIGATE_RIGHT)
 
     def _start_correction_mode(self) -> None:
         """Enter the task-centric correction: one (sub)task at a time, all its regions stacked."""

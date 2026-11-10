@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.adapters.gui.local_keys import ENTER, ESCAPE, bind_widget_keys
+from app.adapters.gui.ui_intents import UiIntent
 from app.core.domain.task_regions import tasks_of_region
 from app.core.domain.task_spec import format_task_specs
 
@@ -109,7 +110,7 @@ class MainWindowRegionEditorMixin:
             command=self._commit_reading_fields_if_possible,
         )
         self._save_region_button.pack(side=ui.LEFT)
-        self._attach_hover_help(self._save_region_button, label="Aufgaben des Bereichs speichern", shortcut="Enter")
+        self._attach_hover_help(self._save_region_button, label="Aufgaben des Bereichs speichern", shortcut=ENTER)
 
         self._delete_region_button = widgets.Button(
             self._region_actions,
@@ -118,7 +119,7 @@ class MainWindowRegionEditorMixin:
             command=self._delete_selected_region,
         )
         self._delete_region_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(self._delete_region_button, label="Aktiven Bereich löschen", shortcut="Entf")
+        self._attach_hover_help(self._delete_region_button, label="Aktiven Bereich löschen", intent=UiIntent.DETAIL_DELETE)
 
         redraw_region_button = widgets.Button(
             self._region_actions,

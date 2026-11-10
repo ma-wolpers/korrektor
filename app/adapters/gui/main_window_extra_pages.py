@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.adapters.gui.dialog_services import messagebox
 from app.adapters.gui.main_window_zuschnitt_navigation import cursor_after_resequence
+from app.adapters.gui.ui_intents import UiIntent
 from app.core.domain.models import ExamProject
 from app.core.domain.page_coverage import (
     all_pages,
@@ -45,16 +46,16 @@ class MainWindowExtraPagesMixin:
         self._extra_toolbar.pack(fill=ui.X, pady=(6, 0))
         prev_button = widgets.Button(self._extra_toolbar, text="◀ Seite", style="SecondaryAction.TButton", command=lambda: self._change_extra_page(-1))
         prev_button.pack(side=ui.LEFT)
-        self._attach_hover_help(prev_button, label="Vorherige Einzelseite", shortcut="Links")
+        self._attach_hover_help(prev_button, label="Vorherige Einzelseite", intent=UiIntent.DETAIL_NAVIGATE_LEFT)
         next_button = widgets.Button(self._extra_toolbar, text="Seite ▶", style="SecondaryAction.TButton", command=lambda: self._change_extra_page(1))
         next_button.pack(side=ui.LEFT, padx=(8, 0))
-        self._attach_hover_help(next_button, label="Nächste Einzelseite", shortcut="Rechts")
+        self._attach_hover_help(next_button, label="Nächste Einzelseite", intent=UiIntent.DETAIL_NAVIGATE_RIGHT)
         self._build_extra_nav_dropdowns(self._extra_toolbar)
 
         self._unscored_var = ui.BooleanVar(value=False)
         self._unscored_switch = Switch(self._extra_toolbar, text="Ohne Bewertung", variable=self._unscored_var, on_change=self._on_unscored_switch)
         self._unscored_switch.pack(side=ui.LEFT, padx=(16, 0))
-        self._attach_hover_help(self._unscored_switch, label="Diese Seite nicht bewerten", shortcut="Entf")
+        self._attach_hover_help(self._unscored_switch, label="Diese Seite nicht bewerten", intent=UiIntent.DETAIL_DELETE)
 
         self._unscored_all_var = ui.BooleanVar(value=False)
         self._unscored_all_switch = Switch(

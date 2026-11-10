@@ -195,7 +195,7 @@ def _check_shared_ui_contracts(errors: list[str]) -> None:
         "from bw_gui.shortcuts import compose_hover_text",
         "from bw_gui.widgets import HoverTooltip as SharedHoverTooltip",
         "def build_menu(self) -> list:",
-        "tooltip = SharedHoverTooltip(widget, text, theme_key=self._tooltip_theme_key)",
+        "tooltip = SharedHoverTooltip(widget, text, theme_key=self._tooltip_theme_key, text_provider=provider)",
         "open_tabbed_settings_dialog(",
     )
     forbidden_snippets = (

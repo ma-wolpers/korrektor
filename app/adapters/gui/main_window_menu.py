@@ -4,6 +4,7 @@ from pathlib import Path
 
 from app.adapters.gui.dialog_services import messagebox
 from app.adapters.gui.main_window_constants import CORRECTION_DEFAULT_COLOR_NAME, CORRECTION_MARKER_COLORS
+from app.adapters.gui.ui_intents import UiIntent
 from app.app_info import APP_INFO
 from app.infrastructure.repositories.json_app_settings_repository import AppRuntimeSettings, clamp_scan_rotation_step, clamp_scan_shift_step
 from bw_gui.dialogs import SettingsDialogSpec as SharedSettingsDialogSpec
@@ -11,7 +12,8 @@ from bw_gui.dialogs import SettingsFieldSpec as SharedSettingsFieldSpec
 from bw_gui.dialogs import SettingsSectionSpec as SharedSettingsSectionSpec
 from bw_gui.dialogs import open_tabbed_settings_dialog
 from bw_gui.menu import MenuItem as SharedMenuItem
-from bw_gui.shortcuts import compose_hover_text
+from bw_gui.shortcuts import compose_hover_text, compose_hover_text_for_intent, compose_menu_label
+from bw_gui.shortcuts.label_formatter import ShortcutHint
 from bw_gui.widgets import HoverTooltip as SharedHoverTooltip
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
@@ -21,13 +23,34 @@ from bw_gui.runtime import ui
 
 
 class MainWindowMenuMixin:
-    def _attach_hover_help(self, widget: ui.Widget, *, label: str, shortcut: str | None = None) -> None:
-        """Attach hover help; shortcut details are shown here, not in button labels."""
+    def _attach_hover_help(
+        self,
+        widget: ui.Widget,
+        *,
+        label: str,
+        intent: str | None = None,
+        shortcut: ShortcutHint = None,
+    ) -> None:
+        """Attach hover help; shortcut details are shown here, not in button labels.
 
-        shortcut_text = (shortcut or "").strip()
-        text = compose_hover_text(label, shortcut_text)
-        tooltip = SharedHoverTooltip(widget, text, theme_key=self._tooltip_theme_key)
+        The key is never written as text: with *intent* the tooltip reads it from the
+        runtime registry each time it appears (shortcuts are registered in
+        ``set_controller``, after the layout); otherwise *shortcut* is the ``KeySpec`` of
+        the local binding itself (``local_keys.ENTER``, wizard key constants).
+        """
+        provider = None
+        if intent is not None:
+
+            def provider() -> str:
+                return compose_hover_text_for_intent(label, intent=intent, shortcuts=self._runtime_shortcuts)
+
+        text = compose_hover_text(label, shortcut)
+        tooltip = SharedHoverTooltip(widget, text, theme_key=self._tooltip_theme_key, text_provider=provider)
         self._hover_tooltips.append(tooltip)
+
+    def _menu_label(self, text: str, intent: str) -> str:
+        """Menu text with the key of *intent*'s binding (registry, same source as the tooltips)."""
+        return compose_menu_label(text, self._runtime_shortcuts.shortcut_for_intent(intent))
 
     def _menu_create_exam(self) -> None:
         if self._controller is not None:
@@ -63,9 +86,9 @@ class MainWindowMenuMixin:
 
     def _menu_items_file(self):
         return (
-            SharedMenuItem(type="command", label="Neue Klausur (Strg+N)", command=self._menu_create_exam),
+            SharedMenuItem(type="command", label=self._menu_label("Neue Klausur", UiIntent.GLOBAL_CREATE_EXAM), command=self._menu_create_exam),
             SharedMenuItem(type="command", label="Ausgewählte Klausur öffnen", command=self._menu_open_selected_exam),
-            SharedMenuItem(type="command", label="Punkte exportieren (Strg+E)", command=self._menu_export_scores),
+            SharedMenuItem(type="command", label=self._menu_label("Punkte exportieren", UiIntent.GLOBAL_EXPORT), command=self._menu_export_scores),
             SharedMenuItem(
                 type="command",
                 label="PDF importieren && aufteilen...",
@@ -81,12 +104,8 @@ class MainWindowMenuMixin:
         undo_label = self._controller.undo_label() if self._controller is not None else None
         redo_label = self._controller.redo_label() if self._controller is not None else None
 
-        undo_text = "Rückgängig (Strg+Z)"
-        redo_text = "Wiederholen (Strg+Y)"
-        if undo_label:
-            undo_text = f"Rückgängig: {undo_label} (Strg+Z)"
-        if redo_label:
-            redo_text = f"Wiederholen: {redo_label} (Strg+Y)"
+        undo_text = self._menu_label(f"Rückgängig: {undo_label}" if undo_label else "Rückgängig", UiIntent.GLOBAL_UNDO)
+        redo_text = self._menu_label(f"Wiederholen: {redo_label}" if redo_label else "Wiederholen", UiIntent.GLOBAL_REDO)
 
         undo_item = (
             SharedMenuItem(type="command", label=undo_text, command=self._menu_undo)
@@ -119,12 +138,12 @@ class MainWindowMenuMixin:
         return (
             SharedMenuItem(
                 type="command",
-                label="Shortcut-Runtime-Debug anzeigen (Strg+Shift+D)",
+                label=self._menu_label("Shortcut-Runtime-Debug anzeigen", UiIntent.DEBUG_RUNTIME_OVERLAY),
                 command=self._open_shortcut_runtime_debug_dialog,
             ),
             SharedMenuItem(
                 type="switch",
-                label="Offline simulieren (Strg+Shift+O)",
+                label=self._menu_label("Offline simulieren", UiIntent.DEBUG_RUNTIME_OFFLINE),
                 checked=bool(self._shortcut_debug_offline_var.get()),
                 # The handler toggles itself; the requested value is always "not checked".
                 on_toggle=lambda _offline: self._toggle_runtime_offline(),

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Iterable
 
 from app.adapters.gui.local_keys import ENTER, bind_widget_keys
+from app.adapters.gui.ui_intents import UiIntent
 from app.adapters.gui.view_models import ExamOverviewRow
 from app.core.domain.models import ExamProject
 from app.core.domain.progress import ProgressCalculator
@@ -36,7 +37,7 @@ class MainWindowOverviewMixin:
             command=lambda: self._controller and self._controller.create_exam(),
         )
         create_exam_button.pack(side=ui.LEFT)
-        self._attach_hover_help(create_exam_button, label="Neue Klausur erstellen", shortcut="Ctrl+N")
+        self._attach_hover_help(create_exam_button, label="Neue Klausur erstellen", intent=UiIntent.GLOBAL_CREATE_EXAM)
 
         open_exam_button = widgets.Button(
             overview_actions,
@@ -45,7 +46,7 @@ class MainWindowOverviewMixin:
             command=lambda: self._controller and self._controller.open_selected_exam(),
         )
         open_exam_button.pack(side=ui.LEFT, padx=(10, 0))
-        self._attach_hover_help(open_exam_button, label="Ausgewählte Klausur öffnen", shortcut="Enter")
+        self._attach_hover_help(open_exam_button, label="Ausgewählte Klausur öffnen", shortcut=ENTER)
 
         delete_exam_button = widgets.Button(
             overview_actions,

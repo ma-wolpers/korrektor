@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Sequence
 
 from app.adapters.gui.dialog_services import messagebox
+from app.adapters.gui.main_window_correction_keys import CTRL_SPACE, SPACE
 from app.adapters.gui.main_window_types import CorrectionTemplate
 from app.core.domain.score_filter import compute_student_value
 
@@ -24,7 +25,7 @@ class MainWindowCorrectionCompletionMixin:
             state="disabled",
         )
         self._correction_finished_check.grid(row=3, column=0, columnspan=3, sticky=ui.W, pady=(4, 0))
-        self._attach_hover_help(self._correction_finished_check, label="Diese Person für die Aufgabe als fertig markieren", shortcut="Leertaste")
+        self._attach_hover_help(self._correction_finished_check, label="Diese Person für die Aufgabe als fertig markieren", shortcut=SPACE)
         widgets.Label(
             correction_form,
             textvariable=self._correction_finished_hint_var,
@@ -42,7 +43,7 @@ class MainWindowCorrectionCompletionMixin:
             state="disabled",
         )
         self._correction_finished_all_check.grid(row=5, column=0, columnspan=3, sticky=ui.W, pady=(8, 0))
-        self._attach_hover_help(self._correction_finished_all_check, label="Alle Personen für die Aufgabe als fertig markieren", shortcut="Strg+Leertaste")
+        self._attach_hover_help(self._correction_finished_all_check, label="Alle Personen für die Aufgabe als fertig markieren", shortcut=CTRL_SPACE)
         widgets.Label(
             correction_form,
             textvariable=self._correction_finished_all_hint_var,
