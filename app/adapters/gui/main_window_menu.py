@@ -91,7 +91,7 @@ class MainWindowMenuMixin:
             SharedMenuItem(type="command", label=self._menu_label("Punkte exportieren", UiIntent.GLOBAL_EXPORT), command=self._menu_export_scores),
             SharedMenuItem(
                 type="command",
-                label="PDF importieren && aufteilen...",
+                label="PDF importieren & aufteilen...",
                 command=lambda: self.open_import_split_wizard(),
             ),
             SharedMenuItem(type="separator"),
@@ -122,7 +122,7 @@ class MainWindowMenuMixin:
     def _menu_items_exam(self):
         """Menü "Klausur": actions on the open exam (the former Namenmodus lives here as a window)."""
         return (
-            SharedMenuItem(type="command", label="Namen erfassen && umbenennen…", command=self.open_naming_window),
+            SharedMenuItem(type="command", label="Namen erfassen & umbenennen…", command=self.open_naming_window),
         )
 
     def _menu_items_mode(self):

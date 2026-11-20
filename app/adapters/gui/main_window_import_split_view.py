@@ -101,7 +101,7 @@ class MainWindowImportSplitViewMixin:
         actions.pack(side=ui.BOTTOM, fill=ui.X)
         split_button = widgets.Button(
             actions,
-            text="Aufteilen && Klausur anlegen…" if session.creates_exam else "Aufteilen…",
+            text="Aufteilen & Klausur anlegen…" if session.creates_exam else "Aufteilen…",
             style="PrimaryAction.TButton",
             command=self._run_import_split,
             takefocus=False,
