@@ -156,3 +156,54 @@ def test_files_that_cannot_be_removed_are_reported(source, tmp_path: Path, monke
 
     assert [path.name for path in excinfo.value.leftover_files] == ["A.pdf"]
 
+
+
+def test_writes_into_subfolders_one_per_exam(source, tmp_path: Path) -> None:
+    created = write_split_outputs(
+        source, [_Output("10a/Anna.pdf", ((1, 3),)), _Output("10b/Anna.pdf", ((4, 6),))], tmp_path / "out"
+    )
+
+    assert created == [tmp_path / "out" / "10a" / "Anna.pdf", tmp_path / "out" / "10b" / "Anna.pdf"]
+    assert _page_texts(created[1]) == ["page 4", "page 5", "page 6"]
+
+
+@pytest.mark.parametrize("filename", ["../Anna.pdf", "a/b/Anna.pdf", "C:/Anna.pdf", "/Anna.pdf", "./Anna.pdf"])
+def test_rejects_paths_outside_one_subfolder(source, tmp_path: Path, filename: str) -> None:
+    with pytest.raises(ValueError, match="Ungültiger Ziel-Pfad"):
+        write_split_outputs(source, [_Output(filename, ((1, 2),))], tmp_path / "out")
+
+
+def test_existing_file_in_a_subfolder_blocks_everything(source, tmp_path: Path) -> None:
+    output_dir = tmp_path / "out"
+    (output_dir / "10b").mkdir(parents=True)
+    (output_dir / "10b" / "Ben.pdf").write_bytes(b"already here")
+
+    with pytest.raises(FileExistsError, match="10b/Ben.pdf"):
+        write_split_outputs(source, [_Output("10a/Anna.pdf", ((1, 2),)), _Output("10b/Ben.pdf", ((3, 4),))], output_dir)
+
+    assert not (output_dir / "10a").exists()
+
+
+def test_rollback_removes_created_subfolders_but_keeps_existing_ones(
+    source, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output_dir = tmp_path / "out"
+    (output_dir / "10a").mkdir(parents=True)
+    real_save = fitz.Document.save
+
+    def _fail_on_ben(self, filename, *args, **kwargs):
+        if Path(filename).name == "Ben.pdf":
+            raise OSError("disk full")
+        return real_save(self, filename, *args, **kwargs)
+
+    monkeypatch.setattr(fitz.Document, "save", _fail_on_ben)
+
+    with pytest.raises(SplitWriteError):
+        write_split_outputs(
+            source,
+            [_Output("10a/Anna.pdf", ((1, 2),)), _Output("10b/Cem.pdf", ((3, 4),)), _Output("10c/Ben.pdf", ((5, 6),))],
+            output_dir,
+        )
+
+    assert sorted(path.name for path in output_dir.iterdir()) == ["10a"]
+    assert list((output_dir / "10a").iterdir()) == []

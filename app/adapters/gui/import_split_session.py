@@ -1,19 +1,38 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from app.core.domain.pdf_split_groups import (
+    GroupedSplitPlan,
+    GroupNameProblem,
+    assign_group,
+    default_group_name,
+    drop_section_start,
+    group_for_start,
+    group_name_problem,
+    plan_grouped_split,
+)
 from app.core.domain.pdf_split_naming import SplitSection, build_split_sections
 from app.infrastructure.pdf.pdf_merger import MergedSourceSpan
 from app.infrastructure.pdf.pdf_sources import PdfSourceInfo
 
 _LOG = logging.getLogger(__name__)
 
-SplitCompleteCallback = Callable[[Path, dict[str, str]], None]
-"""``on_split_complete(output_dir, {filename: display_name})`` - called once after a successful split."""
+
+@dataclass(frozen=True, slots=True)
+class SplitExamFolder:
+    """One written exam folder of a split: where it is and the display name per written PDF."""
+
+    folder: Path
+    display_name_by_filename: dict[str, str]
+
+
+SplitCompleteCallback = Callable[[Sequence[SplitExamFolder]], None]
+"""``on_split_complete(folders)`` - called once after a successful split, one entry per exam folder."""
 
 
 class ImportSplitSession:
@@ -33,6 +52,14 @@ class ImportSplitSession:
     - `unmark_section_of` (Shift+Enter / checkbox off) removes the start of
       the section containing the page and discards that section's name; its
       pages join the previous section and therefore carry its name.
+
+    Klausur-Zuordnung (rules in `pdf_split_groups`): ``group_names`` lists
+    the exams of this import (index = group index, starts with one default
+    group); ``group_switches`` holds the normalized switch markers. A new
+    section inherits the group of the section it was split from (it has no
+    marker of its own); undoing a split moves its marker on to the next
+    section (`drop_section_start`). `plan` is the single place that plans
+    the output files for view and export.
     """
 
     def __init__(
@@ -56,6 +83,8 @@ class ImportSplitSession:
         self.current_page = 1
         self.boundaries: set[int] = set()
         self.names: dict[int, str] = {}
+        self.group_names: list[str] = [default_group_name(0)]
+        self.group_switches: dict[int, int] = {}
         self.closed = False
 
     @property
@@ -102,7 +131,74 @@ class ImportSplitSession:
             return False
         self.boundaries.discard(start)
         self.names.pop(start, None)
+        self.group_switches = drop_section_start(start, self.group_switches, self._section_starts())
         return True
+
+    def plan(self) -> GroupedSplitPlan:
+        """Plan the output files of the current state (per exam group, see `plan_grouped_split`)."""
+        return plan_grouped_split(self.sections(), self.group_switches, self.group_names)
+
+    def group_index_for_page(self, page: int) -> int:
+        """Return the group index of the section that contains ``page``."""
+        return group_for_start(self.section_start_for_page(page), self.group_switches)
+
+    def assign_group_for_page(self, page: int, group_index: int) -> bool:
+        """Assign the section containing ``page`` and all following ones (up to the next marker) to a group.
+
+        Returns whether any section changed its group; ``False`` for an
+        unknown group index.
+        """
+        if not 0 <= group_index < len(self.group_names):
+            return False
+        start = self.section_start_for_page(page)
+        updated = assign_group(start, group_index, self.group_switches, self._section_starts())
+        if updated == self.group_switches:
+            return False
+        self.group_switches = updated
+        return True
+
+    def neighbor_group_index(self, page: int, delta: int) -> int | None:
+        """Target of Ctrl+Up/Down: the group ``delta`` steps away from the current section's group.
+
+        Returns ``len(group_names)`` when stepping past the last group (the
+        caller then offers a new group), ``None`` before the first group.
+        """
+        target = self.group_index_for_page(page) + delta
+        if target < 0 or target > len(self.group_names):
+            return None
+        return target
+
+    def group_name_problem(self, name: str, *, exclude_index: int | None = None) -> GroupNameProblem | None:
+        """Why ``name`` cannot be used for a new (or the renamed ``exclude_index``) group; ``None`` if fine."""
+        return group_name_problem(name, self.group_names, exclude_index=exclude_index)
+
+    def add_group(self, name: str) -> int:
+        """Append a new group named ``name`` (stripped) and return its index.
+
+        Raises:
+            ValueError: The name is rejected (see `group_name_problem`).
+        """
+        problem = self.group_name_problem(name)
+        if problem is not None:
+            raise ValueError(problem)
+        self.group_names.append(name.strip())
+        return len(self.group_names) - 1
+
+    def rename_group(self, group_index: int, name: str) -> None:
+        """Rename group ``group_index`` to ``name`` (stripped).
+
+        Raises:
+            ValueError: Unknown index or rejected name.
+        """
+        if not 0 <= group_index < len(self.group_names):
+            raise ValueError(f"Unbekannte Klausur {group_index + 1}")
+        problem = self.group_name_problem(name, exclude_index=group_index)
+        if problem is not None:
+            raise ValueError(problem)
+        self.group_names[group_index] = name.strip()
+
+    def _section_starts(self) -> list[int]:
+        return [1, *sorted(self.boundaries)]
 
     def name_for_page(self, page: int) -> str:
         """Return the name (as typed) of the section that contains ``page``."""
@@ -117,8 +213,13 @@ class ImportSplitSession:
             self.names.pop(start, None)
 
     def has_user_input(self) -> bool:
-        """True once a split or a name was entered (closing then asks for confirmation)."""
-        return bool(self.boundaries) or any(name.strip() for name in self.names.values())
+        """True once a split, a name or a Klausur change was entered (closing then asks for confirmation)."""
+        return (
+            bool(self.boundaries)
+            or any(name.strip() for name in self.names.values())
+            or bool(self.group_switches)
+            or self.group_names != [default_group_name(0)]
+        )
 
     def source_span_for_page(self, page: int) -> MergedSourceSpan | None:
         """Return the source PDF span that contains ``page`` (``None`` only for an empty span list)."""

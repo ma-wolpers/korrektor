@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Protocol
 
 import fitz
@@ -12,8 +12,11 @@ from app.infrastructure.pdf.pdf_sources import close_quietly
 class SplitOutputSpec(Protocol):
     """What `write_split_outputs` needs per output file (e.g. the domain's ``PlannedSplitFile``).
 
-    ``page_ranges`` are 1-indexed, inclusive ``(start, end)`` pages of the
-    source document, written in the given order.
+    ``filename`` is a path relative to the output folder: a plain filename
+    (``"Anna.pdf"``) or one subfolder plus filename (``"Bio 10b/Anna.pdf"``,
+    one folder per exam in the Klausur-Zuordnung). ``page_ranges`` are
+    1-indexed, inclusive ``(start, end)`` pages of the source document,
+    written in the given order.
     """
 
     filename: str
@@ -45,14 +48,16 @@ def write_split_outputs(
 
     Guarantees, because a half-finished split is worse than none:
 
-    - **Input check first**: duplicate filenames (case-insensitive, as on
-      Windows), outputs without ranges and ranges outside the document raise
-      ``ValueError`` before anything is written.
+    - **Input check first**: duplicate paths (case-insensitive, as on
+      Windows), paths that are absolute, contain ``.``/``..`` or more than
+      one subfolder, outputs without ranges and ranges outside the document
+      raise ``ValueError`` before anything is written.
     - **Collision preflight**: if any destination already exists, nothing is
       written and `FileExistsError` names the colliding files - never a
       silent overwrite.
     - **All or nothing**: if writing any output fails, every file written by
-      this call (including a partially saved one) is deleted again and
+      this call (including a partially saved one) is deleted again, every
+      subfolder this call created is removed if empty, and
       `SplitWriteError` is raised; files that could not be deleted are
       reported in ``leftover_files`` instead of being silently ignored.
 
@@ -65,22 +70,27 @@ def write_split_outputs(
     output_dir.mkdir(parents=True, exist_ok=True)
     destinations = [output_dir / output.filename for output in outputs]
 
-    colliding = [path.name for path in destinations if path.exists()]
+    colliding = [output.filename for output, path in zip(outputs, destinations) if path.exists()]
     if colliding:
         raise FileExistsError(
             "Diese Datei(en) existieren bereits im Zielordner und würden überschrieben: " + ", ".join(colliding)
         )
 
     written: list[Path] = []
+    created_folders: list[Path] = []
     for destination, output in zip(destinations, outputs):
         new_document = None
         try:
+            if not destination.parent.exists():
+                destination.parent.mkdir()
+                created_folders.append(destination.parent)
             new_document = fitz.open()
             _copy_ranges(new_document, source_document, output.page_ranges)
             new_document.save(destination)
         except Exception as exc:
             close_quietly(new_document)
             leftovers = _remove_files([*written, destination])
+            _remove_empty_folders(created_folders)
             raise SplitWriteError(exc, leftovers) from exc
         close_quietly(new_document)
         written.append(destination)
@@ -112,7 +122,15 @@ def _validate_outputs(page_count: int, outputs: Sequence[SplitOutputSpec]) -> No
     """Reject duplicate filenames, empty outputs and out-of-document ranges before anything is written."""
     seen: set[str] = set()
     for output in outputs:
-        key = output.filename.casefold()
+        # Raw split on purpose: PureWindowsPath would silently collapse "./".
+        parts = output.filename.replace("\\", "/").split("/")
+        if (
+            PureWindowsPath(output.filename).anchor
+            or not 1 <= len(parts) <= 2
+            or any(part in ("", ".", "..") for part in parts)
+        ):
+            raise ValueError(f"Ungültiger Ziel-Pfad: {output.filename}")
+        key = "/".join(parts).casefold()
         if key in seen:
             raise ValueError(f"Doppelter Ziel-Dateiname: {output.filename}")
         seen.add(key)
@@ -134,4 +152,13 @@ def _remove_files(paths: list[Path]) -> list[Path]:
         if path.exists():
             leftovers.append(path)
     return leftovers
+
+
+def _remove_empty_folders(folders: list[Path]) -> None:
+    """Remove the subfolders created by this call if they are empty (a leftover file keeps its folder)."""
+    for folder in reversed(folders):
+        try:
+            folder.rmdir()
+        except OSError:
+            pass
 
