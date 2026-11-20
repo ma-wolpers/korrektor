@@ -15,6 +15,10 @@ _k = KeySpec.parse
 # (page keys: ``local_keys.PAGE_PREV_KEY``/``PAGE_NEXT_KEY``).
 MARK_KEY = _k("Enter")
 UNMARK_KEY = _k("Shift+Enter")
+SCROLL_UP_KEY = _k("Up (tolerate: Shift)")
+SCROLL_DOWN_KEY = _k("Down (tolerate: Shift)")
+SCROLL_PAGE_UP_KEY = _k("PageUp (tolerate: Shift)")
+SCROLL_PAGE_DOWN_KEY = _k("PageDown (tolerate: Shift)")
 
 
 class MainWindowImportSplitInputMixin:
@@ -46,10 +50,10 @@ class MainWindowImportSplitInputMixin:
             (PAGE_NEXT_KEY, "page_next", UiIntent.IMPORT_SPLIT_PAGE_NEXT, lambda: self._step_import_split_page(1)),
             (MARK_KEY, "mark", UiIntent.IMPORT_SPLIT_MARK, self._mark_import_split_boundary),
             (UNMARK_KEY, "unmark", UiIntent.IMPORT_SPLIT_UNMARK, self._unmark_import_split_boundary),
-            (_k("Up (tolerate: Shift)"), "scroll_up", UiIntent.IMPORT_SPLIT_SCROLL_UP, lambda: view.preview.scroll(-1)),
-            (_k("Down (tolerate: Shift)"), "scroll_down", UiIntent.IMPORT_SPLIT_SCROLL_DOWN, lambda: view.preview.scroll(1)),
-            (_k("PageUp (tolerate: Shift)"), "scroll_page_up", UiIntent.IMPORT_SPLIT_SCROLL_UP, lambda: view.preview.scroll(-1, "pages")),
-            (_k("PageDown (tolerate: Shift)"), "scroll_page_down", UiIntent.IMPORT_SPLIT_SCROLL_DOWN, lambda: view.preview.scroll(1, "pages")),
+            (SCROLL_UP_KEY, "scroll_up", UiIntent.IMPORT_SPLIT_SCROLL_UP, lambda: view.preview.scroll(-1)),
+            (SCROLL_DOWN_KEY, "scroll_down", UiIntent.IMPORT_SPLIT_SCROLL_DOWN, lambda: view.preview.scroll(1)),
+            (SCROLL_PAGE_UP_KEY, "scroll_page_up", UiIntent.IMPORT_SPLIT_SCROLL_UP, lambda: view.preview.scroll(-1, "pages")),
+            (SCROLL_PAGE_DOWN_KEY, "scroll_page_down", UiIntent.IMPORT_SPLIT_SCROLL_DOWN, lambda: view.preview.scroll(1, "pages")),
             *self._import_split_group_key_rows(),
         )
         view.binder = bind_popup_table(

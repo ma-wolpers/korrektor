@@ -7,17 +7,24 @@ import fitz
 
 from app.adapters.gui.import_split_session import ImportSplitSession
 from app.adapters.gui.import_split_texts import (
-    KEY_HELP_TEXT,
     counter_text,
     duplicate_hint,
     format_range,
     invalid_name_hint,
+    key_help_text,
     name_caption,
     origin_text,
     section_status,
 )
 from app.adapters.gui.local_keys import PAGE_NEXT_KEY, PAGE_PREV_KEY
-from app.adapters.gui.main_window_import_split_input import MARK_KEY, UNMARK_KEY
+from app.adapters.gui.main_window_import_split_input import (
+    MARK_KEY,
+    SCROLL_DOWN_KEY,
+    SCROLL_PAGE_DOWN_KEY,
+    SCROLL_PAGE_UP_KEY,
+    SCROLL_UP_KEY,
+    UNMARK_KEY,
+)
 from app.core.domain.pdf_split_naming import SplitSection, find_other_sections_with_name
 from app.infrastructure.repositories.file_utils import build_pdf_filename_from_name
 from bw_gui.runtime.screen_placement import work_area_for
@@ -112,7 +119,11 @@ class MainWindowImportSplitViewMixin:
             actions, text="Schließen", style="SecondaryAction.TButton", command=self._request_close_import_split, takefocus=False
         )
         close_button.pack(side=ui.RIGHT)
-        widgets.Label(actions, text=KEY_HELP_TEXT, style="Muted.TLabel", anchor=ui.CENTER).pack(
+        key_help = key_help_text(
+            page=(PAGE_PREV_KEY, PAGE_NEXT_KEY), mark=MARK_KEY, unmark=UNMARK_KEY,
+            scroll=(SCROLL_UP_KEY, SCROLL_DOWN_KEY), scroll_page=(SCROLL_PAGE_UP_KEY, SCROLL_PAGE_DOWN_KEY),
+        )
+        widgets.Label(actions, text=key_help, style="Muted.TLabel", anchor=ui.CENTER).pack(
             side=ui.LEFT, fill=ui.X, expand=True, padx=8
         )
 

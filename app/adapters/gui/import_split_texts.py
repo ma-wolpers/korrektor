@@ -15,10 +15,34 @@ from app.core.domain.pdf_split_groups import MAX_GROUPS, GroupedSplitPlan, Group
 from app.core.domain.pdf_split_naming import SplitFilePlan, SplitSection
 from app.infrastructure.pdf.pdf_merger import MergedSourceSpan
 from app.infrastructure.pdf.pdf_sources import PdfSourceProblem
+from bw_gui.contracts.key_spec import KeySpec
+from bw_gui.shortcuts import humanize_shortcut
 
-KEY_HELP_TEXT = "←/→ Seite · Enter: hier aufteilen · Shift+Enter: zurücknehmen · ↑/↓ Bild↑/↓ Vorschau"
 ALREADY_RUNNING_TEXT = "Es läuft bereits ein PDF-Import. Bitte erst abschließen oder schließen."
 _MAX_LISTED = 12
+
+
+def key_help_text(
+    *,
+    page: tuple[KeySpec, KeySpec],
+    mark: KeySpec,
+    unmark: KeySpec,
+    scroll: tuple[KeySpec, KeySpec],
+    scroll_page: tuple[KeySpec, KeySpec],
+) -> str:
+    """Key line of the wizard, built from the bound ``KeySpec`` constants (never written as text).
+
+    Example: ``"Links/Rechts: Seite · Enter: hier aufteilen · Shift+Enter: zurücknehmen ·
+    Hoch/Runter, Bild auf/Bild ab: Vorschau"``.
+    """
+
+    def pair(keys: tuple[KeySpec, KeySpec]) -> str:
+        return "/".join(humanize_shortcut(key) for key in keys)
+
+    return (
+        f"{pair(page)}: Seite · {humanize_shortcut(mark)}: hier aufteilen · "
+        f"{humanize_shortcut(unmark)}: zurücknehmen · {pair(scroll)}, {pair(scroll_page)}: Vorschau"
+    )
 
 
 def format_range(start: int, end: int) -> str:

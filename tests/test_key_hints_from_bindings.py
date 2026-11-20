@@ -12,7 +12,15 @@ from pathlib import Path
 from app.adapters.gui.local_keys import ENTER, PAGE_NEXT_KEY, PAGE_PREV_KEY
 from app.adapters.gui.main_window_correction_keys import CTRL_SPACE, SPACE
 from app.adapters.gui.main_window_import_split_groups import GROUP_KEYS, GROUP_NEXT_KEY, GROUP_PREV_KEY, GROUP_RENAME_KEY
-from app.adapters.gui.main_window_import_split_input import MARK_KEY, UNMARK_KEY
+from app.adapters.gui.import_split_texts import key_help_text
+from app.adapters.gui.main_window_import_split_input import (
+    MARK_KEY,
+    SCROLL_DOWN_KEY,
+    SCROLL_PAGE_DOWN_KEY,
+    SCROLL_PAGE_UP_KEY,
+    SCROLL_UP_KEY,
+    UNMARK_KEY,
+)
 from app.adapters.gui.ui_intents import UiIntent
 from bw_gui.shortcuts import compose_hover_text, humanize_shortcut
 
@@ -70,3 +78,14 @@ def test_no_key_names_as_text_in_menus_or_tooltips():
 def test_klausur_key_constants_show_german_names():
     shown = [humanize_shortcut(key) for key in (GROUP_KEYS[0], GROUP_KEYS[-1], GROUP_PREV_KEY, GROUP_NEXT_KEY, GROUP_RENAME_KEY)]
     assert shown == ["Strg+1", "Strg+9", "Strg+Hoch", "Strg+Runter", "F2"]
+
+
+def test_wizard_key_line_is_built_from_the_bound_keys():
+    text = key_help_text(
+        page=(PAGE_PREV_KEY, PAGE_NEXT_KEY), mark=MARK_KEY, unmark=UNMARK_KEY,
+        scroll=(SCROLL_UP_KEY, SCROLL_DOWN_KEY), scroll_page=(SCROLL_PAGE_UP_KEY, SCROLL_PAGE_DOWN_KEY),
+    )
+    assert text == (
+        "Links/Rechts: Seite · Enter: hier aufteilen · Shift+Enter: zurücknehmen · "
+        "Hoch/Runter, Bild auf/Bild ab: Vorschau"
+    )
