@@ -9,69 +9,14 @@ services are replaced by recorders. The keyboard test is opt-in via
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
-from tk_test_support import FOCUS_ONLY, build_pdf, pdf_texts, settle
+from import_split_tk_support import dialogs, open_single, sources, window  # noqa: F401 - fixtures
+from tk_test_support import FOCUS_ONLY, pdf_texts, settle
 
-from app.adapters.gui import dialog_services
 from app.adapters.gui import main_window_import_split_export as export_module
+from app.adapters.gui.import_split_session import SplitExamFolder
 from app.infrastructure.pdf.pdf_splitter import SplitWriteError
-
-
-class _Dialogs:
-    """Recording replacements for the shared dialog services."""
-
-    def __init__(self) -> None:
-        self.files: tuple[str, ...] = ()
-        self.directory = ""
-        self.yesno_answers: list[bool] = []
-        self.infos: list[tuple[str, str]] = []
-        self.errors: list[tuple[str, str]] = []
-        self.questions: list[tuple[str, str]] = []
-
-    def install(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(dialog_services.filedialog, "askopenfilenames", lambda **kw: self.files)
-        monkeypatch.setattr(dialog_services.filedialog, "askdirectory", lambda **kw: self.directory)
-        monkeypatch.setattr(dialog_services.messagebox, "showinfo", lambda t, m, **kw: self.infos.append((t, m)))
-        monkeypatch.setattr(dialog_services.messagebox, "showerror", lambda t, m, **kw: self.errors.append((t, m)))
-
-        def _askyesno(title, message, **kwargs):
-            self.questions.append((title, message))
-            return self.yesno_answers.pop(0)
-
-        monkeypatch.setattr(dialog_services.messagebox, "askyesno", _askyesno)
-
-
-@pytest.fixture
-def window(korrektor_window):
-    return korrektor_window
-
-
-@pytest.fixture
-def dialogs(window, monkeypatch):
-    recorder = _Dialogs()
-    recorder.install(monkeypatch)
-    yield recorder
-    window._end_import_split_pending()
-    window._end_import_split_session()
-    window.update()
-
-
-@pytest.fixture
-def sources(tmp_path):
-    return {
-        "scan10": build_pdf(tmp_path / "scan_10.pdf", 3, "X"),
-        "scan2": build_pdf(tmp_path / "scan_2.pdf", 4, "Y"),
-        "locked": build_pdf(tmp_path / "locked.pdf", 1, "L", locked=True),
-    }
-
-
-def _open_single(window, dialogs, path: Path, callback=None):
-    dialogs.files = (str(path),)
-    assert window.open_import_split_wizard(on_split_complete=callback) is True
-    return window._import_split_session, window._import_split_view
 
 
 def test_problem_source_rejects_whole_selection(window, dialogs, sources):
@@ -137,7 +82,7 @@ def test_order_dialog_build_failure_clears_pending(window, dialogs, sources, mon
 
 
 def test_second_call_is_rejected_and_keeps_running_session(window, dialogs, sources):
-    session, _view = _open_single(window, dialogs, sources["scan2"])
+    session, _view = open_single(window, dialogs, sources["scan2"])
 
     assert window.open_import_split_wizard(on_split_complete=lambda *args: None) is False
 
@@ -147,7 +92,7 @@ def test_second_call_is_rejected_and_keeps_running_session(window, dialogs, sour
 
 
 def test_external_destroy_ends_session_but_child_destroy_does_not(window, dialogs, sources):
-    session, view = _open_single(window, dialogs, sources["scan2"])
+    session, view = open_single(window, dialogs, sources["scan2"])
     document = session.document
 
     view.bars[0].destroy()
@@ -161,7 +106,7 @@ def test_external_destroy_ends_session_but_child_destroy_does_not(window, dialog
 
 
 def test_programmatic_name_reload_never_writes_into_session(window, dialogs, sources):
-    session, view = _open_single(window, dialogs, sources["scan2"])
+    session, view = open_single(window, dialogs, sources["scan2"])
     view.name_entry.insert(0, "Anna")
     window.update()
     assert session.names == {1: "Anna"}
@@ -177,7 +122,7 @@ def test_programmatic_name_reload_never_writes_into_session(window, dialogs, sou
 
 
 def test_duplicate_hint_appears_without_changing_bar_height(window, dialogs, sources):
-    session, view = _open_single(window, dialogs, sources["scan2"])
+    session, view = open_single(window, dialogs, sources["scan2"])
     view.name_entry.insert(0, "Anna")
     session.mark_boundary(3)
     session.go_to_page(3)
@@ -193,7 +138,7 @@ def test_duplicate_hint_appears_without_changing_bar_height(window, dialogs, sou
 
 
 def test_write_error_keeps_wizard_and_state(window, dialogs, sources, monkeypatch, tmp_path):
-    session, _view = _open_single(window, dialogs, sources["scan2"])
+    session, _view = open_single(window, dialogs, sources["scan2"])
     _view.name_entry.insert(0, "Anna")
     session.mark_boundary(3)
     before = (set(session.boundaries), dict(session.names))
@@ -213,7 +158,7 @@ def test_write_error_keeps_wizard_and_state(window, dialogs, sources, monkeypatc
 
 
 def test_fallback_warning_no_jumps_to_unnamed_section(window, dialogs, sources):
-    session, view = _open_single(window, dialogs, sources["scan2"])
+    session, view = open_single(window, dialogs, sources["scan2"])
     view.name_entry.insert(0, "Anna")
     session.mark_boundary(3)
     dialogs.yesno_answers = [False]
@@ -226,7 +171,7 @@ def test_fallback_warning_no_jumps_to_unnamed_section(window, dialogs, sources):
 
 
 def test_successful_split_merges_duplicates_and_closes_session(window, dialogs, sources, tmp_path):
-    session, view = _open_single(window, dialogs, sources["scan2"])
+    session, view = open_single(window, dialogs, sources["scan2"])
     view.name_entry.insert(0, "Anna Müller")
     for start, name in ((2, "Ben"), (3, "anna  müller")):
         session.mark_boundary(start)
@@ -247,8 +192,8 @@ def test_successful_split_merges_duplicates_and_closes_session(window, dialogs, 
 
 
 def test_new_exam_flow_rejects_folder_with_pdfs_and_calls_back_once(window, dialogs, sources, tmp_path):
-    received: list[tuple[Path, dict[str, str]]] = []
-    session, view = _open_single(window, dialogs, sources["scan2"], callback=lambda d, n: received.append((d, n)))
+    received: list[list[SplitExamFolder]] = []
+    session, view = open_single(window, dialogs, sources["scan2"], callback=lambda folders: received.append(list(folders)))
     view.name_entry.insert(0, "Anna Müller")
     window.update()
     busy = tmp_path / "busy"
@@ -262,12 +207,12 @@ def test_new_exam_flow_rejects_folder_with_pdfs_and_calls_back_once(window, dial
 
     dialogs.directory = str(tmp_path / "fresh")
     window._run_import_split()
-    assert received == [(tmp_path / "fresh", {"Anna_Müller.pdf": "Anna Müller"})]
+    assert received == [[SplitExamFolder(tmp_path / "fresh", {"Anna_Müller.pdf": "Anna Müller"})]]
     assert window._import_split_session is None
 
 
 def test_controls_stay_fully_visible_at_every_size(window, dialogs, sources):
-    _session, view = _open_single(window, dialogs, sources["scan2"])
+    _session, view = open_single(window, dialogs, sources["scan2"])
     view.name_entry.insert(0, "Ein sehr langer Name, der den Hinweis und die Liste ordentlich fordert")
     view.popup.update_idletasks()
     min_width, min_height = view.popup.minsize()
@@ -300,7 +245,7 @@ def test_controls_stay_fully_visible_at_every_size(window, dialogs, sources):
 
 @FOCUS_ONLY
 def test_keyboard_contract_with_focus_in_name_field(window, dialogs, sources):
-    session, view = _open_single(window, dialogs, sources["scan2"])
+    session, view = open_single(window, dialogs, sources["scan2"])
     entry = view.name_entry
     view.popup.focus_force()
 
@@ -343,7 +288,7 @@ def test_keyboard_contract_with_focus_in_name_field(window, dialogs, sources):
 
 
 def test_new_exam_flow_rejects_folder_with_existing_exam_data(window, dialogs, sources, tmp_path):
-    session, view = _open_single(window, dialogs, sources["scan2"], callback=lambda d, n: None)
+    session, view = open_single(window, dialogs, sources["scan2"], callback=lambda folders: None)
     view.name_entry.insert(0, "Anna")
     occupied = tmp_path / "occupied"
     occupied.mkdir()

@@ -49,6 +49,7 @@ from app.adapters.gui.main_window_import_split import MainWindowImportSplitMixin
 from app.adapters.gui.main_window_import_split_view import MainWindowImportSplitViewMixin
 from app.adapters.gui.main_window_import_split_input import MainWindowImportSplitInputMixin
 from app.adapters.gui.main_window_import_split_export import MainWindowImportSplitExportMixin
+from app.adapters.gui.main_window_import_split_groups import MainWindowImportSplitGroupsMixin
 from app.adapters.gui.main_window_import_split_order import MainWindowImportSplitOrderMixin
 from app.adapters.gui.main_window_grading_scale import MainWindowGradingScaleMixin
 from app.adapters.gui.main_window_task_categories import MainWindowTaskCategoriesMixin
@@ -106,6 +107,7 @@ class MainWindow(
     MainWindowImportSplitViewMixin,
     MainWindowImportSplitInputMixin,
     MainWindowImportSplitExportMixin,
+    MainWindowImportSplitGroupsMixin,
     MainWindowImportSplitOrderMixin,
     MainWindowGradingScaleMixin,
     MainWindowTaskCategoriesMixin,

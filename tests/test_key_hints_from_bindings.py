@@ -11,6 +11,7 @@ from pathlib import Path
 
 from app.adapters.gui.local_keys import ENTER, PAGE_NEXT_KEY, PAGE_PREV_KEY
 from app.adapters.gui.main_window_correction_keys import CTRL_SPACE, SPACE
+from app.adapters.gui.main_window_import_split_groups import GROUP_KEYS, GROUP_NEXT_KEY, GROUP_PREV_KEY, GROUP_RENAME_KEY
 from app.adapters.gui.main_window_import_split_input import MARK_KEY, UNMARK_KEY
 from app.adapters.gui.ui_intents import UiIntent
 from bw_gui.shortcuts import compose_hover_text, humanize_shortcut
@@ -64,3 +65,8 @@ def test_no_key_names_as_text_in_menus_or_tooltips():
         if _SHORTCUT_LITERAL.search(line) or _KEY_IN_LABEL.search(line)
     ]
     assert hits == []
+
+
+def test_klausur_key_constants_show_german_names():
+    shown = [humanize_shortcut(key) for key in (GROUP_KEYS[0], GROUP_KEYS[-1], GROUP_PREV_KEY, GROUP_NEXT_KEY, GROUP_RENAME_KEY)]
+    assert shown == ["Strg+1", "Strg+9", "Strg+Hoch", "Strg+Runter", "F2"]

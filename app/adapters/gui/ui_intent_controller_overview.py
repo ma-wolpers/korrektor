@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from app.adapters.gui.dialog_services import choicedialog, filedialog, messagebox, simpledialog
+from app.adapters.gui.import_split_session import SplitExamFolder
 from app.adapters.gui.view_models import ExamOverviewRow
 from bw_gui.dialogs import ChoiceOption
 
@@ -92,17 +93,32 @@ class UiIntentControllerOverviewMixin:
             if not self._app.open_import_split_wizard(on_split_complete=self._create_exam_from_split):
                 self._app.set_status("Neue Klausur: PDF-Import nicht gestartet")
 
-    def _create_exam_from_split(self, output_dir: Path, display_name_by_filename: Mapping[str, str]) -> None:
-        """Completion callback of the import wizard: create the exam from the freshly split folder.
+    def _create_exam_from_split(self, folders: Sequence[SplitExamFolder]) -> None:
+        """Completion callback of the import wizard: one exam per freshly split folder, then open the first.
 
-        Uses the names typed in the wizard as display names. If the exam is
-        not created (name dialog cancelled or an error), the user is told
-        where the split PDFs are, so they are never silently orphaned.
+        Uses the names typed in the wizard as display names; the name dialog
+        is prefilled with the folder name (= the Klausur name of the wizard)
+        and numbered "(1/2)" when there are several. The wizard only writes
+        into folders without exam data, so no adoption is needed here.
+        Folders whose exam was not created (dialog cancelled or an error) are
+        listed in one message, so split PDFs are never silently orphaned.
         """
-        if not self._create_exam_from_folder(output_dir, display_name_by_filename=display_name_by_filename):
+        created = []
+        missing: list[Path] = []
+        for position, item in enumerate(folders, start=1):
+            title = "Neue Klausur" if len(folders) == 1 else f"Neue Klausur ({position}/{len(folders)})"
+            result = self._create_new_exam(item.folder, display_name_by_filename=item.display_name_by_filename, title=title)
+            if result is None:
+                missing.append(item.folder)
+            else:
+                created.append(result)
+        if created:
+            self._open_created_exam(created[0])
+        if missing:
+            listing = "\n".join(str(folder) for folder in missing)
             messagebox.showinfo(
                 "Neue Klausur nicht angelegt",
-                f"Die aufgeteilten PDFs liegen in:\n{output_dir}\n\n"
+                f"Die aufgeteilten PDFs liegen in:\n{listing}\n\n"
                 "Du kannst den Ordner später über 'Neue Klausur' → 'Ordner mit einzelnen Abgaben' öffnen.",
             )
 
@@ -121,14 +137,34 @@ class UiIntentControllerOverviewMixin:
         analysis = self._deps.adopt_exam_usecase.analyze(folder)
         if analysis is not None:
             return self._adopt_existing_exam(analysis)
-        suggested = folder.name
-        exam_name = simpledialog.askstring("Neue Klausur", "Name der Klausur:", initialvalue=suggested)
-        if exam_name is None:
+        result = self._create_new_exam(folder, display_name_by_filename=display_name_by_filename)
+        if result is None:
             return False
+        self._open_created_exam(result)
+        return True
+
+    def _open_created_exam(self, result) -> None:
+        """Refresh the overview and open a just created exam in reading mode."""
+        self.refresh_exam_overview()
+        self._app.open_exam_detail(result.exam, result.exam_file)
+        self._app.start_reading_mode_for_current_exam()
+
+    def _create_new_exam(
+        self, folder: Path, *, display_name_by_filename: Mapping[str, str] | None = None, title: str = "Neue Klausur"
+    ):
+        """Ask for name/class/subject and create the exam for ``folder`` (with undo entry), without opening it.
+
+        Returns the `CreateExamUseCase` result, or ``None`` if the name
+        dialog was cancelled or creation failed (the error is shown).
+        """
+        suggested = folder.name
+        exam_name = simpledialog.askstring(title, "Name der Klausur:", initialvalue=suggested)
+        if exam_name is None:
+            return None
         # Optional, leer lassen erlaubt - nur Platzhalter fuers Namensschema
         # des zentralen Exportmodus ({Klasse}/{Fach}), keine Pflichtangabe.
-        school_class = simpledialog.askstring("Neue Klausur", "Klasse (optional):", initialvalue="") or ""
-        subject = simpledialog.askstring("Neue Klausur", "Fach (optional):", initialvalue="") or ""
+        school_class = simpledialog.askstring(title, "Klasse (optional):", initialvalue="") or ""
+        subject = simpledialog.askstring(title, "Fach (optional):", initialvalue="") or ""
 
         try:
             result = self._deps.create_exam_usecase.execute(
@@ -140,7 +176,7 @@ class UiIntentControllerOverviewMixin:
             )
         except Exception as exc:  # pragma: no cover - UI messaging
             messagebox.showerror("Fehler", str(exc))
-            return False
+            return None
 
         payload = result.exam.to_dict()
         exam_file = result.exam_file
@@ -150,11 +186,7 @@ class UiIntentControllerOverviewMixin:
             redo=lambda: self._write_exam_payload(exam_file, payload),
             context="lifecycle",
         )
-
-        self.refresh_exam_overview()
-        self._app.open_exam_detail(result.exam, result.exam_file)
-        self._app.start_reading_mode_for_current_exam()
-        return True
+        return result
 
     def open_selected_exam(self) -> None:
         """Open the exam selected in the overview, reporting a broken file instead of crashing.

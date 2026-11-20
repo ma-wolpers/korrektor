@@ -6,11 +6,16 @@ from app.adapters.gui.import_split_texts import (
     duplicate_hint,
     fallback_warning_text,
     format_page_ranges,
+    group_label,
+    group_name_problem_text,
+    group_overview_text,
     name_caption,
     origin_text,
     section_status,
+    split_summary_text,
     write_error_text,
 )
+from app.core.domain.pdf_split_groups import plan_grouped_split
 from app.core.domain.pdf_split_naming import SplitSection, plan_split_files
 from app.infrastructure.pdf.pdf_merger import MergedSourceSpan
 
@@ -66,3 +71,17 @@ def test_move_item_never_mutates_and_clamps_at_edges():
     assert move_item(items, 2, 1) == (["a", "b", "c"], 2)
     assert move_item(items, 5, -1) == (["a", "b", "c"], 5)
     assert items == ["a", "b", "c"]
+
+
+def test_klausur_texts():
+    sections = [SplitSection(1, 2, "Anna"), SplitSection(3, 4, "Ben")]
+    plan = plan_grouped_split(sections, {3: 1}, ["10a", "10b"])
+
+    assert counter_text(2, plan, exam_count=len(plan.groups)) == "2 Abgaben · 2 Klausuren"
+    assert group_label(1, "10b") == "2 · 10b"
+    assert group_overview_text(["10a", "10b"], [1, 1]) == "1 10a (1) · 2 10b (1)"
+    assert "Ordnernamen" in group_name_problem_text("duplicate")
+    summary = split_summary_text(plan, Path("out"), 2)
+    assert "• 10a: 1 Datei(en)" in summary and "• 10b: 1 Datei(en)" in summary
+    single = plan_grouped_split(sections, {}, ["10a"])
+    assert "Je Klausur" not in split_summary_text(single, Path("out"), 2)

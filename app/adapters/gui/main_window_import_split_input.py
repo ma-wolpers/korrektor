@@ -29,6 +29,8 @@ class MainWindowImportSplitInputMixin:
     - Shift+Enter: undo the split of the current section; the field shows the
       previous section's name again.
     - Up/Down, Page Up/Page Down (also with Shift): scroll the preview.
+    - Ctrl+1 … Ctrl+9, Ctrl+Up/Down, F2: Klausur-Zuordnung
+      (`MainWindowImportSplitGroupsMixin`).
 
     Shortcuts go through bw-gui binders on the name field and the wizard
     toplevel (``local_keys.bind_popup_table``; intents in `UiIntent`). Every
@@ -48,6 +50,7 @@ class MainWindowImportSplitInputMixin:
             (_k("Down (tolerate: Shift)"), "scroll_down", UiIntent.IMPORT_SPLIT_SCROLL_DOWN, lambda: view.preview.scroll(1)),
             (_k("PageUp (tolerate: Shift)"), "scroll_page_up", UiIntent.IMPORT_SPLIT_SCROLL_UP, lambda: view.preview.scroll(-1, "pages")),
             (_k("PageDown (tolerate: Shift)"), "scroll_page_down", UiIntent.IMPORT_SPLIT_SCROLL_DOWN, lambda: view.preview.scroll(1, "pages")),
+            *self._import_split_group_key_rows(),
         )
         view.binder = bind_popup_table(
             view.popup,

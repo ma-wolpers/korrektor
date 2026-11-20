@@ -3,8 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.adapters.gui.dialog_services import filedialog, messagebox
+from app.adapters.gui.import_split_session import SplitExamFolder
 from app.adapters.gui.import_split_texts import fallback_warning_text, split_summary_text, write_error_text
-from app.core.domain.pdf_split_naming import plan_split_files
+from app.core.domain.pdf_split_groups import GroupedSplitPlan
 from app.infrastructure.pdf.pdf_splitter import SplitWriteError, write_split_outputs
 from app.infrastructure.repositories.json_exam_repository import EXAM_DATA_FILENAME
 
@@ -15,9 +16,11 @@ class MainWindowImportSplitExportMixin:
     Error contract (V5): every expected failure is reported with a message,
     the wizard stays open with unchanged splits and names, and the rollback
     of `write_split_outputs` guarantees that no partial result stays in the
-    target folder (files it could not remove are listed). Only after a
-    successful write does the session end; then the bound
-    ``on_split_complete`` is called exactly once. If that callback fails, the
+    target folder (files it could not remove are listed). With several
+    Klausuren all subfolders are written in one `write_split_outputs` call,
+    so the guarantee spans every folder. Only after a successful write does
+    the session end; then the bound ``on_split_complete`` is called exactly
+    once with one `SplitExamFolder` per Klausur. If that callback fails, the
     session is already over - the message names the folder so the split
     files can still be opened later.
     """
@@ -28,14 +31,14 @@ class MainWindowImportSplitExportMixin:
         view = self._import_split_view
         if session is None or view is None:
             return
-        plan = plan_split_files(session.sections())
+        plan = session.plan()
         if plan.needs_fallback_confirmation and not messagebox.askyesno(
             "Abschnitte ohne Namen", fallback_warning_text(plan), parent=view.popup
         ):
             self._jump_to_first_unnamed_import_split_section(plan)
             return
 
-        output_dir = self._ask_import_split_output_dir(creates_exam=session.creates_exam)
+        output_dir = self._ask_import_split_output_dir(plan, creates_exam=session.creates_exam)
         if output_dir is None:
             self._focus_import_split_name_field()
             return
@@ -58,14 +61,20 @@ class MainWindowImportSplitExportMixin:
             return
 
         callback = session.on_split_complete
-        display_names = {planned.filename: planned.display_name for planned in plan.files}
+        folders = [
+            SplitExamFolder(
+                folder=output_dir / group.folder,
+                display_name_by_filename={planned.filename: planned.display_name for planned in group.plan.files},
+            )
+            for group in plan.groups
+        ]
         self._end_import_split_session()
         if callback is None:
             self.set_status(f"PDF aufgeteilt: {len(created)} Datei(en) in {output_dir}")
             messagebox.showinfo("Aufteilen abgeschlossen", split_summary_text(plan, output_dir, len(created)))
             return
         try:
-            callback(output_dir, display_names)
+            callback(folders)
         except Exception as exc:
             messagebox.showerror(
                 "Klausur konnte nicht angelegt werden",
@@ -73,10 +82,14 @@ class MainWindowImportSplitExportMixin:
                 "Du kannst den Ordner später über 'Neue Klausur' → 'Ordner mit einzelnen Abgaben' öffnen.",
             )
 
-    def _ask_import_split_output_dir(self, *, creates_exam: bool) -> Path | None:
-        """Ask for the target folder; in the "Neue Klausur" flow it must not contain any PDF yet.
+    def _ask_import_split_output_dir(self, plan: GroupedSplitPlan, *, creates_exam: bool) -> Path | None:
+        """Ask for the target folder; in the "Neue Klausur" flow no exam folder may hold PDFs or exam data yet.
 
-        Returns ``None`` when the user cancels or the folder is rejected (the
+        The exam folders are the target folder itself (one Klausur) or its
+        per-Klausur subfolders (``plan.groups[*].folder``); with subfolders
+        the target folder itself may contain anything.
+
+        Returns ``None`` when the user cancels or a folder is rejected (the
         rejection is reported; the wizard stays open).
         """
         view = self._import_split_view
@@ -86,16 +99,22 @@ class MainWindowImportSplitExportMixin:
         if not raw:
             return None
         output_dir = Path(raw)
-        if creates_exam and (output_dir / EXAM_DATA_FILENAME).exists():
+        if not creates_exam:
+            return output_dir
+        exam_folders = [output_dir / group.folder for group in plan.groups]
+        with_exam = [folder for folder in exam_folders if (folder / EXAM_DATA_FILENAME).exists()]
+        if with_exam:
             self._report_import_split_error(
                 "Ordner enthält bereits eine Klausur",
-                "In diesem Ordner liegen schon Klausurdaten (korrektor_klausur.json). "
+                f"In {_folder_list(with_exam)} liegen schon Klausurdaten (korrektor_klausur.json). "
                 "Für eine neue Klausur bitte einen leeren Ordner wählen.",
             )
             return None
-        if creates_exam and _folder_contains_pdfs(output_dir):
+        with_pdfs = [folder for folder in exam_folders if _folder_contains_pdfs(folder)]
+        if with_pdfs:
             self._report_import_split_error(
                 "Ordner enthält bereits PDFs",
+                f"In {_folder_list(with_pdfs)} liegen schon PDFs. "
                 "Für eine neue Klausur bitte einen leeren Ordner wählen (oder im Dialog neu anlegen):\n"
                 "alle PDFs im Klausurordner würden sonst mit als Abgaben geladen.",
             )
@@ -116,6 +135,11 @@ class MainWindowImportSplitExportMixin:
         if session is not None and starts and session.go_to_page(min(starts)):
             self._refresh_import_split_view(page_changed=True)
         self._focus_import_split_name_field()
+
+
+def _folder_list(folders: list[Path]) -> str:
+    """``"Bio 10a"`` / ``"Bio 10a, Bio 10b"`` - folder names for a one-line error text."""
+    return ", ".join(f"„{folder.name}“" for folder in folders)
 
 
 def _folder_contains_pdfs(folder: Path) -> bool:

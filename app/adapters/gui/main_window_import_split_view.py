@@ -18,7 +18,7 @@ from app.adapters.gui.import_split_texts import (
 )
 from app.adapters.gui.local_keys import PAGE_NEXT_KEY, PAGE_PREV_KEY
 from app.adapters.gui.main_window_import_split_input import MARK_KEY, UNMARK_KEY
-from app.core.domain.pdf_split_naming import SplitSection, find_other_sections_with_name, plan_split_files
+from app.core.domain.pdf_split_naming import SplitSection, find_other_sections_with_name
 from app.infrastructure.repositories.file_utils import build_pdf_filename_from_name
 from bw_gui.runtime.screen_placement import work_area_for
 from bw_gui.theming import theme_canvas
@@ -54,6 +54,7 @@ class ImportSplitView:
     boundary_check: Any
     name_entry: Any
     section_tree: Any
+    group_bar: Any
     bars: list[Any]
     controls_by_row: list[list[Any]]
     binder: Any = None
@@ -128,6 +129,9 @@ class MainWindowImportSplitViewMixin:
         hint_var = ui.StringVar(value=_EMPTY_HINT)
         widgets.Label(name_area, textvariable=hint_var, style="Status.TLabel", anchor=ui.W).pack(fill=ui.X)
 
+        group_bar = self._build_import_split_group_bar(popup)
+        group_bar.frame.pack(side=ui.BOTTOM, fill=ui.X)
+
         nav = widgets.Frame(popup, padding=(10, 6, 10, 2))
         nav.pack(side=ui.BOTTOM, fill=ui.X)
         prev_button = widgets.Button(
@@ -167,8 +171,11 @@ class MainWindowImportSplitViewMixin:
         view = ImportSplitView(
             popup=popup, preview=preview, info_var=info_var, count_var=count_var, caption_var=caption_var,
             name_var=name_var, hint_var=hint_var, boundary_var=boundary_var, boundary_check=boundary_check,
-            name_entry=name_entry, section_tree=section_tree, bars=[header, nav, name_area, actions],
-            controls_by_row=[[prev_button, next_button, boundary_check], [caption, name_entry], [split_button, close_button]],
+            name_entry=name_entry, section_tree=section_tree, group_bar=group_bar,
+            bars=[header, nav, group_bar.frame, name_area, actions],
+            controls_by_row=[
+                [prev_button, next_button, boundary_check], group_bar.controls, [caption, name_entry], [split_button, close_button]
+            ],
         )
         self._import_split_view = view
         popup.protocol("WM_DELETE_WINDOW", self._request_close_import_split)
@@ -184,13 +191,15 @@ class MainWindowImportSplitViewMixin:
         panel = widgets.Frame(parent, width=_SECTION_LIST_WIDTH)
         panel.pack(side=ui.RIGHT, fill=ui.Y, padx=(8, 0))
         panel.pack_propagate(False)
-        tree = widgets.Treeview(panel, columns=("pages", "name", "status"), show="headings", takefocus=False)
+        tree = widgets.Treeview(panel, columns=("pages", "group", "name", "status"), show="headings", takefocus=False)
         tree.heading("pages", text="Seiten")
+        tree.heading("group", text="Kl.")
         tree.heading("name", text="Name")
         tree.heading("status", text="Status")
-        tree.column("pages", width=60, anchor=ui.CENTER, stretch=False)
-        tree.column("name", width=110, anchor=ui.W)
-        tree.column("status", width=90, anchor=ui.W, stretch=False)
+        tree.column("pages", width=56, anchor=ui.CENTER, stretch=False)
+        tree.column("group", width=30, anchor=ui.CENTER, stretch=False)
+        tree.column("name", width=90, anchor=ui.W)
+        tree.column("status", width=84, anchor=ui.W, stretch=False)
         scrollbar = widgets.Scrollbar(panel, orient=ui.VERTICAL, command=tree.yview)
         tree.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side=ui.RIGHT, fill=ui.Y)
@@ -234,18 +243,19 @@ class MainWindowImportSplitViewMixin:
         if session is None or view is None:
             return
         sections = session.sections()
-        plan = plan_split_files(sections)
+        plan = session.plan()
         current = session.section_for_page(session.current_page)
         view.info_var.set(self._import_split_origin_text(session))
         view.caption_var.set(name_caption(current))
         is_boundary = session.current_page == current.start_page
         view.boundary_var.set(is_boundary)
         view.boundary_check.configure(state="disabled" if session.current_page == 1 else "normal")
-        view.count_var.set(counter_text(len(sections), plan))
+        view.count_var.set(counter_text(len(sections), plan, exam_count=len(plan.groups)))
         if page_changed or reload_name:
             self._show_import_split_name(session.name_for_page(session.current_page))
         self._update_import_split_hint(sections, current)
         self._refresh_import_split_section_list(sections, plan, current)
+        self._refresh_import_split_group_bar(sections)
         if page_changed:
             view.preview.refresh(scroll_to_top=True)
 
@@ -256,10 +266,13 @@ class MainWindowImportSplitViewMixin:
         )
 
     def _update_import_split_hint(self, sections: list[SplitSection], current: SplitSection) -> None:
-        """Live hint under the name field: duplicate name or invalid filename (wish 3b)."""
+        """Live hint under the name field: duplicate name (within the same Klausur) or invalid filename (wish 3b)."""
         view = self._import_split_view
+        session = self._import_split_session
         name = current.name
-        others = find_other_sections_with_name(sections, name, exclude_start_page=current.start_page)
+        group = session.group_index_for_page(current.start_page)
+        same_group = [section for section in sections if session.group_index_for_page(section.start_page) == group]
+        others = find_other_sections_with_name(same_group, name, exclude_start_page=current.start_page)
         if others:
             view.hint_var.set(duplicate_hint(others))
         elif name and build_pdf_filename_from_name(name) is None:
@@ -270,6 +283,7 @@ class MainWindowImportSplitViewMixin:
     def _refresh_import_split_section_list(self, sections: list[SplitSection], plan, current: SplitSection) -> None:
         """Rebuild the section list and select the current section (selecting it is a no-op jump)."""
         view = self._import_split_view
+        session = self._import_split_session
         tree = view.section_tree
         tree.delete(*tree.get_children())
         view.tree_start_by_iid = {}
@@ -277,7 +291,12 @@ class MainWindowImportSplitViewMixin:
         for section in sections:
             iid = tree.insert(
                 "", ui.END,
-                values=(format_range(section.start_page, section.end_page), section.name or "—", section_status(section, plan)),
+                values=(
+                    format_range(section.start_page, section.end_page),
+                    session.group_index_for_page(section.start_page) + 1,
+                    section.name or "—",
+                    section_status(section, plan),
+                ),
             )
             view.tree_start_by_iid[iid] = section.start_page
             if section.start_page == current.start_page:

@@ -7,6 +7,7 @@ import pytest
 
 from app.adapters.bootstrap.wiring import build_gui_dependencies
 from app.adapters.gui import ui_intent_controller_overview as overview_module
+from app.adapters.gui.import_split_session import SplitExamFolder
 from app.adapters.gui.ui_intent_controller import UiIntentController
 
 
@@ -97,7 +98,7 @@ def test_split_choice_opens_wizard_and_callback_creates_exam_with_typed_names(tm
     _build_pdf(split_folder / "Abgabe_02.pdf")
     dialogs["strings"] = ["Mathe 10a", "10a", "Mathe"]
 
-    app.wizard_calls[0](split_folder, {"Anna_Müller.pdf": "Anna Müller", "Abgabe_02.pdf": "Abgabe_02"})
+    app.wizard_calls[0]([SplitExamFolder(split_folder, {"Anna_Müller.pdf": "Anna Müller", "Abgabe_02.pdf": "Abgabe_02"})])
 
     exam = app.opened_exams[0]
     assert sorted(student.display_name for student in exam.students) == ["Abgabe_02", "Anna Müller"]
@@ -112,7 +113,7 @@ def test_split_callback_cancelled_name_dialog_reports_folder(tmp_path, dialogs):
     _build_pdf(split_folder / "Anna.pdf")
     dialogs["strings"] = [None]
 
-    controller._create_exam_from_split(split_folder, {"Anna.pdf": "Anna"})
+    controller._create_exam_from_split([SplitExamFolder(split_folder, {"Anna.pdf": "Anna"})])
 
     assert app.opened_exams == []
     assert str(split_folder) in dialogs["infos"][-1]

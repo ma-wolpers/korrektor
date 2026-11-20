@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
+from app.core.domain.pdf_split_groups import MAX_GROUPS, GroupedSplitPlan, GroupNameProblem
 from app.core.domain.pdf_split_naming import SplitFilePlan, SplitSection
 from app.infrastructure.pdf.pdf_merger import MergedSourceSpan
 from app.infrastructure.pdf.pdf_sources import PdfSourceProblem
@@ -66,9 +67,15 @@ def invalid_name_hint() -> str:
     return "⚠ Ergibt keinen gültigen Dateinamen – wird mit Ersatznamen gespeichert"
 
 
-def counter_text(section_count: int, plan: SplitFilePlan) -> str:
-    """Navigation bar summary, e.g. ``"5 Abgaben · 2 ohne Namen · 1 Name doppelt"``."""
+def counter_text(section_count: int, plan: SplitFilePlan | GroupedSplitPlan, *, exam_count: int = 1) -> str:
+    """Navigation bar summary, e.g. ``"5 Abgaben · 2 Klausuren · 2 ohne Namen · 1 Name doppelt"``.
+
+    ``exam_count`` is the number of Klausuren that have sections; it is only
+    mentioned from two on (one Klausur is the normal case).
+    """
     parts = [f"{section_count} Abgabe" + ("" if section_count == 1 else "n")]
+    if exam_count > 1:
+        parts.append(f"{exam_count} Klausuren")
     unnamed = len(plan.fallback_sections) + len(plan.invalid_name_sections)
     if unnamed:
         parts.append(f"{unnamed} ohne gültigen Namen")
@@ -78,7 +85,7 @@ def counter_text(section_count: int, plan: SplitFilePlan) -> str:
     return " · ".join(parts)
 
 
-def section_status(section: SplitSection, plan: SplitFilePlan) -> str:
+def section_status(section: SplitSection, plan: SplitFilePlan | GroupedSplitPlan) -> str:
     """Status column of the section list: ohne Namen / ungültig / zusammengeführt / empty."""
     if section in plan.fallback_sections:
         return "ohne Namen"
@@ -89,7 +96,26 @@ def section_status(section: SplitSection, plan: SplitFilePlan) -> str:
     return ""
 
 
-def fallback_warning_text(plan: SplitFilePlan) -> str:
+def group_label(index: int, name: str) -> str:
+    """Klausur bar: the current section's Klausur, e.g. ``"2 · Bio 10b"`` (index 0-based, shown 1-based)."""
+    return f"{index + 1} · {name}"
+
+
+def group_overview_text(names: Sequence[str], counts: Sequence[int]) -> str:
+    """Klausur bar: every Klausur with its number of Abgaben, e.g. ``"1 Bio 10a (14) · 2 Bio 10b (9)"``."""
+    return " · ".join(f"{index + 1} {name} ({count})" for index, (name, count) in enumerate(zip(names, counts)))
+
+
+def group_name_problem_text(problem: GroupNameProblem) -> str:
+    """Why a typed Klausur name was rejected (the name prompt is shown again afterwards)."""
+    return {
+        "invalid": "Dieser Name ergibt keinen gültigen Ordnernamen.",
+        "duplicate": "Eine Klausur mit diesem Ordnernamen gibt es schon.",
+        "too_many": f"Mehr als {MAX_GROUPS} Klausuren pro Import sind nicht möglich.",
+    }[problem]
+
+
+def fallback_warning_text(plan: SplitFilePlan | GroupedSplitPlan) -> str:
     """Confirmation text before exporting with placeholder names (wish 3a)."""
     lines = []
     for planned in plan.files:
@@ -115,9 +141,12 @@ def source_problems_text(problems: Sequence[PdfSourceProblem]) -> str:
     )
 
 
-def split_summary_text(plan: SplitFilePlan, output_dir: Path, created_count: int) -> str:
-    """Final message of the standalone wizard: count, folder, merged names, suffixed files."""
+def split_summary_text(plan: SplitFilePlan | GroupedSplitPlan, output_dir: Path, created_count: int) -> str:
+    """Final message of the standalone wizard: count, folder(s), merged names, suffixed files."""
     text = f"{created_count} Datei(en) erstellt in:\n{output_dir}"
+    if isinstance(plan, GroupedSplitPlan) and plan.uses_subfolders:
+        folders = [f"• {group.folder}: {len(group.plan.files)} Datei(en)" for group in plan.groups]
+        text += "\n\nJe Klausur ein Ordner:\n" + "\n".join(folders)
     if plan.merged_groups:
         merged = [
             f"• {group[0].name}: {format_page_ranges([(s.start_page, s.end_page) for s in group])}"
